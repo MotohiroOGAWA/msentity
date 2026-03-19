@@ -13,5 +13,6 @@ https://github.com/MotohiroOGAWA/msentity
    :caption: Contents:
 
    usage
+   getting_started
    api
    development
