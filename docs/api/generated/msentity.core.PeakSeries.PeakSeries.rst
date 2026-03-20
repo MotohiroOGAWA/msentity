@@ -4,7 +4,10 @@
 .. currentmodule:: msentity.core.PeakSeries
 
 .. autoclass:: PeakSeries
-
+   :members:
+   :undoc-members:
+   :show-inheritance:
+   
 
 
 

@@ -4,7 +4,10 @@
 .. currentmodule:: msentity
 
 .. autoclass:: SpectrumRecord
-
+   :members:
+   :undoc-members:
+   :show-inheritance:
+   
 
 
 

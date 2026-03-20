@@ -32,6 +32,24 @@ Classes
      - Represents a single spectrum with m/z and intensity arrays and basic operations.
 
 
+Functions
+=========
+
+.. list-table::
+   :header-rows: 1
+
+   * - Name
+     - Description
+   * - :doc:`read_msp <api/generated/msentity.read_msp>`
+     - Read an MSP file and return an MSDataset.
+   * - :doc:`write_msp <api/generated/msentity.write_msp>`
+     - Write an MSDataset to an MSP file.
+   * - :doc:`read_mgf <api/generated/msentity.read_mgf>`
+     - Read an MGF file and return an MSDataset.
+   * - :doc:`write_mgf <api/generated/msentity.write_mgf>`
+     - Write an MSDataset to an MGF file.
+
+
 .. toctree::
    :maxdepth: 2
    :hidden:
@@ -40,3 +58,8 @@ Classes
    api/spectrumrecord
    api/peakseries
    api/spectrum
+
+   api/generated/msentity.read_msp
+   api/generated/msentity.write_msp
+   api/generated/msentity.read_mgf
+   api/generated/msentity.write_mgf

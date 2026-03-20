@@ -4,7 +4,10 @@
 .. currentmodule:: msentity
 
 .. autoclass:: MSDataset
-
+   :members:
+   :undoc-members:
+   :show-inheritance:
+   
 
 
 
