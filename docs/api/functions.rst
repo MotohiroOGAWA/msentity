@@ -1,7 +1,10 @@
 Functions
 =========
 
-.. autofunction:: msentity.read_msp
-.. autofunction:: msentity.write_msp
-.. autofunction:: msentity.read_mgf
-.. autofunction:: msentity.write_mgf
+.. autosummary::
+   :toctree: generated
+
+   msentity.read_msp
+   msentity.write_msp
+   msentity.read_mgf
+   msentity.write_mgf

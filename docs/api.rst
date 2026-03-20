@@ -58,8 +58,4 @@ Functions
    api/spectrumrecord
    api/peakseries
    api/spectrum
-
-   api/generated/msentity.read_msp
-   api/generated/msentity.write_msp
-   api/generated/msentity.read_mgf
-   api/generated/msentity.write_mgf
+   api/functions

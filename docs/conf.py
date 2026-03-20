@@ -6,6 +6,18 @@ import inspect
 
 sys.path.insert(0, os.path.abspath(".."))
 
+print("CONF:", __file__)
+print("PATH ADDED:", os.path.abspath(".."))
+print("SYS.PATH[0]:", sys.path[0])
+
+try:
+    import msentity
+    print("msentity imported:", msentity)
+    print("msentity file:", getattr(msentity, "__file__", None))
+except Exception as e:
+    print("FAILED import msentity:", repr(e))
+    raise
+
 
 def get_summary(module_name: str, obj_name: str, member_name: str) -> str:
     candidates = [module_name]
@@ -35,6 +47,7 @@ def get_summary(module_name: str, obj_name: str, member_name: str) -> str:
 
     return ""
 
+
 # Configuration file for the Sphinx documentation builder.
 #
 # For the full list of built-in configuration values, see the documentation:
@@ -62,6 +75,7 @@ autosummary_generate = True
 autosummary_context = {
     "get_summary": get_summary,
 }
+
 autodoc_typehints = "description"
 
 templates_path = ['_templates']
