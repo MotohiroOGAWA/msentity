@@ -1,6 +1,7 @@
-﻿msentity.write\_mgf
-===================
+﻿msentity.write_mgf
+==================
 
 .. currentmodule:: msentity
 
 .. autofunction:: write_mgf
+

@@ -1,6 +1,7 @@
-﻿msentity.read\_mgf
-==================
+﻿msentity.read_mgf
+=================
 
 .. currentmodule:: msentity
 
 .. autofunction:: read_mgf
+
