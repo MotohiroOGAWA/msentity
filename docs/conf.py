@@ -69,7 +69,9 @@ extensions = [
     "sphinx.ext.napoleon",
     "sphinx.ext.autosummary",
     "sphinx.ext.viewcode",
+    "myst_nb",
 ]
+nb_execution_mode = "off"
 
 autosummary_generate = True
 autosummary_context = {

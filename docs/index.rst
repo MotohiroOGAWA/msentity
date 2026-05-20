@@ -12,7 +12,7 @@ https://github.com/MotohiroOGAWA/msentity
    :maxdepth: 2
    :caption: Contents:
 
-   usage
+   examples/usage
    getting_started
    api
    development

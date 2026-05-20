@@ -139,8 +139,8 @@ class TestPeakSeries(unittest.TestCase):
         self.series["score"] = np.array([0, 1, 2, 3, 4, 5], dtype=float)
         self.assertIn("score", self.series.metadata_columns)
         np.testing.assert_allclose(
-            self.series.metadata["score"].to_numpy(),
-            np.array([0, 1, 2, 3, 4, 5], dtype=float),
+            self.series.metadata["score"].to_list(),
+            [0.0, 1.0, 2.0, 3.0, 4.0, 5.0],
         )
 
     def test_setitem_scalar_metadata_column(self) -> None:

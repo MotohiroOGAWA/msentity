@@ -689,7 +689,7 @@ class MSDataset:
 
         for column in imported_columns:
             if column not in self._spectrum_metadata_ref.columns:
-                self._spectrum_metadata_ref[column] = np.nan
+                self._spectrum_metadata_ref[column] = pd.Series(dtype=object)
 
             if overwrite:
                 self._spectrum_metadata_ref.loc[

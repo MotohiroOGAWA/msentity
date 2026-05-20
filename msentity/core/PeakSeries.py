@@ -404,7 +404,7 @@ class PeakSeries:
             self._metadata_ref = pd.DataFrame(index=range(n_total_peaks))
 
         if key not in self._metadata_ref.columns:
-            self._metadata_ref[key] = np.nan
+            self._metadata_ref[key] = pd.Series(dtype=object)
 
         if isinstance(value, (list, tuple, np.ndarray, pd.Series)):
             if len(value) != n_view_peaks:

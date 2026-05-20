@@ -1,0 +1,29 @@
+Name: Compound_A
+PrecursorMZ: 301.2162
+Precursor_type: [M+H]+
+Collision_energy: 20
+Num Peaks: 4
+100.0 12.0
+145.1 55.3
+183.2 21.7
+301.2 100.0
+
+Name: Compound_B
+PrecursorMZ: 255.1234
+Precursor_type: [M+H]+
+Collision_energy: 30
+Num Peaks: 3
+80.0 10.5
+120.5 45.0
+255.1 100.0
+
+Name: Compound_C
+PrecursorMZ: 412.2871
+Precursor_type: [M+Na]+
+Collision_energy: 25
+Num Peaks: 5
+110.0 8.2
+150.2 35.1
+200.3 60.0
+300.4 40.5
+412.3 100.0

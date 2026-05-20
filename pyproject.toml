@@ -27,6 +27,7 @@ docs = [
     "furo",
     "sphinx-autodoc-typehints",
     "myst-parser",
+    "myst-nb",
 ]
 
 [tool.mypy]
