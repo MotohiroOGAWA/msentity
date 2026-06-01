@@ -245,8 +245,8 @@ class TestMSPIO(unittest.TestCase):
             self.assertIn("Name: spec2", written)
             self.assertIn("NumPeaks: 2", written)
             self.assertIn("NumPeaks: 1", written)
-            self.assertIn("50.0\t10.0", written)
-            self.assertIn("80.0\t30.0", written)
+            self.assertIn("50.0\t0.5", written)
+            self.assertIn("80.0\t1.0", written)
         finally:
             os.remove(in_path)
             os.remove(out_path)
@@ -338,8 +338,8 @@ class TestMSPIO(unittest.TestCase):
 
             written = self._read_text(out_path)
             self.assertIn("mz\tintensity\tannotation\tnote", written)
-            self.assertIn('50.0\t10.0\t"fragA" ; "noteA"', written)
-            self.assertIn('60.0\t20.0\t"fragB" ; "noteB"', written)
+            self.assertIn('50.0\t0.5\t"fragA" ; "noteA"', written)
+            self.assertIn('60.0\t1.0\t"fragB" ; "noteB"', written)
         finally:
             os.remove(in_path)
             os.remove(out_path)

@@ -32,6 +32,7 @@ class ReaderContext:
         show_progress: bool = True,
         canonicalize_column: bool = True,
         canonicalize_adduct_type: bool = True,
+        normalize_intensity: bool = True,
         error_context_lines: int = 10,
     ) -> None:
         self.file_type_name = file_type_name
@@ -44,6 +45,7 @@ class ReaderContext:
             canonicalize_column=canonicalize_column,
             canonicalize_adduct_type=canonicalize_adduct_type,
         )
+        self.normalize_intensity = normalize_intensity
         self.error_log_level = error_log_level
         self.header_map: dict[str, str] = {}
         self.error_context_lines = error_context_lines
@@ -203,6 +205,8 @@ class ReaderContext:
             metadata=peak_metadata,
             metadata_columns=all_peak_meta_names if all_peak_meta_names else None,
         )
+        if self.normalize_intensity:
+            peak_series.normalize(in_place=True)
 
         return MSDataset(
             spectrum_metadata=spectrum_metadata,

@@ -28,6 +28,7 @@ def read_mgf(
     show_progress: bool = True,
     canonicalize_column: bool = True,
     canonicalize_adduct_type: bool = True,
+    normalize_intensity: bool = True,
     error_context_lines: int = 10,
     peak_parser: Optional[Callable[[str], Dict[str, Any]]] = None,
     auto_peak_col_prefix: str = "column",
@@ -60,6 +61,8 @@ def read_mgf(
         Whether metadata keys are canonicalized.
     canonicalize_adduct_type
         Whether adduct type values are canonicalized.
+    normalize_intensity
+        Whether to normalize intensity values in peaks.
     error_context_lines
         Number of recent lines kept for error context.
     peak_parser
@@ -84,6 +87,7 @@ def read_mgf(
         show_progress=show_progress,
         canonicalize_column=canonicalize_column,
         canonicalize_adduct_type=canonicalize_adduct_type,
+        normalize_intensity=normalize_intensity,
         error_context_lines=error_context_lines,
     )
 
