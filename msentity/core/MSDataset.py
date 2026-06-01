@@ -873,10 +873,6 @@ class MSDataset:
 
         dataset = self.copy() if save_view else self
 
-        directory = os.path.dirname(path)
-        if directory:
-            os.makedirs(directory, exist_ok=True)
-
         with h5py.File(path, mode) as file:
             metadata_group = file["metadata"] if "metadata" in file else file.create_group("metadata")
             metadata_group.attrs["description"] = dataset.description
