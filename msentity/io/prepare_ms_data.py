@@ -1,6 +1,8 @@
-from ..core import MSDataset
+# from ..core import MSDataset
+from .. import MSDataset
 from ..processing.id import set_spec_id
-from . import read_msp, read_mgf
+from .msp import read_msp
+from .mgf import read_mgf
 
 def load_ms_data(input_file:str, *, file_type:str = None, spec_id_prefix: str = None) -> MSDataset:
     if file_type is None:
@@ -19,10 +21,11 @@ def load_ms_data(input_file:str, *, file_type:str = None, spec_id_prefix: str = 
         dataset = read_mgf(input_file, spec_id_prefix=spec_id_prefix)
     elif file_type == 'hdf5':
         dataset = MSDataset.from_hdf5(input_file)
-        if 'SpecID' not in dataset.columns:
-            set_spec_id(dataset=dataset, prefix=spec_id_prefix)
-
     else:
         raise ValueError("Unsupported file type. Use 'msp', 'mgf' or 'hdf5'.")
+
+    if 'SpecID' not in dataset.columns and spec_id_prefix is not None:
+        set_spec_id(dataset=dataset, prefix=spec_id_prefix)
+
     
     return dataset
