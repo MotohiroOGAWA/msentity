@@ -4,7 +4,7 @@ from ..processing.id import set_spec_id
 from .msp import read_msp
 from .mgf import read_mgf
 
-def load_ms_data(input_file:str, *, file_type:str = None, spec_id_prefix: str = None) -> MSDataset:
+def load_ms_dataset(input_file:str, *, file_type:str = None, spec_id_prefix: str = None) -> MSDataset:
     if file_type is None:
         if input_file.endswith('.msp'):
             file_type = 'msp'
