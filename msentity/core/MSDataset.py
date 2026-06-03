@@ -707,6 +707,103 @@ class MSDataset:
 
         return self
 
+    def save(
+        self,
+        path: str,
+        save_view: bool = True,
+        mode: Literal["w", "a"] = "w",
+    ):
+        """
+        Save the dataset to an .msds file.
+
+        Parameters
+        ----------
+        path : str
+            Output file path.
+        save_view : bool, default=True
+            If ``True``, save the current view. If ``False``, save the underlying
+            references as-is.
+        mode : {"w", "a"}, default="w"
+            .msds write mode.
+        """
+        self._to_hdf5(path=path, save_view=save_view, mode=mode)
+
+    @classmethod
+    def load(
+        cls,
+        path: str,
+        load_peak_metadata: bool = True,
+    ) -> "MSDataset":
+        """
+        Load a dataset from an .msds file.
+
+        Parameters
+        ----------
+        path : str
+            Input file path.
+        load_peak_metadata : bool, default=True
+            If ``True``, load peak metadata. If ``False``, skip loading peak metadata.
+        """
+        return cls._from_hdf5(path=path, load_peak_metadata=load_peak_metadata)
+
+
+    @classmethod
+    def read_dataset_meta(cls, path: str) -> MSDatasetMeta:
+        """
+        Read only dataset-level metadata from an HDF5 file.
+
+        Parameters
+        ----------
+        path : str
+            Input file path.
+
+        Returns
+        -------
+        MSDatasetMeta
+        """
+        with h5py.File(path, "r") as file:
+            if "metadata" not in file:
+                raise KeyError("HDF5 file does not contain a '/metadata' group")
+
+            metadata_group = file["metadata"]
+
+            def _as_str(value: Any) -> str:
+                if value is None:
+                    return ""
+                if isinstance(value, (bytes, bytearray)):
+                    return value.decode("utf-8")
+                return str(value)
+
+            description = _as_str(metadata_group.attrs.get("description", ""))
+            attributes_json = _as_str(metadata_group.attrs.get("attributes_json", "{}"))
+            tags_json = _as_str(metadata_group.attrs.get("tags_json", "[]"))
+
+            try:
+                attributes = json.loads(attributes_json) if attributes_json else {}
+            except json.JSONDecodeError:
+                attributes = {}
+
+            try:
+                tags = json.loads(tags_json) if tags_json else []
+            except json.JSONDecodeError:
+                tags = []
+
+            if not isinstance(attributes, dict):
+                attributes = {}
+            else:
+                attributes = {str(k): str(v) for k, v in attributes.items()}
+
+            if not isinstance(tags, list):
+                tags = []
+            else:
+                tags = [str(tag) for tag in tags]
+
+            return MSDatasetMeta(
+                description=description,
+                attributes=attributes,
+                tags=tags,
+            )
+
     @staticmethod
     def _dump_parquet_to_bytes(dataframe: pd.DataFrame) -> bytes:
         """Serialize a DataFrame to Parquet bytes."""
@@ -849,7 +946,7 @@ class MSDataset:
             )
         return cls._read_parquet_from_bytes(blob)
 
-    def to_hdf5(
+    def _to_hdf5(
         self,
         path: str,
         save_view: bool = True,
@@ -914,7 +1011,7 @@ class MSDataset:
             )
 
     @staticmethod
-    def from_hdf5(path: str, load_peak_metadata: bool = True) -> MSDataset:
+    def _from_hdf5(path: str, load_peak_metadata: bool = True) -> MSDataset:
         """
         Load a dataset from an HDF5 file.
 
@@ -1005,62 +1102,6 @@ class MSDataset:
 
         return datasets[0] if len(datasets) == 1 else MSDataset.concat(datasets)
 
-    @staticmethod
-    def read_dataset_meta(path: str) -> MSDatasetMeta:
-        """
-        Read only dataset-level metadata from an HDF5 file.
-
-        Parameters
-        ----------
-        path : str
-            Input file path.
-
-        Returns
-        -------
-        MSDatasetMeta
-        """
-        with h5py.File(path, "r") as file:
-            if "metadata" not in file:
-                raise KeyError("HDF5 file does not contain a '/metadata' group")
-
-            metadata_group = file["metadata"]
-
-            def _as_str(value: Any) -> str:
-                if value is None:
-                    return ""
-                if isinstance(value, (bytes, bytearray)):
-                    return value.decode("utf-8")
-                return str(value)
-
-            description = _as_str(metadata_group.attrs.get("description", ""))
-            attributes_json = _as_str(metadata_group.attrs.get("attributes_json", "{}"))
-            tags_json = _as_str(metadata_group.attrs.get("tags_json", "[]"))
-
-            try:
-                attributes = json.loads(attributes_json) if attributes_json else {}
-            except json.JSONDecodeError:
-                attributes = {}
-
-            try:
-                tags = json.loads(tags_json) if tags_json else []
-            except json.JSONDecodeError:
-                tags = []
-
-            if not isinstance(attributes, dict):
-                attributes = {}
-            else:
-                attributes = {str(k): str(v) for k, v in attributes.items()}
-
-            if not isinstance(tags, list):
-                tags = []
-            else:
-                tags = [str(tag) for tag in tags]
-
-            return MSDatasetMeta(
-                description=description,
-                attributes=attributes,
-                tags=tags,
-            )
 
 
 class SpectrumRecord:

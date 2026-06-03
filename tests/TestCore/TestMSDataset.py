@@ -201,12 +201,12 @@ class TestMSDataset(unittest.TestCase):
         self.assertIn("cf_class", self.dataset.columns)
         self.assertEqual(self.dataset["cf_class"].tolist(), ["alcohol", "alkane", "amine"])
 
-    def test_to_hdf5_and_from_hdf5(self) -> None:
+    def test_save_and_load(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
-            path = os.path.join(tmpdir, "dataset.h5")
+            path = os.path.join(tmpdir, "dataset.msds")
 
-            self.dataset.to_hdf5(path)
-            loaded = MSDataset.from_hdf5(path)
+            self.dataset.save(path)
+            loaded = MSDataset.load(path)
 
             self.assertEqual(len(loaded), len(self.dataset))
             self.assertEqual(loaded.description, self.dataset.description)
@@ -217,9 +217,9 @@ class TestMSDataset(unittest.TestCase):
 
     def test_read_dataset_meta(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
-            path = os.path.join(tmpdir, "dataset.h5")
+            path = os.path.join(tmpdir, "dataset.msds")
 
-            self.dataset.to_hdf5(path)
+            self.dataset.save(path)
             meta = MSDataset.read_dataset_meta(path)
 
             self.assertIsInstance(meta, MSDatasetMeta)

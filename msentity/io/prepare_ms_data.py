@@ -10,8 +10,8 @@ def load_ms_dataset(input_file:str, *, file_type:str = None, spec_id_prefix: str
             file_type = 'msp'
         elif input_file.endswith('.mgf'):
             file_type = 'mgf'
-        elif input_file.endswith('hdf5') or input_file.endswith('.h5'):
-            file_type = 'hdf5'
+        elif input_file.endswith('.msds') or input_file.endswith('.hdf5') or input_file.endswith('.h5'):
+            file_type = 'msds'
         else:
             raise ValueError("Cannot determine file type from extension. Please specify 'file_type' parameter.")
         
@@ -19,10 +19,10 @@ def load_ms_dataset(input_file:str, *, file_type:str = None, spec_id_prefix: str
         dataset = read_msp(input_file, spec_id_prefix=spec_id_prefix)
     elif file_type == 'mgf':
         dataset = read_mgf(input_file, spec_id_prefix=spec_id_prefix)
-    elif file_type == 'hdf5':
-        dataset = MSDataset.from_hdf5(input_file)
+    elif file_type == 'msds':
+        dataset = MSDataset.load(input_file)
     else:
-        raise ValueError("Unsupported file type. Use 'msp', 'mgf' or 'hdf5'.")
+        raise ValueError("Unsupported file type. Use 'msp', 'mgf' or 'msds'.")
 
     if 'SpecID' not in dataset.columns and spec_id_prefix is not None:
         set_spec_id(dataset=dataset, prefix=spec_id_prefix)
