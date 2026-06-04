@@ -30,6 +30,9 @@ docs = [
     "myst-nb",
 ]
 
+[project.scripts]
+msentity = "msentity.cli.main:main"
+
 [tool.mypy]
 files = ["msentity"]
 show_error_codes = true
