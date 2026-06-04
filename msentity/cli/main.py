@@ -7,6 +7,7 @@ from msentity.cli.commands import (
     add_head_command,
     add_info_command,
     add_meta_command,
+    add_shell_command,
 )
 
 
@@ -25,7 +26,7 @@ def build_parser() -> argparse.ArgumentParser:
     add_head_command(subparsers)
     add_convert_command(subparsers)
     add_meta_command(subparsers)
-
+    add_shell_command(subparsers)
     return parser
 
 
