@@ -1,8 +1,8 @@
 # msentity
 
-[![License: MIT](https://img.shields.io/badge/License-MIT-red.svg)](LICENSE)  
+[![License: MIT](https://img.shields.io/badge/License-MIT-red.svg)](https://opensource.org/licenses/MIT)  
 ![Python](https://img.shields.io/badge/Python-3.10+-blue)  
-[![Docs](https://img.shields.io/badge/docs-online-blue)](https://motohiroogawa.github.io/msentity/)
+[![Docs](https://img.shields.io/badge/docs-online-blue)](https://msentity.readthedocs.io)
 
 ---
 
