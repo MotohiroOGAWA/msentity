@@ -500,6 +500,53 @@ class MSDataset:
             tags=self.tags,
         )
 
+    def reset_view(
+        self,
+        *,
+        reset_columns: bool = False,
+        in_place: bool = True,
+    ) -> MSDataset:
+        """
+        Reset the current dataset view to the full dataset.
+
+        Parameters
+        ----------
+        reset_columns : bool, default=False
+            If True, expose all spectrum metadata columns.
+            If False, keep the current visible columns.
+        in_place : bool, default=True
+            If True, modify the current object.
+            If False, return a new MSDataset with a full view.
+
+        Returns
+        -------
+        MSDataset
+            MSDataset with a full view.
+        """
+        columns = (
+            self._spectrum_metadata_ref.columns.tolist()
+            if reset_columns
+            else self.columns
+        )
+
+        if in_place:
+            self._peak_series.reset_view(
+                in_place=True,
+            )
+            self._columns = columns
+            return self
+
+        return MSDataset(
+            spectrum_metadata=self._spectrum_metadata_ref,
+            peak_series=self._peak_series.reset_view(
+                in_place=False,
+            ),
+            columns=columns,
+            description=self.description,
+            attributes=self.attributes,
+            tags=self.tags,
+        )
+
     def sort_by(self, column: str, ascending: bool = True) -> MSDataset:
         """
         Sort spectra by a spectrum metadata column.
@@ -745,7 +792,6 @@ class MSDataset:
             If ``True``, load peak metadata. If ``False``, skip loading peak metadata.
         """
         return cls._from_hdf5(path=path, load_peak_metadata=load_peak_metadata)
-
 
     @classmethod
     def read_dataset_meta(cls, path: str) -> MSDatasetMeta:

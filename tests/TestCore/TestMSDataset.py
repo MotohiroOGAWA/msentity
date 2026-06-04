@@ -165,6 +165,158 @@ class TestMSDataset(unittest.TestCase):
         self.assertEqual(self.dataset["name"].tolist(), ["spec1", "spec2", "spec3"])
         self.assertEqual(copied["name"].tolist(), ["x", "y", "z"])
 
+    def test_reset_view_in_place_by_default(self) -> None:
+        subset = self.dataset[[2, 0]]
+
+        self.assertEqual(len(subset), 2)
+        self.assertEqual(
+            subset["name"].tolist(),
+            ["spec3", "spec1"],
+        )
+        np.testing.assert_array_equal(
+            subset.peaks.lengths,
+            np.array([1, 3], dtype=np.int64),
+        )
+        np.testing.assert_allclose(
+            subset.peaks.data,
+            np.array(
+                [
+                    [300.0, 7.0],
+                    [100.0, 10.0],
+                    [101.0, 30.0],
+                    [102.0, 20.0],
+                ],
+                dtype=float,
+            ),
+        )
+
+        returned = subset.reset_view()
+
+        self.assertIs(returned, subset)
+        self.assertEqual(len(subset), 3)
+        self.assertEqual(
+            subset["name"].tolist(),
+            ["spec1", "spec2", "spec3"],
+        )
+        np.testing.assert_array_equal(
+            subset.peaks.lengths,
+            np.array([3, 2, 1], dtype=np.int64),
+        )
+        np.testing.assert_array_equal(
+            subset.peaks.offsets,
+            np.array([0, 3, 5, 6], dtype=np.int64),
+        )
+        np.testing.assert_allclose(
+            subset.peaks.data,
+            self.peak_data,
+        )
+
+    def test_reset_view_returns_new_full_view_when_not_in_place(self) -> None:
+        subset = self.dataset[[2, 0]]
+
+        reset = subset.reset_view(in_place=False)
+
+        self.assertIsNot(reset, subset)
+
+        self.assertEqual(len(subset), 2)
+        self.assertEqual(
+            subset["name"].tolist(),
+            ["spec3", "spec1"],
+        )
+        np.testing.assert_array_equal(
+            subset.peaks.lengths,
+            np.array([1, 3], dtype=np.int64),
+        )
+        np.testing.assert_allclose(
+            subset.peaks.data,
+            np.array(
+                [
+                    [300.0, 7.0],
+                    [100.0, 10.0],
+                    [101.0, 30.0],
+                    [102.0, 20.0],
+                ],
+                dtype=float,
+            ),
+        )
+
+        self.assertEqual(len(reset), 3)
+        self.assertEqual(
+            reset["name"].tolist(),
+            ["spec1", "spec2", "spec3"],
+        )
+        np.testing.assert_array_equal(
+            reset.peaks.lengths,
+            np.array([3, 2, 1], dtype=np.int64),
+        )
+        np.testing.assert_array_equal(
+            reset.peaks.offsets,
+            np.array([0, 3, 5, 6], dtype=np.int64),
+        )
+        np.testing.assert_allclose(
+            reset.peaks.data,
+            self.peak_data,
+        )
+
+    def test_reset_view_keeps_current_columns_by_default(self) -> None:
+        subset = self.dataset[[2, 0]]
+        subset.columns = ["name"]
+
+        returned = subset.reset_view()
+
+        self.assertIs(returned, subset)
+        self.assertEqual(len(subset), 3)
+        self.assertEqual(subset.columns, ["name"])
+        self.assertEqual(
+            subset["name"].tolist(),
+            ["spec1", "spec2", "spec3"],
+        )
+
+    def test_reset_view_resets_columns_when_requested(self) -> None:
+        subset = self.dataset[[2, 0]]
+        subset.columns = ["name"]
+
+        returned = subset.reset_view(reset_columns=True)
+
+        self.assertIs(returned, subset)
+        self.assertEqual(len(subset), 3)
+        self.assertEqual(
+            subset.columns,
+            ["name", "precursor_mz", "SMILES"],
+        )
+        self.assertEqual(
+            subset["name"].tolist(),
+            ["spec1", "spec2", "spec3"],
+        )
+
+    def test_reset_view_returns_new_dataset_with_reset_columns_when_not_in_place(self) -> None:
+        subset = self.dataset[[2, 0]]
+        subset.columns = ["name"]
+
+        reset = subset.reset_view(
+            reset_columns=True,
+            in_place=False,
+        )
+
+        self.assertIsNot(reset, subset)
+
+        self.assertEqual(len(subset), 2)
+        self.assertEqual(subset.columns, ["name"])
+        self.assertEqual(
+            subset["name"].tolist(),
+            ["spec3", "spec1"],
+        )
+
+        self.assertEqual(len(reset), 3)
+        self.assertEqual(
+            reset.columns,
+            ["name", "precursor_mz", "SMILES"],
+        )
+        self.assertEqual(
+            reset["name"].tolist(),
+            ["spec1", "spec2", "spec3"],
+        )
+
     def test_sort_by(self) -> None:
         sorted_ds = self.dataset.sort_by("precursor_mz", ascending=False)
         self.assertEqual(sorted_ds["name"].tolist(), ["spec3", "spec2", "spec1"])

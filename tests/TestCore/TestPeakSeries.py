@@ -135,6 +135,45 @@ class TestPeakSeries(unittest.TestCase):
             np.array([1, 2, 3, 4, 5, 6], dtype=float),
         )
 
+    def test_reset_view_in_place_by_default(self) -> None:
+        subset = self.series[[2, 0]]
+
+        self.assertEqual(len(subset), 2)
+        np.testing.assert_array_equal(
+            subset.lengths,
+            np.array([1, 3], dtype=np.int64),
+        )
+        np.testing.assert_allclose(
+            subset.data,
+            np.array(
+                [
+                    [300.0, 7.0],
+                    [100.0, 10.0],
+                    [101.0, 30.0],
+                    [102.0, 20.0],
+                ],
+                dtype=float,
+            ),
+        )
+
+        returned = subset.reset_view()
+
+        self.assertIs(returned, subset)
+        self.assertEqual(len(subset), 3)
+
+        np.testing.assert_array_equal(
+            subset.lengths,
+            np.array([3, 2, 1], dtype=np.int64),
+        )
+        np.testing.assert_array_equal(
+            subset.offsets,
+            np.array([0, 3, 5, 6], dtype=np.int64),
+        )
+        np.testing.assert_allclose(
+            subset.data,
+            self.data,
+        )
+
     def test_setitem_add_metadata_column(self) -> None:
         self.series["score"] = np.array([0, 1, 2, 3, 4, 5], dtype=float)
         self.assertIn("score", self.series.metadata_columns)

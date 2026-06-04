@@ -434,6 +434,39 @@ class PeakSeries:
             index=None,
         )
 
+    def reset_view(
+        self,
+        in_place: bool = True,
+    ) -> PeakSeries:
+        """
+        Reset the current view to all spectra.
+
+        Parameters
+        ----------
+        in_place : bool, default=True
+            If True, modify the current object.
+            If False, return a new PeakSeries with a full view.
+
+        Returns
+        -------
+        PeakSeries
+            PeakSeries with a full view.
+        """
+        if in_place:
+            self._index = np.arange(
+                len(self._offsets_ref) - 1,
+                dtype=np.int64,
+            )
+            return self
+
+        return PeakSeries(
+            data=self._data_ref,
+            offsets=self._offsets_ref,
+            metadata=self._metadata_ref,
+            metadata_columns=self.metadata_columns,
+            index=None,
+        )
+
     def normalize(self, scale: float = 1.0, in_place: bool = False) -> PeakSeries:
         """
         Normalize intensities so that the maximum intensity of each spectrum becomes ``scale``.
