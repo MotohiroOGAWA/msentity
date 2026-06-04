@@ -9,6 +9,5 @@ from msentity import MSDataset
 class ShellState:
     """State of the dataset shell."""
 
-    original_dataset: MSDataset
     dataset: MSDataset
     input_file: str

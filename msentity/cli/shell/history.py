@@ -2,22 +2,16 @@ from __future__ import annotations
 
 import atexit
 from pathlib import Path
+from typing import Iterable
 
 
 def setup_history(
-    history_file: str | Path | None = None,
     *,
+    history_file: str | Path | None = None,
     max_length: int = 1000,
+    completions: Iterable[str] | None = None,
 ) -> None:
-    """
-    Enable command history for the shell.
-
-    Notes
-    -----
-    This function uses the standard-library readline module.
-    On some platforms, readline may be unavailable.
-    In that case, history is silently disabled.
-    """
+    """Enable command history and simple tab completion."""
     try:
         import readline
     except ImportError:
@@ -48,6 +42,12 @@ def setup_history(
     except Exception:
         pass
 
+    if completions is not None:
+        setup_completion(
+            readline_module=readline,
+            completions=list(completions),
+        )
+
     def save_history() -> None:
         try:
             readline.write_history_file(str(history_file))
@@ -55,3 +55,28 @@ def setup_history(
             pass
 
     atexit.register(save_history)
+
+
+def setup_completion(
+    *,
+    readline_module,
+    completions: list[str],
+) -> None:
+    words = sorted(set(completions))
+
+    def complete(
+        text: str,
+        state: int,
+    ) -> str | None:
+        matches = [
+            word for word in words
+            if word.startswith(text)
+        ]
+
+        if state < len(matches):
+            return matches[state]
+
+        return None
+
+    readline_module.set_completer(complete)
+    readline_module.parse_and_bind("tab: complete")
