@@ -1050,6 +1050,7 @@ class MSDataset:
                     data=np.asarray(dataset._peak_series.metadata_columns, dtype=string_dtype),
                 )
 
+            group.attrs["columns_json"] = json.dumps(dataset._columns)
             self._save_parquet_h5(
                 group,
                 "spectrum_metadata_parquet",
@@ -1123,6 +1124,14 @@ class MSDataset:
                         f"missing 'spectrum_metadata_parquet' in group '{group.name}'"
                     )
 
+                columns_json = group.attrs.get("columns_json")
+                columns = None
+                if columns_json:
+                    loaded_columns = json.loads(columns_json)
+
+                    if isinstance(loaded_columns, list):
+                        columns = [str(column) for column in loaded_columns]
+
                 spectrum_metadata = MSDataset._load_parquet_h5(
                     group,
                     "spectrum_metadata_parquet",
@@ -1140,6 +1149,7 @@ class MSDataset:
                     MSDataset(
                         spectrum_metadata=spectrum_metadata,
                         peak_series=peak_series,
+                        columns=columns,
                         description=description,
                         attributes=attributes,
                         tags=tags,
@@ -1417,7 +1427,9 @@ class SpectrumRecord:
         SpectrumRecord
         """
         spectrum_metadata = (
-            self._dataset._spectrum_metadata_ref.iloc[[self._source_index]]
+            self._dataset._spectrum_metadata_ref
+            .iloc[[self._source_index]]
+            .loc[:, self.columns]
             .reset_index(drop=True)
             .copy()
         )
