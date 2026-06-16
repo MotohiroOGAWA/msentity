@@ -159,6 +159,154 @@ def read_msp(
         return ms_dataset, msp_reader.header_map
     return ms_dataset
 
+def read_msp_text(
+    text: str,
+    *,
+    source_name: str = "<msp_text>",
+    encoding: str = "utf-8",
+    return_header_map: bool = False,
+    spec_id_prefix: Optional[str] = None,
+    error_log_level: ErrorLogLevel = ErrorLogLevel.NONE,
+    error_log_file: Optional[str] = None,
+    allow_duplicate_cols: bool = False,
+    show_progress: bool = False,
+    canonicalize_column: bool = True,
+    canonicalize_adduct_type: bool = True,
+    normalize_intensity: bool = True,
+    error_context_lines: int = 10,
+    peak_parser: Optional[Callable[[str], Dict[str, Any]]] = None,
+    auto_peak_col_prefix: str = "column",
+) -> MSDataset | tuple[MSDataset, dict[str, str]]:
+    """
+    Read MSP text into an MSDataset.
+
+    This function is useful for GUI textboxes or API inputs where the MSP
+    content is already available as a string.
+
+    Parameters
+    ----------
+    text
+        MSP text content.
+    source_name
+        Virtual source name used for error context.
+    encoding
+        Kept for API compatibility with read_msp.
+    return_header_map
+        Whether to also return the original header map.
+    spec_id_prefix
+        Prefix for generated spectrum IDs.
+    error_log_level
+        Error logging level.
+    error_log_file
+        Error log output file path.
+    allow_duplicate_cols
+        Whether duplicate metadata keys are allowed within one record.
+    show_progress
+        Whether to show a progress bar.
+        Usually False for text input.
+    canonicalize_column
+        Whether metadata keys are canonicalized.
+    canonicalize_adduct_type
+        Whether adduct type values are canonicalized.
+    normalize_intensity
+        Whether to normalize intensity values in peaks.
+    error_context_lines
+        Number of recent lines kept for error context.
+    peak_parser
+        Optional custom parser for a single peak line.
+    auto_peak_col_prefix
+        Prefix for automatically generated peak metadata columns.
+
+    Returns
+    -------
+    MSDataset or tuple
+        Parsed dataset, optionally with ``header_map``.
+    """
+    if not text or not text.strip():
+        raise ValueError("MSP text is empty.")
+
+    msp_reader = ReaderContext(
+        file_path=source_name,
+        file_type_name="msp",
+        error_log_level=error_log_level,
+        error_log_file=error_log_file,
+        encoding=encoding,
+        allow_duplicate_cols=allow_duplicate_cols,
+        show_progress=show_progress,
+        canonicalize_column=canonicalize_column,
+        canonicalize_adduct_type=canonicalize_adduct_type,
+        normalize_intensity=normalize_intensity,
+        error_context_lines=error_context_lines,
+        file_size=len(text.encode(encoding)),
+    )
+
+    peak_flag = False
+    peak_columns: Optional[List[str]] = None
+
+    for line in text.splitlines(keepends=True):
+        msp_reader.update(line)
+
+        try:
+            stripped = line.strip()
+
+            if not peak_flag and stripped == "":
+                continue
+
+            if peak_flag and stripped == "":
+                msp_reader.update_record()
+                peak_flag = False
+                peak_columns = None
+                continue
+
+            if peak_flag:
+                if peak_columns is None and is_peak_header_line(line):
+                    peak_columns = line.strip().split()
+                    continue
+
+                try:
+                    if peak_parser is None:
+                        peak_entry = parse_peak_line(
+                            line,
+                            peak_columns=peak_columns,
+                            auto_col_prefix=auto_peak_col_prefix,
+                        )
+                    else:
+                        peak_entry = peak_parser(line)
+
+                    msp_reader.add_peak(**peak_entry)
+
+                except Exception as e:
+                    msp_reader.add_error_message(str(e), line_text=line)
+
+                continue
+
+            if ":" not in line:
+                raise ValueError(
+                    f"Metadata line does not contain ':': {line.strip()}"
+                )
+
+            key, value = line.split(":", 1)
+            parsed_key, _ = msp_reader.add_meta(key, value)
+
+            if parsed_key == "NumPeaks":
+                peak_flag = True
+                peak_columns = None
+
+        except Exception as e:
+            msp_reader.add_error_message(str(e), line_text=line)
+
+    if peak_flag or msp_reader.meta or len(msp_reader.peak["mz"]) > 0:
+        msp_reader.update_record()
+
+    ms_dataset = msp_reader.get_dataset()
+
+    if spec_id_prefix is not None:
+        set_spec_id(ms_dataset, prefix=spec_id_prefix)
+
+    if return_header_map:
+        return ms_dataset, msp_reader.header_map
+
+    return ms_dataset
 
 def write_msp(
     dataset: MSDataset,

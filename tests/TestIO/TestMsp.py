@@ -2,7 +2,7 @@ import os
 import tempfile
 import unittest
 
-from msentity.io.msp import read_msp, write_msp
+from msentity.io.msp import read_msp, read_msp_text, write_msp
 
 
 class TestMSPIO(unittest.TestCase):
@@ -386,6 +386,227 @@ class TestMSPIO(unittest.TestCase):
             os.remove(in_path)
             os.remove(out_path)
 
+    def test_read_msp_text_basic(self) -> None:
+        """read_msp_text should read simple MSP text."""
+        msp_text = (
+            "Name: spec1\n"
+            "PrecursorMZ: 100.0\n"
+            "SMILES: CCO\n"
+            "NumPeaks: 3\n"
+            "50.0\t10.0\n"
+            "60.0\t20.0\n"
+            "70.0\t30.0\n"
+            "\n"
+            "Name: spec2\n"
+            "PrecursorMZ: 200.0\n"
+            "SMILES: CCC\n"
+            "NumPeaks: 2\n"
+            "80.0\t40.0\n"
+            "90.0\t50.0\n"
+            "\n"
+        )
+
+        dataset = read_msp_text(
+            msp_text,
+            show_progress=False,
+        )
+
+        self.assertEqual(len(dataset), 2)
+        self.assertIn("Name", dataset.columns)
+        self.assertIn("PrecursorMZ", dataset.columns)
+        self.assertIn("SMILES", dataset.columns)
+
+        self.assertEqual(str(dataset.metadata.iloc[0]["Name"]), "spec1")
+        self.assertEqual(str(dataset.metadata.iloc[1]["Name"]), "spec2")
+        self.assertEqual(dataset[0].n_peaks, 3)
+        self.assertEqual(dataset[1].n_peaks, 2)
+
+    def test_read_msp_text_matches_read_msp(self) -> None:
+        """read_msp_text should produce the same result as read_msp."""
+        msp_text = (
+            "Name: spec1\n"
+            "PrecursorMZ: 100.0\n"
+            "SMILES: CCO\n"
+            "NumPeaks: 2\n"
+            "50.0\t10.0\n"
+            "60.0\t20.0\n"
+            "\n"
+            "Name: spec2\n"
+            "PrecursorMZ: 200.0\n"
+            "SMILES: CCC\n"
+            "NumPeaks: 1\n"
+            "80.0\t40.0\n"
+            "\n"
+        )
+        path = self._write_temp_file(msp_text)
+
+        try:
+            dataset_from_file = read_msp(
+                path,
+                show_progress=False,
+            )
+            dataset_from_text = read_msp_text(
+                msp_text,
+                show_progress=False,
+            )
+
+            self.assertEqual(len(dataset_from_file), len(dataset_from_text))
+            self.assertEqual(
+                dataset_from_file.metadata["Name"].astype(str).tolist(),
+                dataset_from_text.metadata["Name"].astype(str).tolist(),
+            )
+            self.assertEqual(dataset_from_file[0].n_peaks, dataset_from_text[0].n_peaks)
+            self.assertEqual(dataset_from_file[1].n_peaks, dataset_from_text[1].n_peaks)
+
+            self.assertEqual(
+                dataset_from_file.peaks.mz.tolist(),
+                dataset_from_text.peaks.mz.tolist(),
+            )
+            self.assertEqual(
+                dataset_from_file.peaks.intensity.tolist(),
+                dataset_from_text.peaks.intensity.tolist(),
+            )
+        finally:
+            os.remove(path)
+
+    def test_read_msp_text_without_trailing_blank_line(self) -> None:
+        """read_msp_text should handle EOF without a trailing blank line."""
+        msp_text = (
+            "Name: spec1\n"
+            "PrecursorMZ: 100.0\n"
+            "NumPeaks: 2\n"
+            "50.0\t10.0\n"
+            "60.0\t20.0\n"
+        )
+
+        dataset = read_msp_text(
+            msp_text,
+            show_progress=False,
+        )
+
+        self.assertEqual(len(dataset), 1)
+        self.assertEqual(dataset[0].n_peaks, 2)
+        self.assertEqual(str(dataset.metadata.iloc[0]["Name"]), "spec1")
+
+    def test_read_msp_text_return_header_map(self) -> None:
+        """read_msp_text should return header_map when requested."""
+        msp_text = (
+            "Name: spec1\n"
+            "Comment: hello\n"
+            "NumPeaks: 1\n"
+            "50.0\t10.0\n"
+            "\n"
+        )
+
+        dataset, header_map = read_msp_text(
+            msp_text,
+            return_header_map=True,
+            show_progress=False,
+        )
+
+        self.assertEqual(len(dataset), 1)
+        self.assertIsInstance(header_map, dict)
+        self.assertIn("Name", header_map)
+        self.assertEqual(header_map["Name"], "Name")
+
+    def test_read_msp_text_with_spec_id_prefix(self) -> None:
+        """read_msp_text should assign spectrum IDs when spec_id_prefix is given."""
+        msp_text = (
+            "Name: spec1\n"
+            "NumPeaks: 1\n"
+            "50.0\t10.0\n"
+            "\n"
+            "Name: spec2\n"
+            "NumPeaks: 1\n"
+            "60.0\t20.0\n"
+            "\n"
+        )
+
+        dataset = read_msp_text(
+            msp_text,
+            spec_id_prefix="SP",
+            show_progress=False,
+        )
+
+        self.assertIn("SpecID", dataset.columns)
+        spec_ids = dataset["SpecID"].astype(str).tolist()
+        self.assertEqual(len(spec_ids), 2)
+        self.assertTrue(all(v.startswith("SP") for v in spec_ids))
+
+    def test_read_msp_text_with_header_peak_columns(self) -> None:
+        """read_msp_text should parse a peak header row and attach peak metadata."""
+        msp_text = (
+            "Name: spec1\n"
+            "NumPeaks: 2\n"
+            "mz intensity annotation note\n"
+            "50.0 10.0 fragA ; noteA\n"
+            "60.0 20.0 fragB ; noteB\n"
+            "\n"
+        )
+
+        dataset = read_msp_text(
+            msp_text,
+            show_progress=False,
+        )
+
+        self.assertIsNotNone(dataset.peaks.metadata)
+        self.assertIn("annotation", dataset.peaks.metadata.columns)
+        self.assertIn("note", dataset.peaks.metadata.columns)
+        self.assertEqual(
+            dataset.peaks.metadata["annotation"].astype(str).tolist(),
+            ["fragA", "fragB"],
+        )
+        self.assertEqual(
+            dataset.peaks.metadata["note"].astype(str).tolist(),
+            ["noteA", "noteB"],
+        )
+
+    def test_read_msp_text_with_custom_peak_parser(self) -> None:
+        """read_msp_text should use a custom single-line peak parser when provided."""
+        msp_text = (
+            "Name: spec1\n"
+            "NumPeaks: 2\n"
+            "50.0\t10.0\n"
+            "60.0\t20.0\n"
+            "\n"
+        )
+
+        def custom_peak_parser(line: str):
+            items = line.strip().split("\t")
+            return {
+                "mz": float(items[0]),
+                "intensity": float(items[1]),
+                "label": "custom",
+            }
+
+        dataset = read_msp_text(
+            msp_text,
+            peak_parser=custom_peak_parser,
+            show_progress=False,
+        )
+
+        self.assertEqual(len(dataset), 1)
+        self.assertEqual(dataset[0].n_peaks, 2)
+        self.assertIsNotNone(dataset.peaks.metadata)
+        self.assertIn("label", dataset.peaks.metadata.columns)
+        self.assertEqual(
+            dataset.peaks.metadata["label"].astype(str).tolist(),
+            ["custom", "custom"],
+        )
+
+    def test_read_msp_text_empty_text_raises(self) -> None:
+        """read_msp_text should raise ValueError for empty text."""
+        with self.assertRaises(ValueError):
+            read_msp_text(
+                "",
+                show_progress=False,
+            )
+
+        with self.assertRaises(ValueError):
+            read_msp_text(
+                "   \n\n",
+                show_progress=False,
+            )
 
 if __name__ == "__main__":
     unittest.main()

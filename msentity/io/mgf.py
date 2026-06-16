@@ -192,6 +192,150 @@ def read_mgf(
         return ms_dataset, mgf_reader.header_map
     return ms_dataset
 
+def read_mgf_text(
+    text: str,
+    *,
+    source_name: str = "<mgf_text>",
+    encoding: str = "utf-8",
+    return_header_map: bool = False,
+    spec_id_prefix: Optional[str] = None,
+    error_log_level: ErrorLogLevel = ErrorLogLevel.NONE,
+    error_log_file: Optional[str] = None,
+    allow_duplicate_cols: bool = False,
+    show_progress: bool = False,
+    canonicalize_column: bool = True,
+    canonicalize_adduct_type: bool = True,
+    normalize_intensity: bool = True,
+    error_context_lines: int = 10,
+    peak_parser: Optional[Callable[[str], Dict[str, Any]]] = None,
+    auto_peak_col_prefix: str = "column",
+) -> MSDataset | tuple[MSDataset, dict[str, str]]:
+    """
+    Read MGF text into an MSDataset.
+
+    This function is useful for GUI textboxes or API inputs where the MGF
+    content is already available as a string.
+    """
+    if not text or not text.strip():
+        raise ValueError("MGF text is empty.")
+
+    mgf_reader = ReaderContext(
+        file_path=source_name,
+        file_type_name="mgf",
+        error_log_level=error_log_level,
+        error_log_file=error_log_file,
+        encoding=encoding,
+        allow_duplicate_cols=allow_duplicate_cols,
+        show_progress=show_progress,
+        canonicalize_column=canonicalize_column,
+        canonicalize_adduct_type=canonicalize_adduct_type,
+        normalize_intensity=normalize_intensity,
+        error_context_lines=error_context_lines,
+        file_size=len(text.encode(encoding)),
+    )
+
+    in_ions_block = False
+    peak_flag = False
+    peak_columns: Optional[List[str]] = None
+
+    for line in text.splitlines(keepends=True):
+        mgf_reader.update(line)
+
+        try:
+            stripped = line.strip()
+            upper = stripped.upper()
+
+            if stripped == "":
+                continue
+
+            if upper == "BEGIN IONS":
+                if in_ions_block and (
+                    mgf_reader.meta or len(mgf_reader.peak["mz"]) > 0
+                ):
+                    mgf_reader.update_record()
+
+                in_ions_block = True
+                peak_flag = False
+                peak_columns = None
+                continue
+
+            if upper == "END IONS":
+                if in_ions_block:
+                    mgf_reader.update_record()
+
+                in_ions_block = False
+                peak_flag = False
+                peak_columns = None
+                continue
+
+            if not in_ions_block:
+                continue
+
+            if peak_flag:
+                if peak_columns is None and is_peak_header_line(line):
+                    peak_columns = line.strip().split()
+                    continue
+
+                try:
+                    if peak_parser is None:
+                        peak_entry = parse_peak_line(
+                            line,
+                            peak_columns=peak_columns,
+                            auto_col_prefix=auto_peak_col_prefix,
+                        )
+                    else:
+                        peak_entry = peak_parser(line)
+
+                    mgf_reader.add_peak(**peak_entry)
+
+                except Exception as e:
+                    mgf_reader.add_error_message(str(e), line_text=line)
+
+                continue
+
+            if "=" in line:
+                key, value = line.split("=", 1)
+                mgf_reader.add_meta(key, value)
+                continue
+
+            peak_flag = True
+
+            if is_peak_header_line(line):
+                peak_columns = line.strip().split()
+                continue
+
+            peak_columns = None
+
+            try:
+                if peak_parser is None:
+                    peak_entry = parse_peak_line(
+                        line,
+                        peak_columns=peak_columns,
+                        auto_col_prefix=auto_peak_col_prefix,
+                    )
+                else:
+                    peak_entry = peak_parser(line)
+
+                mgf_reader.add_peak(**peak_entry)
+
+            except Exception as e:
+                mgf_reader.add_error_message(str(e), line_text=line)
+
+        except Exception as e:
+            mgf_reader.add_error_message(str(e), line_text=line)
+
+    if in_ions_block and (mgf_reader.meta or len(mgf_reader.peak["mz"]) > 0):
+        mgf_reader.update_record()
+
+    ms_dataset = mgf_reader.get_dataset()
+
+    if spec_id_prefix is not None:
+        set_spec_id(ms_dataset, prefix=spec_id_prefix)
+
+    if return_header_map:
+        return ms_dataset, mgf_reader.header_map
+
+    return ms_dataset
 
 def write_mgf(
     dataset: MSDataset,

@@ -34,10 +34,16 @@ class ReaderContext:
         canonicalize_adduct_type: bool = True,
         normalize_intensity: bool = True,
         error_context_lines: int = 10,
+        file_size: Optional[int] = None,
     ) -> None:
         self.file_type_name = file_type_name
         self.file_path = file_path
-        self.file_size = os.path.getsize(file_path)
+
+        if file_size is None:
+            self.file_size = os.path.getsize(file_path)
+        else:
+            self.file_size = file_size
+            
         self.processed_size = 0
         self.encoding = encoding
         self.allow_duplicate_cols = allow_duplicate_cols
