@@ -621,6 +621,105 @@ class PeakSeries:
             return_index=return_index,
         )
 
+    def replace_data(
+        self,
+        data: np.ndarray,
+        offsets: np.ndarray,
+        metadata: Optional[pd.DataFrame] = None,
+    ) -> None:
+        """
+        Replace peak data for the current visible spectra.
+
+        ``offsets`` must describe the currently visible spectra, i.e.
+        ``len(offsets) - 1 == len(self)``.
+
+        Invisible spectra keep their spectrum slots, but their peak count becomes 0.
+        """
+        if not isinstance(data, np.ndarray):
+            raise TypeError("data must be a numpy.ndarray")
+        if data.ndim != 2 or data.shape[1] != 2:
+            raise ValueError("data must have shape (n_peaks, 2)")
+
+        if not isinstance(offsets, np.ndarray):
+            raise TypeError("offsets must be a numpy.ndarray")
+        if offsets.ndim != 1:
+            raise ValueError("offsets must be one-dimensional")
+        if not np.issubdtype(offsets.dtype, np.integer):
+            raise TypeError("offsets must have an integer dtype")
+        offsets = offsets.astype(np.int64, copy=False)
+
+        if len(offsets) != len(self) + 1:
+            raise ValueError(
+                "len(offsets) - 1 must match the number of visible spectra: "
+                f"{len(offsets) - 1} != {len(self)}"
+            )
+        if len(offsets) == 0 or offsets[0] != 0:
+            raise ValueError("offsets must start with 0")
+        if np.any(offsets[1:] < offsets[:-1]):
+            raise ValueError("offsets must be non-decreasing")
+        if int(offsets[-1]) != len(data):
+            raise ValueError(
+                f"offsets[-1] must equal len(data): {offsets[-1]} != {len(data)}"
+            )
+
+        if metadata is not None:
+            if not isinstance(metadata, pd.DataFrame):
+                raise TypeError("metadata must be a pandas.DataFrame")
+            if len(metadata) != len(data):
+                raise ValueError("metadata must have the same number of rows as data")
+
+        n_all_spectra = len(self._offsets_ref) - 1
+        visible_to_new_pos = {
+            int(source_index): view_pos
+            for view_pos, source_index in enumerate(self._index)
+        }
+
+        new_offsets_ref = np.empty(n_all_spectra + 1, dtype=np.int64)
+        new_offsets_ref[0] = 0
+
+        cursor = 0
+        data_parts = []
+        metadata_parts = [] if metadata is not None else None
+
+        for source_index in range(n_all_spectra):
+            view_pos = visible_to_new_pos.get(source_index)
+
+            if view_pos is None:
+                # Not visible in the current view.
+                # Keep the spectrum slot, but make it empty.
+                length = 0
+            else:
+                start = int(offsets[view_pos])
+                end = int(offsets[view_pos + 1])
+                length = end - start
+
+                if length > 0:
+                    data_parts.append(data[start:end])
+                    if metadata_parts is not None:
+                        metadata_parts.append(metadata.iloc[start:end])
+
+            cursor += length
+            new_offsets_ref[source_index + 1] = cursor
+
+        if data_parts:
+            self._data_ref = np.concatenate(data_parts, axis=0)
+        else:
+            self._data_ref = data[:0].copy()
+
+        self._offsets_ref = new_offsets_ref
+
+        if metadata is not None:
+            if metadata_parts:
+                self._metadata_ref = pd.concat(metadata_parts, ignore_index=True)
+            else:
+                self._metadata_ref = metadata.iloc[:0].copy()
+            self._metadata_columns = [
+                col for col in metadata.columns if col not in {"mz", "intensity"}
+            ]
+        elif self._metadata_ref is not None:
+            self._metadata_ref = None
+            self._metadata_columns = []
+
     def reorder(self, order: Sequence[int]) -> PeakSeries:
         """
         Reorder spectra in the current view.

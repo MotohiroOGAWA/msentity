@@ -486,6 +486,113 @@ class TestSpectrum(unittest.TestCase):
         self.spectrum.intensity = np.array([1.0, 2.0, 3.0], dtype=float)
         np.testing.assert_allclose(self.spectrum.intensity, np.array([1.0, 2.0, 3.0]))
 
+    def test_replace_data_visible_view_with_missing_spectrum(self) -> None:
+        data = np.array(
+            [
+                [100.0, 10.0],
+                [101.0, 11.0],
+                [102.0, 12.0],
+                [103.0, 13.0],
+                [200.0, 20.0],
+                [201.0, 21.0],
+                [202.0, 22.0],
+                [300.0, 30.0],
+                [301.0, 31.0],
+                [302.0, 32.0],
+                [400.0, 40.0],
+                [401.0, 41.0],
+            ],
+            dtype=float,
+        )
+        offsets = np.array([0, 4, 7, 10, 12], dtype=np.int64)
+        metadata = pd.DataFrame(
+            {
+                "annotation": [f"old_{i}" for i in range(len(data))],
+                "group": list(range(len(data))),
+            }
+        )
+
+        series = PeakSeries(
+            data=data,
+            offsets=offsets,
+            metadata=metadata,
+            metadata_columns=["annotation", "group"],
+        )
+
+        view = series[[0, 2, 3]]
+
+        new_data = np.array(
+            [
+                [10.0, 1.0],
+                [11.0, 1.1],
+                [12.0, 1.2],
+                [13.0, 1.3],
+                [14.0, 1.4],
+                [30.0, 3.0],
+                [31.0, 3.1],
+                [32.0, 3.2],
+                [33.0, 3.3],
+                [34.0, 3.4],
+                [40.0, 4.0],
+                [41.0, 4.1],
+                [42.0, 4.2],
+            ],
+            dtype=float,
+        )
+        new_offsets = np.array([0, 5, 10, 13], dtype=np.int64)
+        new_metadata = pd.DataFrame(
+            {
+                "annotation": [f"new_{i}" for i in range(len(new_data))],
+                "group": list(range(100, 100 + len(new_data))),
+            }
+        )
+
+        view.replace_data(
+            data=new_data,
+            offsets=new_offsets,
+            metadata=new_metadata,
+        )
+        np.testing.assert_array_equal(
+            view._offsets_ref,
+            np.array([0, 5, 5, 10, 13], dtype=np.int64),
+        )
+
+        np.testing.assert_array_equal(
+            view.offsets,
+            np.array([0, 5, 10, 13], dtype=np.int64),
+        )
+
+        np.testing.assert_allclose(view.data, new_data)
+
+        np.testing.assert_allclose(view.data, new_data)
+
+        self.assertEqual(series.n_peaks(1), 3)
+        np.testing.assert_allclose(view.data, new_data)
+
+        self.assertIsNotNone(view.metadata)
+        self.assertEqual(
+            view.metadata["annotation"].tolist(),
+            new_metadata["annotation"].tolist(),
+        )
+        self.assertEqual(
+            view.metadata["group"].tolist(),
+            new_metadata["group"].tolist(),
+        )
+
+    def test_replace_data_validates_offsets_length(self) -> None:
+        new_data = np.array([[1.0, 2.0]], dtype=float)
+        bad_offsets = np.array([0, 1], dtype=np.int64)
+
+        with self.assertRaises(ValueError):
+            self.series.replace_data(new_data, bad_offsets)
+
+    def test_replace_data_validates_offsets_last_value(self) -> None:
+        new_data = np.array([[1.0, 2.0]], dtype=float)
+        bad_offsets = np.array([0, 1, 1, 2], dtype=np.int64)
+
+        with self.assertRaises(ValueError):
+            self.series.replace_data(new_data, bad_offsets)
+
 
 if __name__ == "__main__":
     unittest.main()
