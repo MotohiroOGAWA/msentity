@@ -2,17 +2,10 @@ from __future__ import annotations
 
 import argparse
 
-from msentity.cli.shell.runner import DatasetShell, run_shell
 
-
-def setup_parser(
-    subparsers: argparse._SubParsersAction,
+def add_input_dataset_arguments(
+    parser: argparse.ArgumentParser,
 ) -> None:
-    parser = subparsers.add_parser(
-        "shell",
-        help="Start a dataset shell.",
-    )
-
     parser.add_argument(
         "input_file",
         help="Input dataset file path.",
@@ -30,20 +23,3 @@ def setup_parser(
         default=None,
         help="Prefix used to generate SpecID when needed.",
     )
-
-    parser.set_defaults(func=run)
-
-
-def run(args: argparse.Namespace) -> None:
-    run_shell(
-        args.input_file,
-        file_type=args.file_type,
-        spec_id_prefix=args.spec_id_prefix,
-    )
-
-
-__all__ = [
-    "DatasetShell",
-    "run_shell",
-    "setup_parser",
-]

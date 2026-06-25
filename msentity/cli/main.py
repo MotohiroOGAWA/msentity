@@ -2,13 +2,7 @@ from __future__ import annotations
 
 import argparse
 
-from msentity.cli.commands import (
-    add_convert_command,
-    add_head_command,
-    add_info_command,
-    add_meta_command,
-    add_shell_command,
-)
+from msentity.cli.commands import add_commands
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -22,11 +16,7 @@ def build_parser() -> argparse.ArgumentParser:
         required=True,
     )
 
-    add_info_command(subparsers)
-    add_head_command(subparsers)
-    add_convert_command(subparsers)
-    add_meta_command(subparsers)
-    add_shell_command(subparsers)
+    add_commands(subparsers)
     return parser
 
 
