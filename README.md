@@ -105,6 +105,8 @@ The viewer opens in a browser and shows a spectrum plot alongside its metadata.
 Use the **Previous** and **Next** buttons or enter a zero-based spectrum index
 to move through the dataset.
 
+![msentity GUI showing the dataset table, mass spectrum, peak list, and metadata](docs/_static/images/gui-screenshot.png)
+
 The server listens on `127.0.0.1:7860` by default. For example:
 
 ```console
@@ -115,5 +117,4 @@ msentity gui sample.msds --host 0.0.0.0 --port 7860 --no-browser
 msentity gui sample.msds --share
 ```
 
-Run `msentity gui --help` for all viewer options. A GUI screenshot can be added
-later without changing the installation or usage sections above.
+Run `msentity gui --help` for all viewer options.
