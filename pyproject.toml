@@ -12,7 +12,7 @@ authors = [
 readme = "README.md"
 license = "MIT"
 license-files = ["LICENSE"]
-requires-python = ">=3.8"
+requires-python = ">=3.10"
 dependencies = [
     "tqdm",
     "numpy",
@@ -22,6 +22,10 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
+gui = [
+    "gradio>=5.50,<6",
+    "gradio-msentityviewer @ https://github.com/MotohiroOGAWA/msentity/releases/download/gradio-msentityviewer-v0.1.0/gradio_msentityviewer-0.1.0-py3-none-any.whl",
+]
 docs = [
     "sphinx>=8",
     "furo",
@@ -32,6 +36,9 @@ docs = [
 
 [project.scripts]
 msentity = "msentity.cli.main:main"
+
+[tool.setuptools.packages.find]
+include = ["msentity*"]
 
 [tool.mypy]
 files = ["msentity"]
