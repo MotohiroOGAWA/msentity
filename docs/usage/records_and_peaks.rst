@@ -1,114 +1,98 @@
 Records and peaks
 =================
 
-This page explains how to inspect individual spectra and peak arrays.
+This page covers individual :class:`msentity.SpectrumRecord` objects,
+:class:`msentity.Spectrum` views, and flattened :class:`msentity.PeakSeries`
+storage.
 
 Loading a dataset
 -----------------
 
-.. code-block:: python
+.. jupyter-input::
 
    import pandas as pd
    from msentity import load_ms_dataset
-
    dataset = load_ms_dataset("example.msp")
 
 Accessing one spectrum record
 -----------------------------
 
-The interactive shell command:
+The interactive-shell command ``show 0`` corresponds to integer indexing:
 
-.. code-block:: text
-
-   show 0
-
-corresponds to:
-
-.. code-block:: python
-
-   dataset.metadata.iloc[0]
-
-You can also access a :class:`msentity.SpectrumRecord`.
-
-.. code-block:: python
+.. jupyter-input::
 
    record = dataset[0]
-
    record
 
-Example output:
-
-.. code-block:: text
-
-   SpectrumRecord(index=0, n_peaks=4)
+Unlike ``dataset.metadata.iloc[0]``, a record keeps its metadata and peak list
+together. Iterating over a dataset yields records in the current view order.
 
 Record-level metadata
 ---------------------
 
-.. code-block:: python
+.. jupyter-input::
 
    record["Name"]
-
-.. code-block:: python
-
    record["PrecursorMZ"]
+   record.columns
+
+Assignment adds or updates a field in the parent dataset:
+
+.. jupyter-input::
+
+   record["Reviewed"] = True
+   assert "Reviewed" in record
+
+Useful properties include ``record.n_peaks``, ``record.is_integer_mz``,
+``record.spectrum``, and its alias ``record.peaks``. ``record.copy()`` creates
+an independent one-spectrum dataset record.
 
 Accessing peaks
 ---------------
 
-The interactive shell command:
+``dataset.peaks`` is a ``PeakSeries``; indexing it returns a ``Spectrum``:
 
-.. code-block:: text
+.. jupyter-input::
 
-   peaks 0
-
-corresponds to:
-
-.. code-block:: python
-
-   spectrum = dataset.peaks[0]
-
-   peaks = pd.DataFrame(
-       spectrum.data,
-       columns=["mz", "intensity"],
-   )
-
+   spectrum = dataset.peaks[0]       # same peak data as record.spectrum
+   peaks = pd.DataFrame(spectrum.data, columns=["mz", "intensity"])
    peaks
 
-Example output:
-
-.. code-block:: text
-
-          mz  intensity
-   0  100.0       12.0
-   1  145.1       55.3
-   2  183.2       21.7
-   3  301.2      100.0
+Direct arrays are available as ``spectrum.mz`` and ``spectrum.intensity``.
+Across the current dataset view, use ``dataset.peaks.data``, ``.mz``,
+``.intensity``, ``.offsets``, ``.lengths``, and ``.n_peaks_total``. If the
+source contains peak annotations, ``spectrum.metadata`` and
+``dataset.peaks.metadata`` expose them.
 
 Showing the most intense peaks
 ------------------------------
 
-The shell command:
+Use the spectrum operation when the result should remain a ``Spectrum``:
 
-.. code-block:: text
+.. jupyter-input::
 
-   peaks 0 --top 10 --sort intensity
+   top_spectrum = spectrum.sort_by_intensity()  # descending by default
+   pd.DataFrame(top_spectrum.data[:10], columns=["mz", "intensity"])
 
-corresponds to:
+Normalization is non-mutating unless ``in_place=True``:
 
-.. code-block:: python
+.. jupyter-input::
 
-   peaks.sort_values(
-       "intensity",
-       ascending=False,
-   ).head(10)
+   normalized = spectrum.normalize(scale=100.0)
+   normalized.intensity.max()
+
+At dataset scale, ``dataset.peaks.normalize(scale=100.0)`` normalizes every
+spectrum independently. Record methods provide the same operations while
+preserving record metadata.
 
 Sorting peaks by m/z
 --------------------
 
-.. code-block:: python
+.. jupyter-input::
 
-   peaks.sort_values(
-       "mz",
-       ascending=True,
-   )
+   mz_sorted = spectrum.sort_by_mz(ascending=True)
+   mz_sorted.mz
+
+``Spectrum.sort_by_mz``, ``sort_by_intensity``, and ``normalize`` default to
+``in_place=False``. The corresponding ``PeakSeries`` operations can process
+all visible spectra. Peak metadata is reordered with the peaks.

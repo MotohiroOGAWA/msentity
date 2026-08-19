@@ -1,63 +1,68 @@
 Saving datasets
 ===============
 
-This page explains how to save datasets.
+MSDS is the lossless native format. MSP and MGF are interoperability formats,
+so only fields representable by those formats are exported.
 
 Saving as MSDS
 --------------
 
-The CLI command:
+The CLI command is:
 
 .. code-block:: bash
 
    msentity convert example.msp example.msds
 
-corresponds to:
+The Python equivalent is:
 
-.. code-block:: python
+.. jupyter-input::
 
    from msentity import load_ms_dataset
-
    dataset = load_ms_dataset("example.msp")
-
    dataset.save("example.msds")
+
+``mode="w"`` (the default) creates/replaces the file; ``mode="a"`` passes
+append mode to the MSDS writer.
 
 Loading the saved file
 ----------------------
 
-.. code-block:: python
-
-   loaded = load_ms_dataset("example.msds")
-
-   loaded
-
-You can also load an MSDS file with :meth:`msentity.MSDataset.load`.
-
-.. code-block:: python
+.. jupyter-input::
 
    from msentity import MSDataset
 
-   loaded = MSDataset.load("example.msds")
+   loaded = load_ms_dataset("example.msds")
+   loaded_directly = MSDataset.load("example.msds")
+   loaded
+
+Pass ``load_peak_metadata=False`` to ``MSDataset.load`` when peak annotations
+are not needed and memory use matters.
 
 Saving only the current view
 ----------------------------
 
-By default, :meth:`save` saves the current view.
+``save_view=True`` is the default, so filtering, ordering, visible columns,
+and corresponding peaks are materialized consistently:
 
-.. code-block:: python
+.. jupyter-input::
 
    filtered = dataset[dataset["PrecursorMZ"] > 300]
+   filtered.save("filtered.msds", save_view=True)
 
-   filtered.save("filtered.msds")
+Use ``save_view=False`` only when intentionally saving the complete underlying
+references rather than the current view.
 
 Saving MSP and MGF files
 ------------------------
 
-Use :func:`write_msp` and :func:`write_mgf` to export datasets.
+.. jupyter-input::
 
-.. code-block:: python
-
-   from msentity import write_msp, write_mgf
+   from msentity import write_mgf, write_msp
 
    write_msp(dataset, "output.msp")
    write_mgf(dataset, "output.mgf")
+
+The writer call order is ``(dataset, output_path)``. For conversion on the
+command line, ``msentity convert`` selects the output from its extension.
+``msentity merge-dir`` can recursively combine a directory of MSP/MGF/MSDS
+files and optionally attach source paths and source spectrum indices.

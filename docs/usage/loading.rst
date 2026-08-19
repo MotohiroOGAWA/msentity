@@ -1,88 +1,86 @@
 Loading datasets
 ================
 
-This page explains how to load mass spectrometry datasets with :mod:`msentity`.
+This page explains file and in-memory loading with :mod:`msentity`.  MSP and
+MGF are text exchange formats; MSDS is the native HDF5-backed format that also
+preserves dataset-level and peak-level metadata.
 
 Importing msentity
 ------------------
 
-.. code-block:: python
+.. jupyter-input::
 
    import msentity
-
-The most general loader is :func:`msentity.load_ms_dataset`.
-
-.. code-block:: python
-
    from msentity import load_ms_dataset
+
+``load_ms_dataset`` dispatches by filename extension and returns an
+:class:`msentity.MSDataset`.
 
 Loading MSP files
 -----------------
 
-.. code-block:: python
+.. jupyter-input::
 
    dataset = load_ms_dataset("example.msp")
-
    dataset
 
-Example output:
-
-.. code-block:: text
-
-   MSDataset(n_spectra=3, n_peaks=12, columns=['Name', 'PrecursorMZ', 'IonMode', 'AdductType'])
+Typical MSP fields are canonicalized (for example, ``PRECURSORMZ`` becomes
+``PrecursorMZ``). Unknown fields are retained rather than discarded. Peak
+lines may also contain annotations, which become peak-level metadata.
 
 Loading MGF files
 -----------------
 
-.. code-block:: python
+.. jupyter-input::
 
    dataset = load_ms_dataset("example.mgf")
+   dataset.metadata.head()
 
-   dataset
+Each ``BEGIN IONS`` block becomes one spectrum. Header keys are canonicalized,
+and the peak list is stored in ``dataset.peaks``.
 
 Loading MSDS files
 ------------------
 
-``.msds`` is the native dataset format used by msentity.
+``.msds`` is the native format. ``.h5`` and ``.hdf5`` extensions are accepted
+by the general loader as aliases.
 
-.. code-block:: python
+.. jupyter-input::
 
    dataset = load_ms_dataset("example.msds")
 
-   dataset
+   # Equivalent, with control over peak metadata loading:
+   dataset = msentity.MSDataset.load(
+       "example.msds",
+       load_peak_metadata=True,
+   )
 
 Specifying the file type manually
 ---------------------------------
 
-If the file extension is not enough to determine the file type, specify
-``file_type`` explicitly.
+Pass ``file_type`` when the extension is missing or non-standard:
 
-.. code-block:: python
+.. jupyter-input::
 
-   dataset = load_ms_dataset(
-       "example.txt",
-       file_type="msp",
-   )
+   dataset = load_ms_dataset("example.txt", file_type="msp")
 
-Supported file types are:
-
-.. code-block:: text
-
-   msp
-   mgf
-   msds
+Valid values are ``"msp"``, ``"mgf"``, and ``"msds"``. An unknown extension
+without ``file_type`` raises :class:`ValueError`.
 
 Generating SpecID values
 ------------------------
 
-If needed, ``SpecID`` values can be generated during loading by passing
-``spec_id_prefix``.
+``spec_id_prefix`` creates ``SpecID`` values only when that column is absent:
 
-.. code-block:: python
+.. jupyter-input::
 
    dataset = load_ms_dataset(
        "example.msp",
-       spec_id_prefix="example",
+       spec_id_prefix="sample-",
    )
+   dataset["SpecID"].head()
 
-   dataset.metadata.head()
+For an already loaded dataset, use
+:func:`msentity.processing.id.set_spec_id`. MSP and MGF content can also be
+parsed directly from strings with :func:`msentity.read_msp_text` and
+:func:`msentity.read_mgf_text`, which is useful for uploads and web APIs.

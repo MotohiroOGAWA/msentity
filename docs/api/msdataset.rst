@@ -10,8 +10,11 @@ stored in a pandas DataFrame with peak-level data stored in a
 :class:`~msentity.core.PeakSeries.PeakSeries`.
 
 Each row in the metadata corresponds to one spectrum in the peak series.
-The class provides functionality for slicing, filtering, merging metadata,
-sorting, and performing efficient I/O operations such as HDF5 serialization.
+Slicing, integer-array indexing, and boolean filtering create aligned views.
+The class also supports column assignment, independent copies, view reset,
+metadata sorting and joins, dataset concatenation, and native MSDS (HDF5 plus
+Parquet metadata) serialization. Dataset descriptions, string attributes, and
+tags are retained in MSDS files.
 
 Class
 -----

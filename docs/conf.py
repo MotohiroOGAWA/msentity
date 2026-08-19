@@ -70,6 +70,7 @@ extensions = [
     "sphinx.ext.autosummary",
     "sphinx.ext.viewcode",
     "myst_nb",
+    "jupyter_sphinx",
 ]
 nb_execution_mode = "off"
 
@@ -81,11 +82,12 @@ autosummary_context = {
 autodoc_typehints = "description"
 
 templates_path = ['_templates']
-exclude_patterns = ['_build', 'Thumbs.db', '.DS_Store']
+exclude_patterns = ['_build', 'examples', 'Thumbs.db', '.DS_Store']
+suppress_warnings = ['config.cache']
 
 # -- Options for HTML output -------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#options-for-html-output
 
 html_theme = 'furo'
-html_static_path = ['_static']
-html_css_files = ['custom.css']
+html_static_path = ['_static'] if os.path.isdir('_static') else []
+html_css_files = ['custom.css'] if os.path.isfile('_static/custom.css') else []

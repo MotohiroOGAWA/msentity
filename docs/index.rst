@@ -3,7 +3,9 @@ msentity documentation
 
 Welcome to the documentation for **msentity**.
 
-``msentity`` focuses on efficient representation and manipulation of large-scale MS datasets.
+``msentity`` provides compact peak storage, pandas-based spectrum metadata,
+MSP/MGF interchange, native MSDS persistence, processing helpers, a CLI, and an
+optional browser viewer for mass-spectrometry datasets.
 
 🔗 GitHub Repository:
 https://github.com/MotohiroOGAWA/msentity

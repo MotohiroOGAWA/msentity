@@ -1,70 +1,100 @@
 Getting Started
 ===============
 
-``msentity`` is a lightweight Python toolkit for handling mass spectrometry data
-in a consistent and programmatic way.
+``msentity`` is a Python toolkit for reading, representing, editing, and
+writing tandem mass-spectrometry datasets.  An :class:`msentity.MSDataset`
+keeps spectrum metadata in a :class:`pandas.DataFrame` and stores all peak
+lists compactly in a :class:`msentity.PeakSeries`.
 
-It is designed for mass spectrometry workflows, providing:
+It is designed for workflows that need:
 
-- Spectrum-level metadata handling with pandas DataFrame
-- Peak-level storage and access with ``PeakSeries`` and ``Spectrum``
-- Dataset-level operations such as slicing, sorting, merging, and HDF5 I/O
+- MSP, MGF, and native MSDS (HDF5) input
+- spectrum- and peak-level metadata
+- zero-copy dataset views for slicing, filtering, and sorting
+- normalization, ID assignment, metadata joins, concatenation, and export
+- a command-line interface, interactive shell, and optional browser viewer
 
 Requirements
 ------------
 
 - Python 3.10 or later
-- NumPy
-- pandas
-- h5py
-- pyarrow
+- NumPy, pandas, h5py, PyArrow, and tqdm (installed automatically)
+- For documentation builds: Sphinx, Furo, MyST Parser, and MyST-NB
+- For the optional GUI: Gradio 5 and ``gradio-msentityviewer``
 
 Installation
 ------------
 
-Install directly from GitHub:
+Install the current release directly from GitHub:
 
 .. code-block:: bash
 
-   pip install git+https://github.com/MotohiroOGAWA/msentity.git
+   python -m pip install "msentity @ git+https://github.com/MotohiroOGAWA/msentity.git"
 
-For development, you can clone the repository and install in editable mode:
+Add the optional browser viewer with:
 
 .. code-block:: bash
 
-   pip install git+https://github.com/MotohiroOGAWA/msentity.git
+   python -m pip install "msentity[gui] @ git+https://github.com/MotohiroOGAWA/msentity.git"
+
+For development, clone the repository and install it in editable mode:
+
+.. code-block:: bash
+
+   git clone https://github.com/MotohiroOGAWA/msentity.git
    cd msentity
-   pip install -e .[docs]
+   python -m pip install -e ".[docs]"
 
 Testing
 -------
 
-Run tests to verify the installation:
+Run the complete test suite from the repository root:
 
 .. code-block:: bash
 
-   python -m unittest discover -s msentity/tests -p "Test*.py" -v
+   python -m unittest discover -s tests -p "Test*.py" -v
+
+Build the documentation and treat warnings as errors:
+
+.. code-block:: bash
+
+   python -m sphinx -W -b html docs docs/_build/html
 
 Basic Usage
 -----------
 
-.. code-block:: python
+Python examples in this guide are Jupyter cells.  The following cell creates a
+small, self-contained dataset, so it can be copied directly into a notebook:
 
-   from msentity import MSDataset
+.. jupyter-input::
 
-   dataset = MSDataset.from_hdf5("example.h5")
+   import numpy as np
+   import pandas as pd
+   from msentity import MSDataset, PeakSeries
 
-   # Access a single spectrum record
+   metadata = pd.DataFrame({
+       "Name": ["caffeine", "glucose"],
+       "PrecursorMZ": [195.0877, 179.0561],
+       "IonMode": ["Positive", "Negative"],
+   })
+   peaks = PeakSeries(
+       data=np.array([
+           [138.0662, 42.0], [195.0877, 100.0],
+           [89.0244, 64.0], [179.0561, 100.0],
+       ]),
+       offsets=np.array([0, 2, 4], dtype=np.int64),
+   )
+   dataset = MSDataset(metadata, peaks, description="Notebook example")
+   dataset
+
+Integer indexing returns a :class:`msentity.SpectrumRecord`; slices and
+boolean masks return lightweight dataset views:
+
+.. jupyter-input::
+
    record = dataset[0]
-
-   # Spectrum-level metadata
-   print(record["Name"])
-   print(record["PrecursorMZ"])
-
-   # Peak-level data
+   print(record["Name"], record.n_peaks)
    print(record.spectrum.mz)
-   print(record.spectrum.intensity)
 
-   # Iterate over the dataset
-   for record in dataset:
-       print(record["Name"], record.n_peaks)
+   selected = dataset[dataset["PrecursorMZ"] > 180]
+   selected.metadata

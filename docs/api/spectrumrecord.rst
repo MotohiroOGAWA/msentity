@@ -16,6 +16,10 @@ both spectrum-level metadata and the corresponding
 It allows direct access and modification of metadata, as well as common
 operations on the spectrum such as normalization and sorting.
 
+Metadata values use mapping syntax (``record["Name"]``). ``spectrum`` and
+``peaks`` refer to the corresponding :class:`~msentity.Spectrum`, while
+``n_peaks`` and ``is_integer_mz`` provide common checks.
+
 Class
 -----
 

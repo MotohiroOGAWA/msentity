@@ -3,8 +3,8 @@ Usage
 
 This section introduces common workflows with :mod:`msentity` from Python.
 
-The examples are written as small, reusable Python snippets. They can be run in
-scripts, interactive Python sessions, Jupyter Notebook, or JupyterLab.
+Python examples are presented as Jupyter notebook cells. They can be copied to
+Jupyter Notebook or JupyterLab and adapted by changing the example paths.
 
 Most operations shown here correspond to operations available from the
 ``msentity`` command line interface.
@@ -24,6 +24,9 @@ A common workflow is:
 4. Inspect individual spectra and peaks.
 5. Filter spectra by metadata.
 6. Save the result as an ``.msds`` file.
+
+Because slicing and filtering create views, call ``copy()`` before destructive
+editing when the original dataset must remain unchanged.
 
 Pages
 -----
@@ -51,7 +54,7 @@ The Python API can reproduce the main CLI operations.
      - Python equivalent
    * - ``msentity info input.msp``
      - ``load_ms_dataset("input.msp")`` and inspect ``len(dataset)``, ``dataset.n_columns``, and ``dataset.n_peaks_total``
-   * - ``msentity head input.msp -n 10``
+   * - ``msentity head input.msp --num-rows 10``
      - ``dataset.metadata.head(10)``
    * - ``msentity convert input.msp output.msds``
      - ``dataset = load_ms_dataset("input.msp")`` followed by ``dataset.save("output.msds")``
@@ -60,7 +63,7 @@ The Python API can reproduce the main CLI operations.
    * - ``show 0`` in ``msentity shell``
      - ``dataset.metadata.iloc[0]`` or ``dataset[0]``
    * - ``peaks 0 --top 10 --sort intensity``
-     - Convert ``dataset.peaks[0]`` to a pandas DataFrame and sort by ``intensity``
+     - ``dataset.peaks[0].sort_by_intensity().data[:10]``
    * - ``filter PrecursorMZ > 300``
      - ``dataset[dataset["PrecursorMZ"] > 300]``
 

@@ -1,100 +1,97 @@
 Filtering datasets
 ==================
 
-This page explains how to filter spectra by spectrum-level metadata.
+Filtering uses pandas boolean expressions and returns an
+:class:`msentity.MSDataset` view. Spectrum metadata and peak lists always stay
+aligned.
 
 Loading a dataset
 -----------------
 
-.. code-block:: python
+.. jupyter-input::
 
    from msentity import load_ms_dataset
-
    dataset = load_ms_dataset("example.msp")
 
 Filtering by numeric metadata
 -----------------------------
 
-The shell command:
+The interactive-shell expression ``filter PrecursorMZ > 300`` corresponds to:
 
-.. code-block:: text
-
-   filter PrecursorMZ > 300
-
-corresponds to:
-
-.. code-block:: python
+.. jupyter-input::
 
    filtered = dataset[dataset["PrecursorMZ"] > 300]
-
    filtered.metadata
 
 Filtering by ion mode
 ---------------------
 
-.. code-block:: python
+Values depend on the source file; inspect unique values before comparing:
 
-   positive = dataset[dataset["IonMode"] == "POSITIVE"]
+.. jupyter-input::
 
-   positive.metadata
+   dataset["IonMode"].dropna().unique()
+   positive = dataset[
+       dataset["IonMode"].astype(str).str.casefold() == "positive"
+   ]
 
 Filtering by adduct
 -------------------
 
-.. code-block:: python
+MSP ``PRECURSORTYPE`` is canonicalized to ``AdductType``:
+
+.. jupyter-input::
 
    protonated = dataset[dataset["AdductType"] == "[M+H]+"]
-
    protonated.metadata
+
+Use ``dataset.columns`` first because source formats are not required to carry
+this optional field.
 
 Filtering by text
 -----------------
 
-The shell command:
+The shell expression ``filter Name contains glucose`` corresponds to:
 
-.. code-block:: text
-
-   filter Name contains glucose
-
-corresponds to:
-
-.. code-block:: python
+.. jupyter-input::
 
    glucose_like = dataset[
        dataset["Name"].astype(str).str.contains(
-           "glucose",
-           case=False,
-           na=False,
+           "glucose", case=False, na=False, regex=False
        )
    ]
-
    glucose_like.metadata
+
+``regex=False`` treats punctuation in the query literally.
 
 Combining multiple filters
 --------------------------
 
-.. code-block:: python
+Parenthesize each pandas condition and combine them with ``&``, ``|``, and
+``~``:
+
+.. jupyter-input::
 
    selected = dataset[
-       (dataset["IonMode"] == "POSITIVE")
-       & (dataset["PrecursorMZ"] > 300)
+       (dataset["IonMode"].astype(str).str.casefold() == "positive")
+       & dataset["PrecursorMZ"].between(200, 500)
    ]
-
+   selected = selected.sort_by("PrecursorMZ", ascending=False)
    selected.metadata
+
+Integer lists and slices are also supported: ``dataset[[0, 3, 5]]`` and
+``dataset[:10]``.
 
 Resetting views
 ---------------
 
-Filtering usually creates a new dataset object, so the original dataset remains
-available.
+Views share their underlying arrays with the source dataset. ``reset_view``
+restores all source spectra; it does not undo edits:
 
-.. code-block:: python
+.. jupyter-input::
 
-   len(dataset), len(filtered)
+   full_view = filtered.reset_view(in_place=False)
+   len(filtered), len(full_view)
 
-If you intentionally changed a dataset view and want to restore it, use
-``reset_view``.
-
-.. code-block:: python
-
-   dataset.reset_view()
+The default ``in_place=True`` modifies the view object. To detach filtered
+data and peaks completely, use ``materialized = filtered.copy()``.

@@ -7,6 +7,7 @@
    :members:
    :undoc-members:
    :show-inheritance:
+   :no-index:
    
 
 
@@ -79,6 +80,12 @@ Methods
    * - :meth:`~msentity.core.PeakSeries.PeakSeries.reorder`
      - Reorder spectra in the current view.
 
+   * - :meth:`~msentity.core.PeakSeries.PeakSeries.replace_data`
+     - Replace peak data for the current visible spectra.
+
+   * - :meth:`~msentity.core.PeakSeries.PeakSeries.reset_view`
+     - Reset the current view to all spectra.
+
    * - :meth:`~msentity.core.PeakSeries.PeakSeries.sort_by_intensity`
      - Sort peaks by intensity within each spectrum.
 
@@ -142,6 +149,12 @@ Method Details
 
 
 .. automethod:: PeakSeries.reorder
+
+
+.. automethod:: PeakSeries.replace_data
+
+
+.. automethod:: PeakSeries.reset_view
 
 
 .. automethod:: PeakSeries.sort_by_intensity

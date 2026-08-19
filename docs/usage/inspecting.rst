@@ -1,28 +1,25 @@
 Inspecting datasets
 ===================
 
-This page explains how to inspect dataset-level information and spectrum
-metadata.
+This page explains how to inspect a dataset without reaching into private
+attributes.
 
 Loading an example dataset
 --------------------------
 
-.. code-block:: python
+.. jupyter-input::
 
    from msentity import load_ms_dataset
-
    dataset = load_ms_dataset("example.msp")
 
 Dataset summary
 ---------------
 
-The command line interface provides ``msentity info``. In Python, the same
-information can be obtained from the dataset object.
-
-.. code-block:: python
+.. jupyter-input::
 
    summary = {
        "n_spectra": len(dataset),
+       "shape": dataset.shape,
        "n_columns": dataset.n_columns,
        "n_peaks_total": dataset.n_peaks_total,
        "columns": dataset.columns,
@@ -30,75 +27,52 @@ information can be obtained from the dataset object.
        "attributes": dataset.attributes,
        "tags": dataset.tags,
    }
-
    summary
 
-Example output:
-
-.. code-block:: python
-
-   {
-       "n_spectra": 3,
-       "n_columns": 4,
-       "n_peaks_total": 12,
-       "columns": ["Name", "PrecursorMZ", "IonMode", "AdductType"],
-       "description": "",
-       "attributes": {},
-       "tags": [],
-   }
+``n_rows`` is an alias-like property for ``len(dataset)``. ``repr(dataset)``
+also gives a concise spectrum, peak, and visible-column summary.
 
 Previewing metadata
 -------------------
 
-The CLI command:
+The CLI equivalent is:
 
 .. code-block:: bash
 
-   msentity head example.msp -n 10
+   msentity head example.msp --num-rows 10
 
-corresponds to:
+In a notebook, use normal pandas operations:
 
-.. code-block:: python
+.. jupyter-input::
 
    dataset.metadata.head(10)
 
-Example output:
-
-.. code-block:: text
-
-             Name  PrecursorMZ   IonMode AdductType
-   0   Compound_A     301.2162  POSITIVE     [M+H]+
-   1   Compound_B     255.1234  NEGATIVE     [M-H]-
-   2   Compound_C     412.2871  POSITIVE    [M+Na]+
+The returned table is reset to a zero-based index and should be treated as a
+read-only snapshot. Assign through ``dataset[column]`` or a record to make a
+reliable change.
 
 Accessing metadata columns
 --------------------------
 
-.. code-block:: python
+.. jupyter-input::
 
-   dataset["Name"]
+   names = dataset["Name"]
+   precursor_mz = dataset["PrecursorMZ"]
+   names.head(), precursor_mz.describe()
 
-.. code-block:: python
-
-   dataset["PrecursorMZ"]
+Only visible columns can be accessed this way; a missing or hidden column
+raises :class:`KeyError`.
 
 Selecting visible columns
 -------------------------
 
-The visible metadata columns are stored in ``dataset.columns``.
+``columns`` changes presentation, not the underlying stored metadata:
 
-.. code-block:: python
+.. jupyter-input::
 
-   dataset.columns
-
-You can change the visible columns.
-
-.. code-block:: python
-
-   dataset.columns = [
-       "Name",
-       "PrecursorMZ",
-       "IonMode",
-   ]
-
+   dataset.columns = ["Name", "PrecursorMZ", "IonMode"]
    dataset.metadata.head()
+
+Use ``dataset.reset_view(reset_columns=True)`` to expose every underlying
+column again. Use ``dataset.copy()`` when an independent, materialized dataset
+is needed instead of a view that shares data.

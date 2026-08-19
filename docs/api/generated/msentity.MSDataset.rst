@@ -7,6 +7,7 @@
    :members:
    :undoc-members:
    :show-inheritance:
+   :no-index:
    
 
 
@@ -82,14 +83,14 @@ Methods
    * - :meth:`~msentity.MSDataset.copy`
      - Materialize the current view as an independent dataset.
 
-   * - :meth:`~msentity.MSDataset.from_hdf5`
-     - Load a dataset from an HDF5 file.
-
    * - :meth:`~msentity.MSDataset.has_attribute`
      - Check whether an attribute exists.
 
    * - :meth:`~msentity.MSDataset.has_tag`
      - Check whether a tag exists.
+
+   * - :meth:`~msentity.MSDataset.load`
+     - Load a dataset from an .msds file.
 
    * - :meth:`~msentity.MSDataset.merge_metadata`
      - Merge an external DataFrame into the spectrum metadata of the current view.
@@ -103,14 +104,17 @@ Methods
    * - :meth:`~msentity.MSDataset.remove_tag`
      - Remove a tag.
 
+   * - :meth:`~msentity.MSDataset.reset_view`
+     - Reset the current dataset view to the full dataset.
+
+   * - :meth:`~msentity.MSDataset.save`
+     - Save the dataset to an .msds file.
+
    * - :meth:`~msentity.MSDataset.set_attribute`
      - Add or update a dataset attribute.
 
    * - :meth:`~msentity.MSDataset.sort_by`
      - Sort spectra by a spectrum metadata column.
-
-   * - :meth:`~msentity.MSDataset.to_hdf5`
-     - Save the dataset to an HDF5 file.
 
 
 
@@ -174,13 +178,13 @@ Method Details
 .. automethod:: MSDataset.copy
 
 
-.. automethod:: MSDataset.from_hdf5
-
-
 .. automethod:: MSDataset.has_attribute
 
 
 .. automethod:: MSDataset.has_tag
+
+
+.. automethod:: MSDataset.load
 
 
 .. automethod:: MSDataset.merge_metadata
@@ -195,12 +199,15 @@ Method Details
 .. automethod:: MSDataset.remove_tag
 
 
+.. automethod:: MSDataset.reset_view
+
+
+.. automethod:: MSDataset.save
+
+
 .. automethod:: MSDataset.set_attribute
 
 
 .. automethod:: MSDataset.sort_by
-
-
-.. automethod:: MSDataset.to_hdf5
 
 
