@@ -1,4 +1,4 @@
-# msentity
+<h1><img src="vscode-extension/media/icon.png" alt="msentity icon" width="48" height="48" align="center"> msentity</h1>
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-red.svg)](https://opensource.org/licenses/MIT)  
 ![Python](https://img.shields.io/badge/Python-3.10+-blue)  

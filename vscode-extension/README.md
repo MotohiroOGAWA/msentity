@@ -1,4 +1,4 @@
-# msentity Spectrum Viewer for VS Code
+<h1><img src="media/icon.png" alt="msentity icon" width="48" height="48" align="center"> msentity Spectrum Viewer for VS Code</h1>
 
 This extension is the graphical viewer included in the
 [`msentity`](https://github.com/MotohiroOGAWA/msentity) repository. It opens
