@@ -43,9 +43,24 @@ Open an ``.msds``, ``.msp``, or ``.mgf`` file normally, or right-click it in
 Explorer and choose **MS Entity: Open Spectrum Viewer**. Click the spectrum
 button in a table row to update the spectrum panel.
 
-The plot begins at m/z 0. Drag horizontally across the plot to zoom; tick
-spacing is recalculated for the visible range using readable 1, 2, 2.5, 5,
-and 10 multiples. Click **Reset zoom** to return to the full range. The
+.. figure:: _static/images/gui_screenshot_1.png
+   :alt: VS Code custom editor showing the paged msentity dataset table
+   :align: center
+
+   Browse, filter, page through, and select spectra from the dataset table.
+
+.. figure:: _static/images/gui_screenshot_2.png
+   :alt: VS Code mass-spectrum panel with peak table and metadata
+   :align: center
+
+   Inspect the selected spectrum, peak list, and spectrum metadata together.
+
+The plot begins at m/z 0. Drag horizontally to zoom only the m/z axis, drag
+vertically to zoom only the intensity axis, or drag diagonally to zoom both.
+A movement component below the drag threshold leaves that axis unchanged, so
+horizontal navigation never rescales intensity. Tick spacing is recalculated
+for the visible range using readable 1, 2, 2.5, 5, and 10 multiples. Click
+**Reset zoom** to return both axes to the full range. The
 intensity axis always begins at zero, leaves 10% headroom above the highest
 peak, and uses the same adaptive tick scheme.
 

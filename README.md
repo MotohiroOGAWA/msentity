@@ -94,6 +94,13 @@ zoom-dependent readable axis ticks, and previewed transparent PNG/SVG export.
 The export dialog can independently include tick grid lines, tick numbers, and
 m/z labels above peaks; grid lines are off by default.
 
+![VS Code custom editor showing the paged msentity dataset table](docs/_static/images/gui_screenshot_1.png)
+
+The dataset editor provides paging, filtering, column selection, and a spectrum
+button for each row. Selecting a spectrum updates one reusable plot panel:
+
+![VS Code mass-spectrum panel with peak table and metadata](docs/_static/images/gui_screenshot_2.png)
+
 To build the VSIX yourself:
 
 ```console

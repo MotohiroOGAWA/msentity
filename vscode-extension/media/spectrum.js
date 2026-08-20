@@ -159,7 +159,8 @@
       selectedPeak: null,
       sortKey: "mz",
       sortAscending: true,
-      domain: null
+      domain: null,
+      yDomain: null
     };
 
     const metadata = columns.map((c) => `<div><dt>${esc(c)}</dt><dd>${esc(display(row[c]))}</dd></div>`).join("");
@@ -217,7 +218,9 @@
     const rawMax = peaks.length ? Math.max(...peaks.map((p) => p.x)) : 1;
     const fullXStep = niceStep(Math.max(1, rawMax), 6);
     const full = [0, Math.max(fullXStep, Math.ceil(rawMax / fullXStep) * fullXStep)];
+    const fullYMax = Math.max(1, ...peaks.map((p) => Math.max(0, p.y))) * 1.1;
     if (!Array.isArray(state.domain)) state.domain = [...full];
+    if (!Array.isArray(state.yDomain)) state.yDomain = [0, fullYMax];
     let start = null, current = null, pressedPeak = null;
 
     const choose = (index) => {
@@ -230,13 +233,11 @@
       if (!state) return;
       const domain = state.domain;
       const domainWidth = Math.max(Number.EPSILON, domain[1] - domain[0]);
+      const yDomain = state.yDomain;
+      const yDomainWidth = Math.max(Number.EPSILON, yDomain[1] - yDomain[0]);
       const shown = peaks.filter((p) => p.x >= domain[0] && p.x <= domain[1]);
-      const rawYMax = Math.max(1, ...shown.map((p) => Math.max(0, p.y)));
-      // Ten percent of headroom keeps the label of the base peak above its tip.
-      // A normalized spectrum whose maximum is 1.0 therefore uses yMax = 1.1.
-      const yMax = rawYMax * 1.1;
       const sx = (x) => L + (x - domain[0]) / domainWidth * (W - L - R);
-      const sy = (y) => H - B - Math.max(0, y) / yMax * (H - T - B);
+      const sy = (y) => H - B - (y - yDomain[0]) / yDomainWidth * (H - T - B);
 
       let grid = "";
       const xTicks = ticks(domain[0], domain[1]);
@@ -245,15 +246,15 @@
         grid += `<line x1="${x}" y1="${T}" x2="${x}" y2="${H - B}" class="grid"/>`;
         grid += `<text class="tick-label" x="${x}" y="${H - B + 26}" text-anchor="middle">${value.toFixed(tickDecimals(xTicks.step))}</text>`;
       }
-      const yTicks = ticks(0, yMax);
+      const yTicks = ticks(yDomain[0], yDomain[1]);
       for (const value of yTicks.values) {
         const y = sy(value);
         grid += `<line x1="${L}" y1="${y}" x2="${W - R}" y2="${y}" class="grid"/>`;
         grid += `<text class="tick-label" x="${L - 10}" y="${y + 4}" text-anchor="end">${value.toFixed(tickDecimals(yTicks.step))}</text>`;
       }
-      const sticks = shown.map((p) => `<line data-peak="${p.index}" x1="${sx(p.x)}" y1="${H - B}" x2="${sx(p.x)}" y2="${sy(p.y)}" class="peak ${state.selectedPeak === p.index ? "selected" : ""}"><title>m/z ${p.x} · intensity ${p.y}</title></line>`).join("");
-      const peakLabels = shown.map((p) => `<text x="${sx(p.x)}" y="${Math.max(T + 11, sy(p.y) - 8)}" text-anchor="middle" class="peak-label">${p.x.toFixed(4)}</text>`).join("");
-      root.innerHTML = `<svg id="spectrum-svg" viewBox="0 0 ${W} ${H}" role="img" aria-label="Mass spectrum"><g class="spectrum-grid">${grid}</g><line x1="${L}" y1="${H - B}" x2="${W - R}" y2="${H - B}" class="axis"/><line x1="${L}" y1="${T}" x2="${L}" y2="${H - B}" class="axis"/>${sticks}<g class="peak-labels">${peakLabels}</g><rect id="drag-box" x="${L}" y="${T}" width="0" height="${H - T - B}" class="selection"/><text x="${(L + W - R) / 2}" y="${H - 12}" text-anchor="middle" class="axis-title mz-title">m/z</text><text transform="translate(17 ${(T + H - B) / 2}) rotate(-90)" text-anchor="middle" class="axis-title">Intensity</text></svg>`;
+      const sticks = shown.map((p) => `<line data-peak="${p.index}" x1="${sx(p.x)}" y1="${sy(Math.max(0, yDomain[0]))}" x2="${sx(p.x)}" y2="${sy(p.y)}" class="peak ${state.selectedPeak === p.index ? "selected" : ""}"><title>m/z ${p.x} · intensity ${p.y}</title></line>`).join("");
+      const peakLabels = shown.filter((p) => p.y >= yDomain[0] && p.y <= yDomain[1]).map((p) => `<text x="${sx(p.x)}" y="${Math.max(T + 11, sy(p.y) - 8)}" text-anchor="middle" class="peak-label">${p.x.toFixed(4)}</text>`).join("");
+      root.innerHTML = `<svg id="spectrum-svg" viewBox="0 0 ${W} ${H}" role="img" aria-label="Mass spectrum"><defs><clipPath id="plot-clip"><rect x="${L}" y="${T}" width="${W - L - R}" height="${H - T - B}"/></clipPath></defs><g class="spectrum-grid">${grid}</g><line x1="${L}" y1="${H - B}" x2="${W - R}" y2="${H - B}" class="axis"/><line x1="${L}" y1="${T}" x2="${L}" y2="${H - B}" class="axis"/><g clip-path="url(#plot-clip)">${sticks}<g class="peak-labels">${peakLabels}</g></g><rect id="drag-box" x="${L}" y="${T}" width="0" height="${H - T - B}" class="selection"/><text x="${(L + W - R) / 2}" y="${H - 12}" text-anchor="middle" class="axis-title mz-title">m/z</text><text transform="translate(17 ${(T + H - B) / 2}) rotate(-90)" text-anchor="middle" class="axis-title">Intensity</text></svg>`;
 
       const ordered = [...peaks].sort((a, b) => (state.sortKey === "mz" ? a.x - b.x : a.y - b.y) * (state.sortAscending ? 1 : -1));
       tbody.innerHTML = ordered.map((p) => `<tr data-peak-row="${p.index}" class="peak-row ${state.selectedPeak === p.index ? "selected" : ""}"><td><button data-peak-button="${p.index}">${p.x.toFixed(5)}</button></td><td><button data-peak-button="${p.index}">${p.y.toLocaleString()}</button></td></tr>`).join("");
@@ -268,31 +269,44 @@
 
       const svg = root.querySelector("#spectrum-svg");
       if (!svg) return;
-      const pointerX = (e) => {
+      const pointer = (e) => {
         const rect = svg.getBoundingClientRect();
-        return Math.min(W - R, Math.max(L, (e.clientX - rect.left) / rect.width * W));
+        return {
+          x: Math.min(W - R, Math.max(L, (e.clientX - rect.left) / rect.width * W)),
+          y: Math.min(H - B, Math.max(T, (e.clientY - rect.top) / rect.height * H))
+        };
       };
       svg.addEventListener("pointerdown", (e) => {
         const peak = e.target.closest?.("[data-peak]");
         pressedPeak = peak ? Number(peak.dataset.peak) : null;
-        start = pointerX(e);
-        current = start;
+        start = pointer(e);
+        current = { ...start };
         svg.setPointerCapture(e.pointerId);
       });
       svg.addEventListener("pointermove", (e) => {
         if (start === null) return;
-        current = pointerX(e);
+        current = pointer(e);
         const box = svg.querySelector("#drag-box");
         if (box) {
-          box.setAttribute("x", String(Math.min(start, current)));
-          box.setAttribute("width", String(Math.abs(current - start)));
+          const zoomX = Math.abs(current.x - start.x) > 8;
+          const zoomY = Math.abs(current.y - start.y) > 8;
+          box.setAttribute("x", String(zoomX ? Math.min(start.x, current.x) : L));
+          box.setAttribute("width", String(zoomX ? Math.abs(current.x - start.x) : W - L - R));
+          box.setAttribute("y", String(zoomY ? Math.min(start.y, current.y) : T));
+          box.setAttribute("height", String(zoomY ? Math.abs(current.y - start.y) : H - T - B));
         }
       });
       svg.addEventListener("pointerup", () => {
-        const dragged = start !== null && current !== null && Math.abs(current - start) > 8;
-        if (dragged) {
+        const zoomX = start !== null && current !== null && Math.abs(current.x - start.x) > 8;
+        const zoomY = start !== null && current !== null && Math.abs(current.y - start.y) > 8;
+        const dragged = zoomX || zoomY;
+        if (zoomX) {
           const toMz = (x) => domain[0] + (x - L) / (W - L - R) * domainWidth;
-          state.domain = [toMz(Math.min(start, current)), toMz(Math.max(start, current))];
+          state.domain = [toMz(Math.min(start.x, current.x)), toMz(Math.max(start.x, current.x))];
+        }
+        if (zoomY) {
+          const toIntensity = (y) => yDomain[1] - (y - T) / (H - T - B) * yDomainWidth;
+          state.yDomain = [toIntensity(Math.max(start.y, current.y)), toIntensity(Math.min(start.y, current.y))];
         }
         const clickedPeak = pressedPeak;
         start = current = pressedPeak = null;
@@ -315,6 +329,7 @@
     intensitySort.onclick = () => changeSort("intensity");
     reset.onclick = () => {
       state.domain = [...full];
+      state.yDomain = [0, fullYMax];
       state.selectedPeak = null;
       draw();
     };

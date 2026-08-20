@@ -9,7 +9,7 @@ This extension is the graphical viewer included in the
 - Paged spectrum metadata table and one reusable spectrum panel
 - Optional VS Code floating plot window
 - Peak table, m/z/intensity sorting, and peak selection
-- Horizontal drag-to-zoom and Reset zoom
+- Independent horizontal, vertical, and two-dimensional drag-to-zoom
 - m/z range starting at zero and adaptive 1, 2, 2.5, 5, 10 tick spacing
 - Adaptive zero-based intensity ticks
 - Export preview with optional grid lines, tick numbers, and peak m/z labels
@@ -64,7 +64,8 @@ code --install-extension ./msentity-spectrum-viewer-0.1.1.vsix --force
 
 Open an `.msds`, `.msp`, or `.mgf` file. Click a spectrum button in the table;
 the reusable **Mass Spectrum** panel opens and updates when another record is
-selected. Drag horizontally to zoom. Choose **Export image...**, select the
+selected. Drag horizontally to zoom m/z only, vertically to zoom intensity
+only, or diagonally to zoom both axes. Choose **Export image...**, select the
 elements to include, check the preview, and save the visible plot as a
 transparent PNG or SVG. Tick grid lines are excluded by default.
 The exported image uses the current zoom range and leaves 10% intensity
