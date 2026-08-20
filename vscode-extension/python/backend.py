@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import argparse
+import inspect
 import json
 import math
 import sys
@@ -84,7 +85,51 @@ def load_dataset(input_file: Path) -> Any:
             "The Python package 'msentity' is not installed in this environment. "
             "Install msentity in the same Python environment used by the VS Code extension."
         ) from exc
+    suffix = input_file.suffix.lower()
+
+    def progress(processed: int, total: int, success: int, records: int) -> None:
+        emit({
+            "type": "loading-progress",
+            "file_type": suffix.lstrip("."),
+            "processed": processed,
+            "total": total,
+            "success": success,
+            "records": records,
+            "percent": min(100.0, processed / total * 100.0) if total else 0.0,
+        })
+
+    if suffix in {".msp", ".mgf"}:
+        emit({"type": "loading-progress", "file_type": suffix.lstrip("."), "processed": 0, "total": input_file.stat().st_size, "success": 0, "records": 0, "percent": 0.0})
+        # Keep the extension compatible with msentity versions released before
+        # progress_callback/show_progress were added to load_ms_dataset.
+        parameters = inspect.signature(load_ms_dataset).parameters
+        kwargs: dict[str, Any] = {}
+        if "show_progress" in parameters:
+            kwargs["show_progress"] = False
+        if "progress_callback" in parameters:
+            kwargs["progress_callback"] = progress
+        dataset = load_ms_dataset(str(input_file), **kwargs)
+        if "progress_callback" not in parameters:
+            emit({"type": "loading-progress", "file_type": suffix.lstrip("."), "processed": input_file.stat().st_size, "total": input_file.stat().st_size, "success": len(dataset), "records": len(dataset), "percent": 100.0})
+        return dataset
+    # MSDS/HDF5 loading is not line based and needs no progress-only keyword
+    # arguments. Calling the stable one-argument API also supports older builds.
     return load_ms_dataset(str(input_file))
+
+
+def export_dataset(dataset: Any, output_file: Path) -> None:
+    suffix = output_file.suffix.lower()
+    output_file.parent.mkdir(parents=True, exist_ok=True)
+    if suffix == ".msds":
+        dataset.save(str(output_file))
+    elif suffix == ".msp":
+        from msentity import write_msp
+        write_msp(dataset, str(output_file), show_progress=False)
+    elif suffix == ".mgf":
+        from msentity import write_mgf
+        write_mgf(dataset, str(output_file), show_progress=False)
+    else:
+        raise ValueError("Output filename must end with .msds, .msp, or .mgf")
 
 
 def main() -> int:
@@ -130,6 +175,15 @@ def main() -> int:
             elif request_type == "reload":
                 dataset = load_dataset(input_file)
                 emit({"type": "dataset-page", "value": serialize_page(dataset, 0, page_size)})
+            elif request_type == "export":
+                output_file = Path(str(request.get("path", ""))).expanduser().resolve()
+                emit({"type": "export-start", "path": str(output_file)})
+                try:
+                    export_dataset(dataset, output_file)
+                    emit({"type": "export-complete", "path": str(output_file), "total_rows": len(dataset)})
+                except Exception as exc:  # noqa: BLE001
+                    traceback.print_exc(file=sys.stderr)
+                    emit({"type": "export-error", "message": str(exc)})
             else:
                 emit({"type": "error", "title": "Unknown request", "message": str(request_type)})
         except Exception as exc:  # noqa: BLE001

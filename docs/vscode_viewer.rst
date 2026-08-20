@@ -43,6 +43,15 @@ Open an ``.msds``, ``.msp``, or ``.mgf`` file normally, or right-click it in
 Explorer and choose **MS Entity: Open Spectrum Viewer**. Click the spectrum
 button in a table row to update the spectrum panel.
 
+While an MSP or MGF file is being parsed, the editor displays a progress bar
+with the percentage, processed bytes, and successfully loaded spectrum count.
+The same progress display is used when **Reload** rereads the file.
+
+Choose **Export...** to save the entire loaded dataset as MSDS, MSP, or MGF.
+Select the desired extension in the VS Code save dialog; the output format is
+determined from ``.msds``, ``.msp``, or ``.mgf``. Export always writes the full
+dataset, not only the current page or filtered table rows.
+
 .. figure:: _static/images/gui_screenshot_1.png
    :alt: VS Code custom editor showing the paged msentity dataset table
    :align: center

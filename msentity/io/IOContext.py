@@ -1,9 +1,10 @@
 from __future__ import annotations
 
 import os
+import time
 from collections import deque
 from datetime import datetime
-from typing import Any, Dict, List, Optional
+from typing import Any, Callable, Dict, List, Optional
 
 import numpy as np
 import pandas as pd
@@ -35,6 +36,7 @@ class ReaderContext:
         normalize_intensity: bool = True,
         error_context_lines: int = 10,
         file_size: Optional[int] = None,
+        progress_callback: Optional[Callable[[int, int, int, int], None]] = None,
     ) -> None:
         self.file_type_name = file_type_name
         self.file_path = file_path
@@ -45,6 +47,8 @@ class ReaderContext:
             self.file_size = file_size
             
         self.processed_size = 0
+        self.progress_callback = progress_callback
+        self._last_progress_callback = 0.0
         self.encoding = encoding
         self.allow_duplicate_cols = allow_duplicate_cols
         self.item_parser = ItemParser(
@@ -108,6 +112,21 @@ class ReaderContext:
 
         if self.pbar is not None:
             self.pbar.update(len(line.encode(self.encoding)))
+        self._emit_progress()
+
+    def _emit_progress(self, *, force: bool = False) -> None:
+        if self.progress_callback is None:
+            return
+        now = time.monotonic()
+        if not force and now - self._last_progress_callback < 0.1:
+            return
+        self._last_progress_callback = now
+        self.progress_callback(
+            min(self.processed_size, self.file_size),
+            self.file_size,
+            self.success_cnt,
+            self.record_cnt,
+        )
 
     def _reset_record(self) -> None:
         self.meta: dict[str, Any] = {}
@@ -187,6 +206,16 @@ class ReaderContext:
 
     def get_dataset(self) -> MSDataset:
         all_cols, all_col_names, all_peak, offsets, all_peak_meta_names = self.get_record_data()
+        # Text-mode newline conversion can make encoded line lengths slightly
+        # smaller than the on-disk byte size (for example CRLF files). At EOF,
+        # explicitly complete both terminal and callback progress displays.
+        remaining = max(0, self.file_size - self.processed_size)
+        if self.pbar is not None and remaining:
+            self.pbar.update(remaining)
+        self.processed_size = self.file_size
+        self._emit_progress(force=True)
+        if self.pbar is not None:
+            self.pbar.close()
 
         spectrum_metadata = pd.DataFrame(all_cols, columns=all_col_names)
 

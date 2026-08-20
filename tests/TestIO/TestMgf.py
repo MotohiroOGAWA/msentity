@@ -79,6 +79,18 @@ class TestMGFIO(unittest.TestCase):
         finally:
             os.remove(path)
 
+    def test_read_mgf_progress_callback(self) -> None:
+        """read_mgf should report byte and spectrum progress."""
+        path = self._write_temp_file("BEGIN IONS\nName=spec1\n50 10\nEND IONS\n")
+        updates: list[tuple[int, int, int, int]] = []
+        try:
+            read_mgf(path, show_progress=False, progress_callback=lambda *args: updates.append(args))
+            self.assertTrue(updates)
+            self.assertEqual(updates[-1][0], updates[-1][1])
+            self.assertEqual(updates[-1][2:], (1, 1))
+        finally:
+            os.remove(path)
+
     def test_read_mgf_return_header_map(self) -> None:
         """read_mgf should return header_map when requested."""
         mgf_text = (

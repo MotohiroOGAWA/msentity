@@ -10,6 +10,8 @@
   let loadingPage = false;
   let columnMenuOpen = false;
   let selectedSpectrumIndex = null;
+  let loadingProgress = null;
+  let exporting = false;
 
   const esc = (v) => String(v ?? "")
     .replaceAll("&", "&amp;")
@@ -64,7 +66,10 @@
   }
 
   function renderLoading(text = "Loading msentity dataset…") {
-    app.innerHTML = `<div class="status"><div>${esc(text)}</div></div>`;
+    const progress = loadingProgress;
+    const percent = Math.max(0, Math.min(100, Number(progress?.percent) || 0));
+    const details = progress ? `${percent.toFixed(1)}% · ${Number(progress.processed || 0).toLocaleString()} / ${Number(progress.total || 0).toLocaleString()} bytes · ${Number(progress.success || 0).toLocaleString()} spectra` : "Starting Python backend…";
+    app.innerHTML = `<div class="status"><div class="loading-card"><div class="loading-title">${esc(text)}</div><progress max="100" value="${percent}"></progress><div class="loading-details">${esc(details)}</div></div></div>`;
   }
 
   function renderError(title, message) {
@@ -94,6 +99,7 @@
           <div class="tools">
             <div class="columns"><button id="columns-button">Columns</button>${columnMenu}</div>
             <label class="search"><input id="search-input" value="${esc(query)}" placeholder="Filter current page…" /></label>
+            <button class="secondary-button" id="export-button" ${exporting ? "disabled" : ""}>${exporting ? "Exporting…" : "Export…"}</button>
             <button class="secondary-button" id="reload-button" title="Reload dataset from disk">Reload</button>
           </div>
         </div>
@@ -107,6 +113,7 @@
     document.querySelector("[data-action='all-columns']")?.addEventListener("click", () => { selectedColumns = allSelected ? [] : [...cols]; render(); });
     document.querySelectorAll("[data-column]").forEach((el) => el.addEventListener("click", () => toggleColumn(el.dataset.column)));
     document.getElementById("search-input")?.addEventListener("input", (e) => { query = e.currentTarget.value; render(); });
+    document.getElementById("export-button")?.addEventListener("click", () => { exporting = true; render(); vscode.postMessage({ type: "export-dataset" }); });
     document.getElementById("reload-button")?.addEventListener("click", () => { loadingPage = true; selectedSpectrumIndex = null; render(); vscode.postMessage({ type: "reload" }); });
     document.getElementById("prev-page")?.addEventListener("click", () => requestPage(page() - 1));
     document.getElementById("next-page")?.addEventListener("click", () => requestPage(page() + 1));
@@ -138,15 +145,35 @@
   window.addEventListener("message", (event) => {
     const message = event.data;
     if (message?.type === "backend-ready") {
+      loadingProgress = null;
       vscode.postMessage({ type: "ready" });
+    } else if (message?.type === "loading-progress") {
+      loadingProgress = message;
+      renderLoading(`Reading ${String(message.file_type || "dataset").toUpperCase()}…`);
     } else if (message?.type === "dataset-page") {
       value = message.value;
+      loadingProgress = null;
       loadingPage = false;
       query = "";
       columnMenuOpen = false;
       selectedSpectrumIndex = null;
       render();
+    } else if (message?.type === "export-start") {
+      exporting = true;
+      render();
+    } else if (message?.type === "export-complete") {
+      exporting = false;
+      render();
+      vscode.postMessage({ type: "export-notification", path: message.path, totalRows: message.total_rows });
+    } else if (message?.type === "export-cancelled") {
+      exporting = false;
+      render();
+    } else if (message?.type === "export-error") {
+      exporting = false;
+      render();
+      vscode.postMessage({ type: "export-error-notification", message: message.message });
     } else if (message?.type === "error") {
+      exporting = false;
       renderError(message.title || "Error", message.message || "Unknown error");
     }
   });

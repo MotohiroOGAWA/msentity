@@ -16,7 +16,7 @@ class MSEntityDocument {
 class MSEntityViewerProvider {
   constructor(context) {
     this.context = context;
-    this.iconPath = vscode.Uri.joinPath(context.extensionUri, "media", "editor-icon.ico");
+    this.iconPath = vscode.Uri.joinPath(context.extensionUri, "media", "editor-icon.png");
     this.spectrumPanels = new Map();
   }
 
@@ -108,7 +108,7 @@ class MSEntityViewerProvider {
       child.stdin.write(`${JSON.stringify(request)}\n`);
     };
 
-    const messageDisposable = webview.onDidReceiveMessage((message) => {
+    const messageDisposable = webview.onDidReceiveMessage(async (message) => {
       switch (message?.type) {
         case "ready":
           writeRequest({ type: "page", page: 0 });
@@ -119,8 +119,28 @@ class MSEntityViewerProvider {
         case "reload":
           writeRequest({ type: "reload" });
           break;
+        case "export-dataset": {
+          const sourceName = path.basename(document.uri.fsPath, path.extname(document.uri.fsPath));
+          const target = await vscode.window.showSaveDialog({
+            defaultUri: vscode.Uri.joinPath(document.uri, "..", `${sourceName}.msds`),
+            filters: {
+              "msentity dataset": ["msds"],
+              "NIST MSP": ["msp"],
+              "Mascot Generic Format": ["mgf"]
+            }
+          });
+          if (target) writeRequest({ type: "export", path: target.fsPath });
+          else send({ type: "export-cancelled" });
+          break;
+        }
         case "open-spectrum":
           this.showSpectrum(document.uri, message.payload);
+          break;
+        case "export-notification":
+          vscode.window.showInformationMessage(`Exported ${Number(message.totalRows) || 0} spectra to ${path.basename(String(message.path || "dataset"))}`);
+          break;
+        case "export-error-notification":
+          vscode.window.showErrorMessage(String(message.message || "Could not export dataset."));
           break;
         case "show-logs":
           outputChannel.show(true);

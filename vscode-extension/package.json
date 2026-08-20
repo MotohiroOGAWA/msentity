@@ -47,8 +47,8 @@
           ".mgf"
         ],
         "icon": {
-          "light": "./media/editor-icon.ico",
-          "dark": "./media/editor-icon.ico"
+          "light": "./media/editor-icon.png",
+          "dark": "./media/editor-icon.png"
         }
       }
     ],

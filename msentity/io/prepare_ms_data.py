@@ -1,4 +1,4 @@
-from typing import Union
+from typing import Callable, Union
 from pathlib import Path
 
 from .. import MSDataset
@@ -11,6 +11,8 @@ def load_ms_dataset(
     *,
     file_type: str | None = None,
     spec_id_prefix: str | None = None,
+    show_progress: bool = True,
+    progress_callback: Callable[[int, int, int, int], None] | None = None,
 ) -> MSDataset:
     input_path = Path(input_file)
 
@@ -32,9 +34,9 @@ def load_ms_dataset(
     file_type = file_type.lower()
 
     if file_type == "msp":
-        dataset = read_msp(input_path, spec_id_prefix=spec_id_prefix)
+        dataset = read_msp(input_path, spec_id_prefix=spec_id_prefix, show_progress=show_progress, progress_callback=progress_callback)
     elif file_type == "mgf":
-        dataset = read_mgf(input_path, spec_id_prefix=spec_id_prefix)
+        dataset = read_mgf(input_path, spec_id_prefix=spec_id_prefix, show_progress=show_progress, progress_callback=progress_callback)
     elif file_type == "msds":
         dataset = MSDataset.load(input_path)
     else:

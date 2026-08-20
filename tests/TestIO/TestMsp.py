@@ -77,6 +77,18 @@ class TestMSPIO(unittest.TestCase):
         finally:
             os.remove(path)
 
+    def test_read_msp_progress_callback(self) -> None:
+        """read_msp should report byte and spectrum progress."""
+        path = self._write_temp_file("Name: spec1\nNumPeaks: 1\n50 10\n\n")
+        updates: list[tuple[int, int, int, int]] = []
+        try:
+            read_msp(path, show_progress=False, progress_callback=lambda *args: updates.append(args))
+            self.assertTrue(updates)
+            self.assertEqual(updates[-1][0], updates[-1][1])
+            self.assertEqual(updates[-1][2:], (1, 1))
+        finally:
+            os.remove(path)
+
     def test_read_msp_return_header_map(self) -> None:
         """read_msp should return header_map when requested."""
         msp_text = (

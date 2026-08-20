@@ -91,6 +91,8 @@ by `msentitySpectrumViewer.pythonPath` must have `msentity` installed.
 Open an `.msds`, `.msp`, or `.mgf` file and click a spectrum row to display its
 mass spectrum. The viewer supports peak selection and sorting, drag-to-zoom,
 zoom-dependent readable axis ticks, and previewed transparent PNG/SVG export.
+The complete loaded dataset can also be converted and saved as MSDS, MSP, or
+MGF directly from the viewer.
 The export dialog can independently include tick grid lines, tick numbers, and
 m/z labels above peaks; grid lines, tick numbers, and peak labels are off by
 default. Without tick numbers, exported axis titles and margins are compacted.

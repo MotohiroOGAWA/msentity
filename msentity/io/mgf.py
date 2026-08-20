@@ -32,6 +32,7 @@ def read_mgf(
     error_context_lines: int = 10,
     peak_parser: Optional[Callable[[str], Dict[str, Any]]] = None,
     auto_peak_col_prefix: str = "column",
+    progress_callback: Optional[Callable[[int, int, int, int], None]] = None,
 ) -> MSDataset | tuple[MSDataset, dict[str, str]]:
     """
     Read an MGF file into an MSDataset.
@@ -89,6 +90,7 @@ def read_mgf(
         canonicalize_adduct_type=canonicalize_adduct_type,
         normalize_intensity=normalize_intensity,
         error_context_lines=error_context_lines,
+        progress_callback=progress_callback,
     )
 
     in_ions_block = False
