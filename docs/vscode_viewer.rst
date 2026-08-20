@@ -60,17 +60,19 @@ vertically to zoom only the intensity axis, or drag diagonally to zoom both.
 A movement component below the drag threshold leaves that axis unchanged, so
 horizontal navigation never rescales intensity. Tick spacing is recalculated
 for the visible range using readable 1, 2, 2.5, 5, and 10 multiples. Click
-**Reset zoom** to return both axes to the full range. The
+**Reset zoom**, or double-click inside the plot, to return both axes to the
+full range. Clicking empty plot space clears the selected peak. The
 intensity axis always begins at zero, leaves 10% headroom above the highest
 peak, and uses the same adaptive tick scheme.
 
 Choose **Export image...** to preview the current zoomed plot before saving.
 The preview can independently show or hide tick grid lines, tick numbers, and
-m/z labels above each peak. Grid lines and peak labels are off by default;
-tick numbers are on. Choose **Save PNG** or **Save SVG** after checking the
-preview. Both formats use a transparent background. PNG output is rendered at
-1800 × 1080; SVG output remains scalable. Export uses the currently visible
-m/z range, including any active zoom.
+m/z labels above each peak. All three are off by default. When tick numbers are
+hidden, the axis titles move closer to their axes and the unused margins are
+cropped. Choose **Save PNG** or **Save SVG** after checking the preview. Both
+formats use a transparent background. PNG output is rendered at twice the SVG
+dimensions; SVG output remains scalable. Export uses the currently visible m/z range,
+including any active zoom.
 
 Settings
 --------

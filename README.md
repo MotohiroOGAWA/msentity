@@ -92,7 +92,8 @@ Open an `.msds`, `.msp`, or `.mgf` file and click a spectrum row to display its
 mass spectrum. The viewer supports peak selection and sorting, drag-to-zoom,
 zoom-dependent readable axis ticks, and previewed transparent PNG/SVG export.
 The export dialog can independently include tick grid lines, tick numbers, and
-m/z labels above peaks; grid lines are off by default.
+m/z labels above peaks; grid lines, tick numbers, and peak labels are off by
+default. Without tick numbers, exported axis titles and margins are compacted.
 
 ![VS Code custom editor showing the paged msentity dataset table](docs/_static/images/gui_screenshot_1.png)
 

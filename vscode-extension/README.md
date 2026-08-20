@@ -13,7 +13,7 @@ This extension is the graphical viewer included in the
 - m/z range starting at zero and adaptive 1, 2, 2.5, 5, 10 tick spacing
 - Adaptive zero-based intensity ticks
 - Export preview with optional grid lines, tick numbers, and peak m/z labels
-- Transparent PNG and SVG plot export (grid lines off by default)
+- Transparent PNG and SVG plot export (all optional elements off by default)
 - VS Code light, dark, and high-contrast theme support
 
 ## Download and install 0.1.1
@@ -70,6 +70,9 @@ elements to include, check the preview, and save the visible plot as a
 transparent PNG or SVG. Tick grid lines are excluded by default.
 The exported image uses the current zoom range and leaves 10% intensity
 headroom so labels above maximum-intensity peaks remain readable.
+When tick numbers are disabled, export compacts the axis-title spacing and
+unused margins. Click empty plot space to clear peak selection; double-click
+the plot to reset both zoom axes.
 
 Set `msentitySpectrumViewer.spectrumFloatingWindow` to `false` if the spectrum
 should remain in an editor pane beside the dataset table.

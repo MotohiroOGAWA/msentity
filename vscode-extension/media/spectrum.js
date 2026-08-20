@@ -48,6 +48,17 @@
     svg.setAttribute("xmlns", "http://www.w3.org/2000/svg");
     svg.setAttribute("width", "900");
     svg.setAttribute("height", "540");
+    if (!options.tickLabels) {
+      // Tick labels account for most of the left/bottom margins. Move the axis
+      // titles toward their axes and crop those unused margins for export.
+      const mzTitle = svg.querySelector(".mz-title");
+      const intensityTitle = [...svg.querySelectorAll(".axis-title")].find((element) => element !== mzTitle);
+      mzTitle?.setAttribute("y", "508");
+      intensityTitle?.setAttribute("transform", "translate(42 254) rotate(-90)");
+      svg.setAttribute("viewBox", "24 10 866 510");
+      svg.setAttribute("width", "866");
+      svg.setAttribute("height", "510");
+    }
 
     const styles = getComputedStyle(document.documentElement);
     const color = (name, fallback) => styles.getPropertyValue(name).trim() || fallback;
@@ -107,11 +118,13 @@
     const url = URL.createObjectURL(new Blob([markup], { type: "image/svg+xml;charset=utf-8" }));
     image.onload = () => {
       const canvas = document.createElement("canvas");
-      canvas.width = 1800;
-      canvas.height = 1080;
+      const exportWidth = Number(svg.getAttribute("width")) || 900;
+      const exportHeight = Number(svg.getAttribute("height")) || 540;
+      canvas.width = exportWidth * 2;
+      canvas.height = exportHeight * 2;
       const context = canvas.getContext("2d");
       context.scale(2, 2);
-      context.drawImage(image, 0, 0, 900, 540);
+      context.drawImage(image, 0, 0, exportWidth, exportHeight);
       URL.revokeObjectURL(url);
       canvas.toBlob((blob) => blob && save(blob, `${basename}.png`), "image/png");
     };
@@ -192,7 +205,7 @@
           <fieldset class="export-options">
             <legend>Elements to include</legend>
             <label><input id="export-grid" type="checkbox"> Tick grid lines</label>
-            <label><input id="export-ticks" type="checkbox" checked> Tick numbers</label>
+            <label><input id="export-ticks" type="checkbox"> Tick numbers</label>
             <label><input id="export-peaks" type="checkbox"> m/z above peaks</label>
           </fieldset>
           <div id="export-preview" class="export-preview" aria-label="Image preview"></div>
@@ -312,7 +325,12 @@
         start = current = pressedPeak = null;
         if (dragged) draw();
         else if (clickedPeak !== null) choose(clickedPeak);
-        else svg.querySelector("#drag-box")?.setAttribute("width", "0");
+        else if (state.selectedPeak !== null) {
+          state.selectedPeak = null;
+          draw();
+        } else {
+          svg.querySelector("#drag-box")?.setAttribute("width", "0");
+        }
       });
     };
 
@@ -327,11 +345,16 @@
     };
     mzSort.onclick = () => changeSort("mz");
     intensitySort.onclick = () => changeSort("intensity");
-    reset.onclick = () => {
+    const resetZoom = () => {
       state.domain = [...full];
       state.yDomain = [0, fullYMax];
       state.selectedPeak = null;
       draw();
+    };
+    reset.onclick = resetZoom;
+    root.ondblclick = (event) => {
+      event.preventDefault();
+      resetZoom();
     };
     exportImage.onclick = openExportPreview;
     draw();
