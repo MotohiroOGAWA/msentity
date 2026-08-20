@@ -56,14 +56,39 @@
       .grid { stroke: ${color("--grid", "#d0d5dd")}; stroke-width: 1; opacity: .72 }
       .peak { stroke: ${color("--peak", "#2563eb")}; stroke-width: 2.4 }
       .peak.selected { stroke: ${color("--peak-selected", "#dc2626")}; stroke-width: 4 }
-      .axis { stroke: ${color("--axis", "#344054")}; stroke-width: 1.6 }
-      .axis-title { font-weight: 650; fill: ${color("--axis", "#344054")} }
+      .axis { stroke: #000; stroke-width: 1.5 }
+      .axis-title { font-weight: 650; fill: #000 }
       .mz-title { font-style: italic }
-      .peak-label { font-size: 11px; font-style: italic; fill: ${color("--axis", "#344054")} }
+      .peak-label { font-size: 11px; font-style: italic; fill: #000 }
     `;
     const style = document.createElementNS("http://www.w3.org/2000/svg", "style");
     style.textContent = css;
     svg.prepend(style);
+    // Presentation attributes survive both the live preview and SVG-to-canvas
+    // conversion even when the webview blocks embedded SVG styles.
+    svg.querySelectorAll(".grid").forEach((element) => {
+      element.setAttribute("stroke", color("--grid", "#d0d5dd"));
+      element.setAttribute("stroke-width", "1");
+      element.setAttribute("opacity", ".72");
+    });
+    svg.querySelectorAll(".peak").forEach((element) => {
+      element.setAttribute("stroke", element.classList.contains("selected") ? color("--peak-selected", "#dc2626") : color("--peak", "#2563eb"));
+      element.setAttribute("stroke-width", element.classList.contains("selected") ? "4" : "2.4");
+    });
+    svg.querySelectorAll(".axis").forEach((element) => {
+      element.setAttribute("stroke", "#000");
+      element.setAttribute("stroke-width", "1.5");
+    });
+    svg.querySelectorAll("text").forEach((element) => {
+      element.setAttribute("fill", color("--plot-text", "#667085"));
+      element.setAttribute("font-family", "system-ui, sans-serif");
+      element.setAttribute("font-size", "13");
+    });
+    svg.querySelectorAll(".axis-title, .peak-label").forEach((element) => element.setAttribute("fill", "#000"));
+    svg.querySelectorAll(".peak-label").forEach((element) => {
+      element.setAttribute("font-size", "11");
+      element.setAttribute("font-style", "italic");
+    });
     return svg;
   };
 
@@ -207,8 +232,9 @@
       const domainWidth = Math.max(Number.EPSILON, domain[1] - domain[0]);
       const shown = peaks.filter((p) => p.x >= domain[0] && p.x <= domain[1]);
       const rawYMax = Math.max(1, ...shown.map((p) => Math.max(0, p.y)));
-      const yStep = niceStep(rawYMax, 6);
-      const yMax = Math.max(yStep, Math.ceil(rawYMax / yStep) * yStep);
+      // Ten percent of headroom keeps the label of the base peak above its tip.
+      // A normalized spectrum whose maximum is 1.0 therefore uses yMax = 1.1.
+      const yMax = rawYMax * 1.1;
       const sx = (x) => L + (x - domain[0]) / domainWidth * (W - L - R);
       const sy = (y) => H - B - Math.max(0, y) / yMax * (H - T - B);
 
@@ -226,7 +252,7 @@
         grid += `<text class="tick-label" x="${L - 10}" y="${y + 4}" text-anchor="end">${value.toFixed(tickDecimals(yTicks.step))}</text>`;
       }
       const sticks = shown.map((p) => `<line data-peak="${p.index}" x1="${sx(p.x)}" y1="${H - B}" x2="${sx(p.x)}" y2="${sy(p.y)}" class="peak ${state.selectedPeak === p.index ? "selected" : ""}"><title>m/z ${p.x} · intensity ${p.y}</title></line>`).join("");
-      const peakLabels = shown.map((p) => `<text x="${sx(p.x)}" y="${Math.max(T + 11, sy(p.y) - 6)}" text-anchor="middle" class="peak-label">${p.x.toFixed(4)}</text>`).join("");
+      const peakLabels = shown.map((p) => `<text x="${sx(p.x)}" y="${Math.max(T + 11, sy(p.y) - 8)}" text-anchor="middle" class="peak-label">${p.x.toFixed(4)}</text>`).join("");
       root.innerHTML = `<svg id="spectrum-svg" viewBox="0 0 ${W} ${H}" role="img" aria-label="Mass spectrum"><g class="spectrum-grid">${grid}</g><line x1="${L}" y1="${H - B}" x2="${W - R}" y2="${H - B}" class="axis"/><line x1="${L}" y1="${T}" x2="${L}" y2="${H - B}" class="axis"/>${sticks}<g class="peak-labels">${peakLabels}</g><rect id="drag-box" x="${L}" y="${T}" width="0" height="${H - T - B}" class="selection"/><text x="${(L + W - R) / 2}" y="${H - 12}" text-anchor="middle" class="axis-title mz-title">m/z</text><text transform="translate(17 ${(T + H - B) / 2}) rotate(-90)" text-anchor="middle" class="axis-title">Intensity</text></svg>`;
 
       const ordered = [...peaks].sort((a, b) => (state.sortKey === "mz" ? a.x - b.x : a.y - b.y) * (state.sortAscending ? 1 : -1));

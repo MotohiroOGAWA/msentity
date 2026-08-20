@@ -67,6 +67,8 @@ the reusable **Mass Spectrum** panel opens and updates when another record is
 selected. Drag horizontally to zoom. Choose **Export image...**, select the
 elements to include, check the preview, and save the visible plot as a
 transparent PNG or SVG. Tick grid lines are excluded by default.
+The exported image uses the current zoom range and leaves 10% intensity
+headroom so labels above maximum-intensity peaks remain readable.
 
 Set `msentitySpectrumViewer.spectrumFloatingWindow` to `false` if the spectrum
 should remain in an editor pane beside the dataset table.
