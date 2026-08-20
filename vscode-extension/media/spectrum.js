@@ -37,11 +37,14 @@
     vscode.postMessage({ type: "save-image", filename, bytes });
   };
 
-  const exportSvg = (format, title) => {
+  const prepareExportSvg = (options) => {
     const source = document.getElementById("spectrum-svg");
-    if (!source) return;
+    if (!source) return null;
     const svg = source.cloneNode(true);
     svg.querySelector("#drag-box")?.remove();
+    if (!options.gridLines) svg.querySelectorAll(".grid").forEach((element) => element.remove());
+    if (!options.tickLabels) svg.querySelectorAll(".tick-label").forEach((element) => element.remove());
+    if (!options.peakLabels) svg.querySelectorAll(".peak-label").forEach((element) => element.remove());
     svg.setAttribute("xmlns", "http://www.w3.org/2000/svg");
     svg.setAttribute("width", "900");
     svg.setAttribute("height", "540");
@@ -56,10 +59,17 @@
       .axis { stroke: ${color("--axis", "#344054")}; stroke-width: 1.6 }
       .axis-title { font-weight: 650; fill: ${color("--axis", "#344054")} }
       .mz-title { font-style: italic }
+      .peak-label { font-size: 11px; font-style: italic; fill: ${color("--axis", "#344054")} }
     `;
     const style = document.createElementNS("http://www.w3.org/2000/svg", "style");
     style.textContent = css;
     svg.prepend(style);
+    return svg;
+  };
+
+  const saveExport = (format, options, title) => {
+    const svg = prepareExportSvg(options);
+    if (!svg) return;
     const markup = new XMLSerializer().serializeToString(svg);
     const basename = String(title || "spectrum").replace(/[^\w.-]+/g, "_");
 
@@ -80,7 +90,30 @@
       URL.revokeObjectURL(url);
       canvas.toBlob((blob) => blob && save(blob, `${basename}.png`), "image/png");
     };
+    image.onerror = () => vscode.postMessage({ type: "export-error", message: "PNG preview could not be rendered." });
     image.src = url;
+  };
+
+  const openExportPreview = () => {
+    const dialog = document.getElementById("export-dialog");
+    const preview = document.getElementById("export-preview");
+    if (!dialog || !preview) return;
+    const controls = {
+      gridLines: document.getElementById("export-grid"),
+      tickLabels: document.getElementById("export-ticks"),
+      peakLabels: document.getElementById("export-peaks")
+    };
+    const options = () => Object.fromEntries(Object.entries(controls).map(([key, input]) => [key, Boolean(input?.checked)]));
+    const update = () => {
+      const svg = prepareExportSvg(options());
+      preview.replaceChildren(...(svg ? [svg] : []));
+    };
+    Object.values(controls).forEach((input) => input?.addEventListener("change", update));
+    document.getElementById("export-cancel").onclick = () => dialog.close();
+    document.getElementById("export-png").onclick = () => saveExport("png", options(), state?.title);
+    document.getElementById("export-svg").onclick = () => saveExport("svg", options(), state?.title);
+    update();
+    dialog.showModal();
   };
 
   function renderSpectrum(payload) {
@@ -113,7 +146,7 @@
             <div class="eyebrow">MSENTITY · SPECTRUM ${globalIndex + 1}</div>
             <h1>${esc(title)}</h1>
           </div>
-          <div class="actions"><span>${mz.length} peaks</span><button id="save-png">Save PNG</button><button id="save-svg">Save SVG</button><button id="reset-zoom">Reset zoom</button></div>
+          <div class="actions"><span>${mz.length} peaks</span><button id="export-image">Export image…</button><button id="reset-zoom">Reset zoom</button></div>
         </header>
         <div class="spectrum-workspace">
           <section class="plot-panel" id="plot-root"></section>
@@ -128,6 +161,17 @@
           </aside>
         </div>
         <section class="metadata-panel"><h2>Metadata</h2><dl>${metadata}</dl></section>
+        <dialog id="export-dialog" class="export-dialog">
+          <form method="dialog" class="export-header"><h2>Export spectrum image</h2><button aria-label="Close">×</button></form>
+          <fieldset class="export-options">
+            <legend>Elements to include</legend>
+            <label><input id="export-grid" type="checkbox"> Tick grid lines</label>
+            <label><input id="export-ticks" type="checkbox" checked> Tick numbers</label>
+            <label><input id="export-peaks" type="checkbox"> m/z above peaks</label>
+          </fieldset>
+          <div id="export-preview" class="export-preview" aria-label="Image preview"></div>
+          <div class="export-actions"><button id="export-cancel" type="button">Cancel</button><button id="export-svg" type="button">Save SVG</button><button id="export-png" type="button">Save PNG</button></div>
+        </dialog>
       </main>`;
     setupSpectrumPlot(mz, intensity);
   }
@@ -139,11 +183,10 @@
     const root = document.getElementById("plot-root");
     const tbody = document.getElementById("peak-body");
     const reset = document.getElementById("reset-zoom");
-    const savePng = document.getElementById("save-png");
-    const saveSvg = document.getElementById("save-svg");
+    const exportImage = document.getElementById("export-image");
     const mzSort = document.getElementById("sort-mz");
     const intensitySort = document.getElementById("sort-intensity");
-    if (!root || !tbody || !reset || !savePng || !saveSvg || !mzSort || !intensitySort) return;
+    if (!root || !tbody || !reset || !exportImage || !mzSort || !intensitySort) return;
 
     const W = 900, H = 540, L = 72, R = 32, T = 30, B = 62;
     const rawMax = peaks.length ? Math.max(...peaks.map((p) => p.x)) : 1;
@@ -174,16 +217,17 @@
       for (const value of xTicks.values) {
         const x = sx(value);
         grid += `<line x1="${x}" y1="${T}" x2="${x}" y2="${H - B}" class="grid"/>`;
-        grid += `<text x="${x}" y="${H - B + 26}" text-anchor="middle">${value.toFixed(tickDecimals(xTicks.step))}</text>`;
+        grid += `<text class="tick-label" x="${x}" y="${H - B + 26}" text-anchor="middle">${value.toFixed(tickDecimals(xTicks.step))}</text>`;
       }
       const yTicks = ticks(0, yMax);
       for (const value of yTicks.values) {
         const y = sy(value);
         grid += `<line x1="${L}" y1="${y}" x2="${W - R}" y2="${y}" class="grid"/>`;
-        grid += `<text x="${L - 10}" y="${y + 4}" text-anchor="end">${value.toFixed(tickDecimals(yTicks.step))}</text>`;
+        grid += `<text class="tick-label" x="${L - 10}" y="${y + 4}" text-anchor="end">${value.toFixed(tickDecimals(yTicks.step))}</text>`;
       }
       const sticks = shown.map((p) => `<line data-peak="${p.index}" x1="${sx(p.x)}" y1="${H - B}" x2="${sx(p.x)}" y2="${sy(p.y)}" class="peak ${state.selectedPeak === p.index ? "selected" : ""}"><title>m/z ${p.x} · intensity ${p.y}</title></line>`).join("");
-      root.innerHTML = `<svg id="spectrum-svg" viewBox="0 0 ${W} ${H}" role="img" aria-label="Mass spectrum"><g class="spectrum-grid">${grid}</g><line x1="${L}" y1="${H - B}" x2="${W - R}" y2="${H - B}" class="axis"/><line x1="${L}" y1="${T}" x2="${L}" y2="${H - B}" class="axis"/>${sticks}<rect id="drag-box" x="${L}" y="${T}" width="0" height="${H - T - B}" class="selection"/><text x="${(L + W - R) / 2}" y="${H - 12}" text-anchor="middle" class="axis-title mz-title">m/z</text><text transform="translate(17 ${(T + H - B) / 2}) rotate(-90)" text-anchor="middle" class="axis-title">Intensity</text></svg>`;
+      const peakLabels = shown.map((p) => `<text x="${sx(p.x)}" y="${Math.max(T + 11, sy(p.y) - 6)}" text-anchor="middle" class="peak-label">${p.x.toFixed(4)}</text>`).join("");
+      root.innerHTML = `<svg id="spectrum-svg" viewBox="0 0 ${W} ${H}" role="img" aria-label="Mass spectrum"><g class="spectrum-grid">${grid}</g><line x1="${L}" y1="${H - B}" x2="${W - R}" y2="${H - B}" class="axis"/><line x1="${L}" y1="${T}" x2="${L}" y2="${H - B}" class="axis"/>${sticks}<g class="peak-labels">${peakLabels}</g><rect id="drag-box" x="${L}" y="${T}" width="0" height="${H - T - B}" class="selection"/><text x="${(L + W - R) / 2}" y="${H - 12}" text-anchor="middle" class="axis-title mz-title">m/z</text><text transform="translate(17 ${(T + H - B) / 2}) rotate(-90)" text-anchor="middle" class="axis-title">Intensity</text></svg>`;
 
       const ordered = [...peaks].sort((a, b) => (state.sortKey === "mz" ? a.x - b.x : a.y - b.y) * (state.sortAscending ? 1 : -1));
       tbody.innerHTML = ordered.map((p) => `<tr data-peak-row="${p.index}" class="peak-row ${state.selectedPeak === p.index ? "selected" : ""}"><td><button data-peak-button="${p.index}">${p.x.toFixed(5)}</button></td><td><button data-peak-button="${p.index}">${p.y.toLocaleString()}</button></td></tr>`).join("");
@@ -248,8 +292,7 @@
       state.selectedPeak = null;
       draw();
     };
-    savePng.onclick = () => exportSvg("png", state?.title);
-    saveSvg.onclick = () => exportSvg("svg", state?.title);
+    exportImage.onclick = openExportPreview;
     draw();
   }
 

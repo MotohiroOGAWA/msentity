@@ -12,7 +12,8 @@ This extension is the graphical viewer included in the
 - Horizontal drag-to-zoom and Reset zoom
 - m/z range starting at zero and adaptive 1, 2, 2.5, 5, 10 tick spacing
 - Adaptive zero-based intensity ticks
-- Transparent PNG and SVG plot export
+- Export preview with optional grid lines, tick numbers, and peak m/z labels
+- Transparent PNG and SVG plot export (grid lines off by default)
 - VS Code light, dark, and high-contrast theme support
 
 ## Download and install 0.1.1
@@ -63,8 +64,9 @@ code --install-extension ./msentity-spectrum-viewer-0.1.1.vsix --force
 
 Open an `.msds`, `.msp`, or `.mgf` file. Click a spectrum button in the table;
 the reusable **Mass Spectrum** panel opens and updates when another record is
-selected. Drag horizontally to zoom. Use **Save PNG** or **Save SVG** to export
-the visible plot with a transparent background.
+selected. Drag horizontally to zoom. Choose **Export image...**, select the
+elements to include, check the preview, and save the visible plot as a
+transparent PNG or SVG. Tick grid lines are excluded by default.
 
 Set `msentitySpectrumViewer.spectrumFloatingWindow` to `false` if the spectrum
 should remain in an editor pane beside the dataset table.

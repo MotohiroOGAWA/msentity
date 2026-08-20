@@ -48,9 +48,12 @@ spacing is recalculated for the visible range using readable 1, 2, 2.5, 5,
 and 10 multiples. Click **Reset zoom** to return to the full range. The
 intensity axis always begins at zero and uses the same adaptive tick scheme.
 
-Use **Save PNG** or **Save SVG** to download the current zoomed plot. Both
-formats use a transparent background. PNG output is rendered at 1800 × 1080;
-SVG output remains scalable.
+Choose **Export image...** to preview the current zoomed plot before saving.
+The preview can independently show or hide tick grid lines, tick numbers, and
+m/z labels above each peak. Grid lines and peak labels are off by default;
+tick numbers are on. Choose **Save PNG** or **Save SVG** after checking the
+preview. Both formats use a transparent background. PNG output is rendered at
+1800 × 1080; SVG output remains scalable.
 
 Settings
 --------

@@ -160,6 +160,8 @@ class MSEntityViewerProvider {
           if (entry.latest) panel.webview.postMessage({ type: "spectrum", payload: entry.latest });
         } else if (message?.type === "save-image") {
           this.saveImage(documentUri, message);
+        } else if (message?.type === "export-error") {
+          vscode.window.showErrorMessage(String(message.message || "Could not export spectrum image."));
         }
       });
       panel.onDidDispose(() => this.spectrumPanels.delete(key));
@@ -240,7 +242,7 @@ function getSpectrumWebviewHtml(webview, extensionUri) {
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src ${webview.cspSource}; script-src 'nonce-${nonce}';" />
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src blob: data:; style-src ${webview.cspSource}; script-src 'nonce-${nonce}';" />
   <link rel="stylesheet" href="${styleUri}" />
   <title>Mass Spectrum</title>
 </head>
