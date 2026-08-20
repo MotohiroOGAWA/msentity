@@ -7,8 +7,9 @@ const VIEW_TYPE = "msentity.spectrumViewer";
 let outputChannel;
 
 class MSEntityDocument {
-  constructor(uri) {
+  constructor(uri, fileType = null) {
     this.uri = uri;
+    this.fileType = fileType;
   }
   dispose() {}
 }
@@ -18,10 +19,14 @@ class MSEntityViewerProvider {
     this.context = context;
     this.iconPath = vscode.Uri.joinPath(context.extensionUri, "media", "editor-icon.png");
     this.spectrumPanels = new Map();
+    this.forcedFileTypes = new Map();
   }
 
   async openCustomDocument(uri) {
-    return new MSEntityDocument(uri);
+    const key = uri.toString();
+    const fileType = this.forcedFileTypes.get(key) || null;
+    this.forcedFileTypes.delete(key);
+    return new MSEntityDocument(uri, fileType);
   }
 
   async resolveCustomEditor(document, webviewPanel) {
@@ -41,9 +46,11 @@ class MSEntityViewerProvider {
     outputChannel.appendLine(`[open] ${document.uri.fsPath}`);
     outputChannel.appendLine(`[python] ${pythonPath}`);
 
+    const backendArgs = ["-u", backendPath, document.uri.fsPath, "--page-size", String(pageSize)];
+    if (document.fileType) backendArgs.push("--file-type", document.fileType);
     const child = spawn(
       pythonPath,
-      ["-u", backendPath, document.uri.fsPath, "--page-size", String(pageSize)],
+      backendArgs,
       {
         cwd: path.dirname(document.uri.fsPath),
         env: process.env,
@@ -120,17 +127,28 @@ class MSEntityViewerProvider {
           writeRequest({ type: "reload" });
           break;
         case "export-dataset": {
+          const format = await vscode.window.showQuickPick(["msds", "msp", "mgf"], {
+            title: "Export msentity dataset",
+            placeHolder: "Choose the output format"
+          });
+          if (!format) {
+            send({ type: "export-cancelled" });
+            break;
+          }
           const sourceName = path.basename(document.uri.fsPath, path.extname(document.uri.fsPath));
           const target = await vscode.window.showSaveDialog({
-            defaultUri: vscode.Uri.joinPath(document.uri, "..", `${sourceName}.msds`),
-            filters: {
-              "msentity dataset": ["msds"],
-              "NIST MSP": ["msp"],
-              "Mascot Generic Format": ["mgf"]
-            }
+            defaultUri: vscode.Uri.joinPath(document.uri, "..", `${sourceName}.${format}`),
+            filters: format === "msds" ? { "msentity dataset": ["msds"] } : format === "msp" ? { "NIST MSP": ["msp"] } : { "Mascot Generic Format": ["mgf"] }
           });
-          if (target) writeRequest({ type: "export", path: target.fsPath });
-          else send({ type: "export-cancelled" });
+          if (target) {
+            const selectedExtension = path.extname(target.fsPath);
+            const exportPath = selectedExtension.toLowerCase() === `.${format}`
+              ? target.fsPath
+              : selectedExtension
+                ? `${target.fsPath.slice(0, -selectedExtension.length)}.${format}`
+                : `${target.fsPath}.${format}`;
+            writeRequest({ type: "export", path: exportPath, file_type: format });
+          } else send({ type: "export-cancelled" });
           break;
         }
         case "open-spectrum":
@@ -230,6 +248,16 @@ class MSEntityViewerProvider {
     for (const { panel } of this.spectrumPanels.values()) panel.dispose();
     this.spectrumPanels.clear();
   }
+
+  openAs(uri, fileType) {
+    const target = uri || vscode.window.activeTextEditor?.document?.uri;
+    if (!target) {
+      vscode.window.showWarningMessage("Select a dataset file first.");
+      return;
+    }
+    this.forcedFileTypes.set(target.toString(), fileType);
+    return vscode.commands.executeCommand("vscode.openWith", target, VIEW_TYPE);
+  }
 }
 
 function getDatasetWebviewHtml(webview, extensionUri, documentUri) {
@@ -287,6 +315,12 @@ function activate(context) {
       supportsMultipleEditorsPerDocument: false
     })
   );
+
+  for (const fileType of ["msds", "msp", "mgf"]) {
+    context.subscriptions.push(
+      vscode.commands.registerCommand(`msentitySpectrumViewer.openAs${fileType.toUpperCase()}`, (uri) => provider.openAs(uri, fileType))
+    );
+  }
 
   context.subscriptions.push(
     vscode.commands.registerCommand("msentitySpectrumViewer.open", async (uri) => {

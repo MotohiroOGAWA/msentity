@@ -29,10 +29,13 @@
     "workspace"
   ],
   "main": "./extension.js",
-  "activationEvents": [
+    "activationEvents": [
     "onCustomEditor:msentity.spectrumViewer",
     "onCommand:msentitySpectrumViewer.open",
-    "onCommand:msentitySpectrumViewer.showLogs"
+    "onCommand:msentitySpectrumViewer.showLogs",
+    "onCommand:msentitySpectrumViewer.openAsMSDS",
+    "onCommand:msentitySpectrumViewer.openAsMSP",
+    "onCommand:msentitySpectrumViewer.openAsMGF"
   ],
   "contributes": {
     "languages": [
@@ -78,6 +81,18 @@
       {
         "command": "msentitySpectrumViewer.showLogs",
         "title": "MS Entity: Show Spectrum Viewer Logs"
+      },
+      {
+        "command": "msentitySpectrumViewer.openAsMSDS",
+        "title": "MS Entity: Open as MSDS"
+      },
+      {
+        "command": "msentitySpectrumViewer.openAsMSP",
+        "title": "MS Entity: Open as MSP"
+      },
+      {
+        "command": "msentitySpectrumViewer.openAsMGF",
+        "title": "MS Entity: Open as MGF"
       }
     ],
     "menus": {
@@ -86,6 +101,18 @@
           "command": "msentitySpectrumViewer.open",
           "when": "resourceExtname == .msds || resourceExtname == .msp || resourceExtname == .mgf",
           "group": "navigation@20"
+        },
+        {
+          "command": "msentitySpectrumViewer.openAsMSDS",
+          "group": "msentity@21"
+        },
+        {
+          "command": "msentitySpectrumViewer.openAsMSP",
+          "group": "msentity@22"
+        },
+        {
+          "command": "msentitySpectrumViewer.openAsMGF",
+          "group": "msentity@23"
         }
       ]
     },

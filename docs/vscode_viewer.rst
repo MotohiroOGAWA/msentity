@@ -43,14 +43,20 @@ Open an ``.msds``, ``.msp``, or ``.mgf`` file normally, or right-click it in
 Explorer and choose **MS Entity: Open Spectrum Viewer**. Click the spectrum
 button in a table row to update the spectrum panel.
 
+Normal opening detects the input format from the filename extension. To select
+it explicitly, right-click any file in Explorer and choose **MS Entity: Open as
+MSDS**, **MS Entity: Open as MSP**, or **MS Entity: Open as MGF**. These commands
+are also available in the Command Palette and take precedence over the filename
+extension.
+
 While an MSP or MGF file is being parsed, the editor displays a progress bar
 with the percentage, processed bytes, and successfully loaded spectrum count.
 The same progress display is used when **Reload** rereads the file.
 
 Choose **Export...** to save the entire loaded dataset as MSDS, MSP, or MGF.
-Select the desired extension in the VS Code save dialog; the output format is
-determined from ``.msds``, ``.msp``, or ``.mgf``. Export always writes the full
-dataset, not only the current page or filtered table rows.
+First select the output format explicitly, then select the save location. The
+matching filename extension is applied automatically. Export always writes the
+full dataset, not only the current page or filtered table rows.
 
 .. figure:: _static/images/gui_screenshot_1.png
    :alt: VS Code custom editor showing the paged msentity dataset table

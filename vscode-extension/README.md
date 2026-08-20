@@ -78,6 +78,13 @@ When tick numbers are disabled, export compacts the axis-title spacing and
 unused margins. Click empty plot space to clear peak selection; double-click
 the plot to reset both zoom axes.
 
+Opening normally detects MSDS, MSP, or MGF from the extension. To override it,
+right-click a file in Explorer and choose **MS Entity: Open as MSDS**, **Open as
+MSP**, or **Open as MGF**. The same commands are available in the Command
+Palette. Dataset **Export...** first asks for MSDS, MSP, or MGF and then for the
+save location; the chosen format takes precedence and its extension is applied
+automatically.
+
 Set `msentitySpectrumViewer.spectrumFloatingWindow` to `false` if the spectrum
 should remain in an editor pane beside the dataset table.
 
