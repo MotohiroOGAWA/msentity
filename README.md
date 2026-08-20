@@ -11,7 +11,7 @@ manipulating mass-spectrometry datasets. It combines pandas-based spectrum
 metadata with compact peak storage and provides MSP, MGF, and native MSDS I/O.
 
 Use it from Python, the command line, an interactive dataset shell, or the
-optional browser-based spectrum viewer.
+included VS Code spectrum viewer.
 
 ---
 
@@ -31,26 +31,8 @@ Install directly from GitHub:
 python -m pip install "msentity @ git+https://github.com/MotohiroOGAWA/msentity.git"
 ```
 
-This installs the command-line tools without Gradio or the optional graphical
-viewer.
-
-## Installation with GUI
-
-Install the GUI extra directly from GitHub:
-
-```console
-python -m pip install "msentity[gui] @ git+https://github.com/MotohiroOGAWA/msentity.git"
-```
-
-From an existing clone, use:
-
-```console
-python -m pip install ".[gui]"
-```
-
-The GUI extra installs Gradio and the custom spectrum-viewer component. The
-regular installation remains smaller and includes every Python API, CLI
-command, and the interactive shell.
+This installs the Python API, command-line tools, and interactive shell. The
+VS Code extension is distributed as a separate VSIX from this same repository.
 
 ## Command-line usage
 
@@ -91,30 +73,35 @@ Use `help <command>` inside the shell for command-specific options. Filtering
 and sorting operate on the current dataset view; `reset` restores the complete
 view.
 
-## GUI usage
+## VS Code spectrum viewer
 
-Open an MSP, MGF, or MSDS dataset in the browser-based spectrum viewer:
-
-```console
-msentity gui sample.msp
-msentity gui sample.mgf
-msentity gui sample.msds
-```
-
-The viewer opens in a browser and shows a spectrum plot alongside its metadata.
-Use the **Previous** and **Next** buttons or enter a zero-based spectrum index
-to move through the dataset.
-
-![msentity GUI showing the dataset table, mass spectrum, peak list, and metadata](docs/_static/images/gui-screenshot.png)
-
-The server listens on `127.0.0.1:7860` by default. For example:
+Download `msentity-spectrum-viewer-0.1.1.vsix` from the assets of the
+[`msentity-v0.1.1` GitHub release](https://github.com/MotohiroOGAWA/msentity/releases/tag/msentity-v0.1.1),
+then install it from a terminal:
 
 ```console
-# Container or remote host
-msentity gui sample.msds --host 0.0.0.0 --port 7860 --no-browser
-
-# Ask Gradio to create a temporary share URL
-msentity gui sample.msds --share
+code --install-extension ./msentity-spectrum-viewer-0.1.1.vsix
 ```
 
-Run `msentity gui --help` for all viewer options.
+Alternatively, open VS Code's Extensions view, choose **Views and More
+Actions (...) → Install from VSIX...**, and select the downloaded file. Run
+**Developer: Reload Window** after installation. The Python environment selected
+by `msentitySpectrumViewer.pythonPath` must have `msentity` installed.
+
+Open an `.msds`, `.msp`, or `.mgf` file and click a spectrum row to display its
+mass spectrum. The viewer supports peak selection and sorting, drag-to-zoom,
+zoom-dependent readable axis ticks, and transparent PNG/SVG export.
+
+To build the VSIX yourself:
+
+```console
+git clone https://github.com/MotohiroOGAWA/msentity.git
+cd msentity/vscode-extension
+npm ci
+npm run package
+```
+
+This creates `vscode-extension/msentity-spectrum-viewer-0.1.1.vsix`. See the
+[extension README](vscode-extension/README.md) and the
+[viewer documentation](https://msentity.readthedocs.io/en/latest/vscode_viewer.html)
+for setup, settings, development, and release instructions.

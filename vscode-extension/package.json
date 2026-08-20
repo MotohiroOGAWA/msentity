@@ -1,0 +1,103 @@
+{
+  "name": "msentity-spectrum-viewer",
+  "displayName": "msentity Spectrum Viewer",
+  "description": "View msentity datasets in VS Code with a separate reusable mass-spectrum panel, without Gradio.",
+  "version": "0.1.1",
+  "publisher": "motohiroogawa",
+  "license": "MIT",
+  "engines": {
+    "vscode": "^1.90.0"
+  },
+  "categories": [
+    "Visualization",
+    "Other"
+  ],
+  "keywords": [
+    "mass spectrometry",
+    "msentity",
+    "msds",
+    "msp",
+    "mgf",
+    "spectrum"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/MotohiroOGAWA/msentity.git"
+  },
+  "extensionKind": [
+    "workspace"
+  ],
+  "main": "./extension.js",
+  "activationEvents": [
+    "onCustomEditor:msentity.spectrumViewer",
+    "onCommand:msentitySpectrumViewer.open",
+    "onCommand:msentitySpectrumViewer.showLogs"
+  ],
+  "contributes": {
+    "customEditors": [
+      {
+        "viewType": "msentity.spectrumViewer",
+        "displayName": "msentity Spectrum Viewer",
+        "selector": [
+          {
+            "filenamePattern": "*.msds"
+          },
+          {
+            "filenamePattern": "*.msp"
+          },
+          {
+            "filenamePattern": "*.mgf"
+          }
+        ],
+        "priority": "default"
+      }
+    ],
+    "commands": [
+      {
+        "command": "msentitySpectrumViewer.open",
+        "title": "MS Entity: Open Spectrum Viewer"
+      },
+      {
+        "command": "msentitySpectrumViewer.showLogs",
+        "title": "MS Entity: Show Spectrum Viewer Logs"
+      }
+    ],
+    "menus": {
+      "explorer/context": [
+        {
+          "command": "msentitySpectrumViewer.open",
+          "when": "resourceExtname == .msds || resourceExtname == .msp || resourceExtname == .mgf",
+          "group": "navigation@20"
+        }
+      ]
+    },
+    "configuration": {
+      "title": "msentity Spectrum Viewer",
+      "properties": {
+        "msentitySpectrumViewer.pythonPath": {
+          "type": "string",
+          "default": "python",
+          "description": "Python executable used to load msentity datasets. In a Dev Container this is resolved inside the container."
+        },
+        "msentitySpectrumViewer.pageSize": {
+          "type": "number",
+          "default": 20,
+          "minimum": 1,
+          "maximum": 500,
+          "description": "Number of spectra loaded per page."
+        },
+        "msentitySpectrumViewer.spectrumFloatingWindow": {
+          "type": "boolean",
+          "default": true,
+          "description": "Open the reusable Mass Spectrum editor in a separate VS Code floating window. If disabled, it opens beside the dataset table."
+        }
+      }
+    }
+  },
+  "scripts": {
+    "package": "npx @vscode/vsce package"
+  },
+  "devDependencies": {
+    "@vscode/vsce": "^3.6.0"
+  }
+}

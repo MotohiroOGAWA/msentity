@@ -210,6 +210,10 @@ cython_debug/
 # PyPI configuration file
 .pypirc
 
+# VS Code extension build output
+vscode-extension/node_modules/
+vscode-extension/*.vsix
+
 # Marimo
 marimo/_static/
 marimo/_lsp/

@@ -1,0 +1,78 @@
+:root {
+  color-scheme: light dark;
+  --panel: var(--vscode-editor-background, #ffffff);
+  --panel-alt: var(--vscode-sideBar-background, #f3f4f6);
+  --text: var(--vscode-editor-foreground, #1f2937);
+  --muted: var(--vscode-descriptionForeground, #667085);
+  --border: var(--vscode-panel-border, var(--vscode-editorGroup-border, #d0d5dd));
+  --button-bg: var(--vscode-button-secondaryBackground, #f3f4f6);
+  --button-fg: var(--vscode-button-secondaryForeground, #111827);
+  --button-hover: var(--vscode-button-secondaryHoverBackground, #e5e7eb);
+  --row-hover: var(--vscode-list-hoverBackground, #f5f3ff);
+  --peak: #2563eb;
+  --peak-selected: #dc2626;
+  --axis: #344054;
+  --grid: #d0d5dd;
+  --plot-text: #667085;
+  --selection-fill: rgba(37, 99, 235, 0.16);
+}
+body.vscode-dark {
+  --peak: #70b7ff;
+  --peak-selected: #ff7388;
+  --axis: #e5e7eb;
+  --grid: #58606d;
+  --plot-text: #c5cbd3;
+  --selection-fill: rgba(112, 183, 255, 0.20);
+}
+body.vscode-high-contrast,
+body.vscode-high-contrast-light {
+  --peak: var(--vscode-textLink-foreground, #00aaff);
+  --peak-selected: var(--vscode-errorForeground, #ff0000);
+  --axis: var(--vscode-editor-foreground, #ffffff);
+  --grid: var(--vscode-contrastBorder, #ffffff);
+  --plot-text: var(--vscode-editor-foreground, #ffffff);
+  --selection-fill: transparent;
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; padding: 0; min-height: 100%; }
+body { background: var(--panel); color: var(--text); font-family: var(--vscode-font-family, system-ui, sans-serif); font-size: var(--vscode-font-size, 13px); }
+button { font: inherit; cursor: pointer; border: 1px solid var(--vscode-button-border, var(--border)); background: var(--button-bg); color: var(--button-fg); border-radius: 4px; padding: 7px 10px; }
+button:hover { background: var(--button-hover); }
+.spectrum-status { min-height: 80vh; display: grid; place-items: center; color: var(--muted); }
+.spectrum-viewer { width: 100%; max-width: 1500px; margin: 0 auto; padding: 18px; }
+.spectrum-header { display: flex; justify-content: space-between; align-items: end; gap: 16px; padding: 4px 4px 16px; border-bottom: 1px solid var(--border); }
+.eyebrow { color: var(--vscode-textLink-foreground, var(--peak)); font-size: 11px; font-weight: 700; letter-spacing: .1em; }
+h1 { margin: 4px 0 0; font-size: 22px; color: var(--text); }
+h2 { font-size: 15px; margin: 0 0 10px; color: var(--text); }
+.actions { display: flex; align-items: center; gap: 10px; color: var(--muted); }
+.spectrum-workspace { display: grid; grid-template-columns: minmax(0, 1fr) 300px; gap: 14px; padding-top: 14px; }
+.plot-panel, .peaks-panel, .metadata-panel { border: 1px solid var(--border); background: var(--panel); border-radius: 6px; }
+.plot-panel { padding: 8px; touch-action: none; min-width: 0; overflow: hidden; }
+.plot-panel svg { display: block; width: 100%; height: auto; min-height: 420px; user-select: none; background: var(--panel); }
+.plot-panel svg text { font: 13px var(--vscode-font-family, system-ui, sans-serif); fill: var(--plot-text); }
+.plot-panel svg .grid { stroke: var(--grid); stroke-width: 1; opacity: .72; }
+.plot-panel svg .peak { stroke: var(--peak); stroke-width: 2.4; cursor: pointer; }
+.plot-panel svg .peak:hover, .plot-panel svg .peak.selected { stroke: var(--peak-selected); stroke-width: 4; }
+.plot-panel svg .axis { stroke: var(--axis); stroke-width: 1.6; }
+.plot-panel svg .axis-title { font-weight: 650; fill: var(--axis); }
+.plot-panel svg .mz-title { font-style: italic; }
+.plot-panel svg .selection { fill: var(--selection-fill); stroke: var(--peak); stroke-width: 1.3; stroke-dasharray: 5 3; pointer-events: none; }
+.peaks-panel { padding: 12px; min-width: 0; }
+.peak-scroll { max-height: 535px; overflow: auto; }
+.peak-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+.peak-table th { position: sticky; top: 0; background: var(--panel); border-bottom: 1px solid var(--border); }
+.sort-button { width: 100%; border-radius: 0; border: 0; text-align: right; font-weight: 650; }
+.peak-table td { text-align: right; padding: 3px 5px; border-bottom: 1px solid var(--border); }
+.peak-row button { width: 100%; text-align: right; border: 0; background: transparent; color: var(--vscode-textLink-foreground, var(--peak)); padding: 3px; }
+.peak-row:hover, .peak-row.selected { background: var(--row-hover); }
+.peak-row.selected button { color: var(--peak-selected); font-weight: 700; }
+.metadata-panel { margin-top: 14px; padding: 14px; }
+.metadata-panel dl { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 11px; margin: 0; }
+.metadata-panel dt { color: var(--muted); font-size: 11px; }
+.metadata-panel dd { margin: 0; overflow-wrap: anywhere; color: var(--text); }
+@media (max-width: 850px) {
+  .spectrum-workspace { grid-template-columns: 1fr; }
+  .peak-scroll { max-height: 260px; }
+  .spectrum-header { align-items: start; flex-direction: column; }
+  .plot-panel svg { min-height: 300px; }
+}

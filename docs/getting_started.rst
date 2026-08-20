@@ -12,7 +12,7 @@ It is designed for workflows that need:
 - spectrum- and peak-level metadata
 - zero-copy dataset views for slicing, filtering, and sorting
 - normalization, ID assignment, metadata joins, concatenation, and export
-- a command-line interface, interactive shell, and optional browser viewer
+- a command-line interface, interactive shell, and VS Code spectrum viewer
 
 Requirements
 ------------
@@ -20,7 +20,7 @@ Requirements
 - Python 3.10 or later
 - NumPy, pandas, h5py, PyArrow, and tqdm (installed automatically)
 - For documentation builds: Sphinx, Furo, MyST Parser, and MyST-NB
-- For the optional GUI: Gradio 5 and ``gradio-msentityviewer``
+- For the VS Code viewer: VS Code 1.90 or later and Node.js when building locally
 
 Installation
 ------------
@@ -31,12 +31,6 @@ Install the current release directly from GitHub:
 
    python -m pip install "msentity @ git+https://github.com/MotohiroOGAWA/msentity.git"
 
-Add the optional browser viewer with:
-
-.. code-block:: bash
-
-   python -m pip install "msentity[gui] @ git+https://github.com/MotohiroOGAWA/msentity.git"
-
 For development, clone the repository and install it in editable mode:
 
 .. code-block:: bash
@@ -44,6 +38,9 @@ For development, clone the repository and install it in editable mode:
    git clone https://github.com/MotohiroOGAWA/msentity.git
    cd msentity
    python -m pip install -e ".[docs]"
+
+The VS Code viewer is installed separately from a release VSIX. See
+:doc:`vscode_viewer` for download, installation, and build instructions.
 
 Testing
 -------

@@ -1,0 +1,62 @@
+:root {
+  color-scheme: light dark;
+  --panel: var(--vscode-editor-background);
+  --panel-alt: var(--vscode-sideBar-background);
+  --text: var(--vscode-editor-foreground);
+  --muted: var(--vscode-descriptionForeground);
+  --border: var(--vscode-panel-border, var(--vscode-editorGroup-border));
+  --input-bg: var(--vscode-input-background);
+  --input-fg: var(--vscode-input-foreground);
+  --button-bg: var(--vscode-button-background);
+  --button-fg: var(--vscode-button-foreground);
+  --button-hover: var(--vscode-button-hoverBackground);
+  --accent: var(--vscode-textLink-foreground);
+  --row-hover: var(--vscode-list-hoverBackground);
+  --selection: var(--vscode-list-activeSelectionBackground);
+  --selection-fg: var(--vscode-list-activeSelectionForeground);
+  --danger: var(--vscode-errorForeground);
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; padding: 0; height: 100%; }
+body { background: var(--panel); color: var(--text); font-family: var(--vscode-font-family); font-size: var(--vscode-font-size); }
+button, input { font: inherit; }
+button { cursor: pointer; }
+button:disabled { cursor: default; opacity: .5; }
+#app { min-height: 100vh; }
+.viewer { min-height: 100vh; display: flex; flex-direction: column; }
+.toolbar { position: sticky; top: 0; z-index: 5; display: flex; justify-content: space-between; gap: 16px; align-items: center; padding: 14px 16px; background: var(--panel); border-bottom: 1px solid var(--border); }
+.title { font-weight: 650; font-size: 15px; }
+.summary { color: var(--muted); font-size: 12px; margin-top: 2px; }
+.tools { display: flex; gap: 8px; align-items: center; }
+.search input, .page-controls input { background: var(--input-bg); color: var(--input-fg); border: 1px solid var(--vscode-input-border, var(--border)); border-radius: 4px; outline: none; }
+.search input { width: min(300px, 34vw); padding: 7px 9px; }
+.search input:focus, .page-controls input:focus { border-color: var(--vscode-focusBorder); }
+.columns { position: relative; }
+.columns > button, .secondary-button, .page-controls button, .modal-close, .sort-button { border: 1px solid var(--vscode-button-border, var(--border)); background: var(--vscode-button-secondaryBackground, var(--panel-alt)); color: var(--vscode-button-secondaryForeground, var(--text)); border-radius: 4px; padding: 7px 10px; }
+.columns > button:hover, .secondary-button:hover, .page-controls button:hover, .modal-close:hover, .sort-button:hover { background: var(--vscode-button-secondaryHoverBackground, var(--row-hover)); }
+.column-menu { position: absolute; right: 0; top: calc(100% + 6px); z-index: 20; width: 260px; max-height: 360px; overflow: auto; padding: 6px; background: var(--vscode-menu-background, var(--panel)); color: var(--vscode-menu-foreground, var(--text)); border: 1px solid var(--vscode-menu-border, var(--border)); border-radius: 6px; box-shadow: 0 8px 24px #0006; }
+.column-option { width: 100%; display: flex; gap: 8px; align-items: center; text-align: left; border: 0; background: transparent; color: inherit; padding: 7px; border-radius: 4px; }
+.column-option:hover { background: var(--vscode-menu-selectionBackground, var(--row-hover)); color: var(--vscode-menu-selectionForeground, inherit); }
+.checkmark { display: inline-grid; place-items: center; width: 17px; height: 17px; border: 1px solid var(--muted); border-radius: 3px; color: transparent; }
+.checkmark.checked { background: var(--button-bg); color: var(--button-fg); border-color: var(--button-bg); }
+.table-wrap { flex: 1 1 auto; overflow: auto; }
+.dataset-table { width: 100%; border-collapse: separate; border-spacing: 0; white-space: nowrap; }
+.dataset-table th { position: sticky; top: 0; z-index: 2; text-align: left; background: var(--vscode-editorStickyScroll-background, var(--panel-alt)); color: var(--muted); border-bottom: 1px solid var(--border); padding: 9px 11px; font-weight: 600; }
+.dataset-table td { max-width: 360px; overflow: hidden; text-overflow: ellipsis; border-bottom: 1px solid var(--border); padding: 8px 11px; }
+.dataset-table tbody tr:hover td { background: var(--row-hover); }
+.row-column { width: 66px; text-align: right !important; color: var(--muted); font-variant-numeric: tabular-nums; }
+.spectrum-column { width: 82px; text-align: center !important; }
+.spectrum-button { display: inline-grid; place-items: center; width: 36px; height: 29px; padding: 3px; border: 1px solid var(--accent); color: var(--accent); background: transparent; border-radius: 4px; }
+.spectrum-button:hover { background: var(--row-hover); }
+.spectrum-button svg { width: 25px; height: 19px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; }
+.empty { text-align: center; color: var(--muted); padding: 38px !important; }
+.pagination { position: sticky; bottom: 0; z-index: 4; display: grid; grid-template-columns: 1fr auto 1fr; gap: 10px; align-items: center; padding: 9px 14px; background: var(--panel); border-top: 1px solid var(--border); color: var(--muted); font-size: 12px; }
+.pagination > :last-child { text-align: right; }
+.page-controls { display: flex; align-items: center; gap: 7px; }
+.page-controls button { width: 30px; height: 28px; padding: 0; font-size: 18px; }
+.page-controls input { width: 54px; padding: 5px; text-align: center; }
+.status { display: grid; min-height: 75vh; place-items: center; padding: 30px; text-align: center; color: var(--muted); }
+.error-card { max-width: 760px; border: 1px solid var(--danger); padding: 18px; border-radius: 6px; text-align: left; }
+.error-card h2 { margin-top: 0; color: var(--danger); }
+
+.dataset-table tbody tr.selected-record td { background: var(--selection); color: var(--selection-fg); }
