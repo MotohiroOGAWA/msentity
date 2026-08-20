@@ -16,6 +16,7 @@ class MSEntityDocument {
 class MSEntityViewerProvider {
   constructor(context) {
     this.context = context;
+    this.iconPath = vscode.Uri.joinPath(context.extensionUri, "media", "editor-icon.ico");
     this.spectrumPanels = new Map();
   }
 
@@ -24,6 +25,7 @@ class MSEntityViewerProvider {
   }
 
   async resolveCustomEditor(document, webviewPanel) {
+    webviewPanel.iconPath = this.iconPath;
     const webview = webviewPanel.webview;
     webview.options = {
       enableScripts: true,
@@ -149,7 +151,7 @@ class MSEntityViewerProvider {
           localResourceRoots: [vscode.Uri.joinPath(this.context.extensionUri, "media")]
         }
       );
-      panel.iconPath = undefined;
+      panel.iconPath = this.iconPath;
       panel.webview.html = getSpectrumWebviewHtml(panel.webview, this.context.extensionUri);
       entry = { panel, ready: false, latest: payload };
       this.spectrumPanels.set(key, entry);

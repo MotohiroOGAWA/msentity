@@ -7,6 +7,8 @@ This extension is the graphical viewer included in the
 ## Features
 
 - Paged spectrum metadata table and one reusable spectrum panel
+- msentity file-type icon for `.msds`, `.msp`, and `.mgf` tabs
+- RGBA ICO file for the dataset and spectrum editor tabs
 - Optional VS Code floating plot window
 - Peak table, m/z/intensity sorting, and peak selection
 - Independent horizontal, vertical, and two-dimensional drag-to-zoom

@@ -4,7 +4,7 @@
   "description": "View msentity datasets in VS Code with a separate reusable mass-spectrum panel, without Gradio.",
   "version": "0.1.1",
   "publisher": "motohiroogawa",
-  "icon": "media/icon.png",
+  "icon": "media/editor-icon.png",
   "license": "MIT",
   "engines": {
     "vscode": "^1.90.0"
@@ -35,6 +35,23 @@
     "onCommand:msentitySpectrumViewer.showLogs"
   ],
   "contributes": {
+    "languages": [
+      {
+        "id": "msentity-dataset",
+        "aliases": [
+          "msentity Dataset"
+        ],
+        "extensions": [
+          ".msds",
+          ".msp",
+          ".mgf"
+        ],
+        "icon": {
+          "light": "./media/editor-icon.ico",
+          "dark": "./media/editor-icon.ico"
+        }
+      }
+    ],
     "customEditors": [
       {
         "viewType": "msentity.spectrumViewer",
