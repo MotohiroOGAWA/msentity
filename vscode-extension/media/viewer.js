@@ -14,6 +14,7 @@
   let exporting = false;
   let datasetOptions = [];
   let activeDatasetId = "";
+  const datasetPages = new Map();
 
   const esc = (v) => String(v ?? "")
     .replaceAll("&", "&amp;")
@@ -117,10 +118,11 @@
     document.getElementById("search-input")?.addEventListener("input", (e) => { query = e.currentTarget.value; render(); });
     document.getElementById("dataset-select")?.addEventListener("change", (event) => {
       activeDatasetId = event.currentTarget.value;
+      const savedPage = datasetPages.get(activeDatasetId) ?? 0;
       loadingPage = true;
       selectedSpectrumIndex = null;
       render();
-      vscode.postMessage({ type: "page-request", page: 0, datasetId: activeDatasetId });
+      vscode.postMessage({ type: "page-request", page: savedPage, datasetId: activeDatasetId });
     });
     document.getElementById("add-dataset")?.addEventListener("click", () => vscode.postMessage({ type: "add-dataset" }));
     document.getElementById("export-button")?.addEventListener("click", () => { exporting = true; render(); vscode.postMessage({ type: "export-dataset", datasetId: activeDatasetId, datasetPath: value.dataset_path }); });
@@ -149,7 +151,8 @@
         globalIndex,
         title: titleFor(row, globalIndex),
         datasetId: activeDatasetId,
-        datasetName: value.dataset_name || filename
+        datasetName: value.dataset_name || filename,
+        datasetPath: value.dataset_path || ""
       }
     });
   }
@@ -161,18 +164,23 @@
       if (message.dataset) {
         datasetOptions = [message.dataset];
         activeDatasetId = message.dataset.id;
+        datasetPages.set(activeDatasetId, 0);
       }
       vscode.postMessage({ type: "ready", datasetId: activeDatasetId });
     } else if (message?.type === "dataset-added") {
       const dataset = message.dataset;
       if (dataset && !datasetOptions.some((item) => item.id === dataset.id)) datasetOptions.push(dataset);
-      if (dataset) activeDatasetId = dataset.id;
+      if (dataset) {
+        activeDatasetId = dataset.id;
+        if (!datasetPages.has(activeDatasetId)) datasetPages.set(activeDatasetId, 0);
+      }
     } else if (message?.type === "loading-progress") {
       loadingProgress = message;
       renderLoading(`Reading ${String(message.file_type || "dataset").toUpperCase()}…`);
     } else if (message?.type === "dataset-page") {
       value = message.value;
       activeDatasetId = String(value?.dataset_id || activeDatasetId);
+      datasetPages.set(activeDatasetId, Number.isInteger(value?.page) ? value.page : 0);
       loadingProgress = null;
       loadingPage = false;
       query = "";

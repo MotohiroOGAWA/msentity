@@ -210,6 +210,12 @@ class MSEntityViewerProvider {
           if (entry.latest) panel.webview.postMessage({ type: "spectrum", payload: entry.latest });
         } else if (message?.type === "save-image") {
           this.saveImage(documentUri, message);
+        } else if (message?.type === "save-peaks") {
+          this.savePeaks(documentUri, message);
+        } else if (message?.type === "copy-notification") {
+          vscode.window.showInformationMessage(String(message.message || "Copied to clipboard."));
+        } else if (message?.type === "clipboard-error") {
+          vscode.window.showErrorMessage(String(message.message || "Could not copy to clipboard."));
         } else if (message?.type === "export-error") {
           vscode.window.showErrorMessage(String(message.message || "Could not export spectrum image."));
         }
@@ -248,6 +254,21 @@ class MSEntityViewerProvider {
     const target = await vscode.window.showSaveDialog({
       defaultUri: vscode.Uri.joinPath(documentUri, "..", filename),
       filters: filename.endsWith(".png") ? { "PNG image": ["png"] } : { "SVG image": ["svg"] }
+    });
+    if (!target) return;
+    await vscode.workspace.fs.writeFile(target, bytes);
+    vscode.window.showInformationMessage(`Saved ${path.basename(target.fsPath)}`);
+  }
+
+  async savePeaks(documentUri, message) {
+    const filename = String(message?.filename || "spectrum.tsv").replace(/[^\w.-]+/g, "_");
+    const bytes = Array.isArray(message?.bytes) ? Uint8Array.from(message.bytes) : null;
+    if (!bytes) return;
+    const sourcePath = String(message?.sourcePath || "");
+    const sourceUri = sourcePath ? vscode.Uri.file(sourcePath) : documentUri;
+    const target = await vscode.window.showSaveDialog({
+      defaultUri: vscode.Uri.joinPath(sourceUri, "..", filename),
+      filters: { "Tab-separated values": ["tsv"] }
     });
     if (!target) return;
     await vscode.workspace.fs.writeFile(target, bytes);

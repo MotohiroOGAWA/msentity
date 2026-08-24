@@ -43,6 +43,13 @@ Open an ``.msds``, ``.msp``, or ``.mgf`` file normally, or right-click it in
 Explorer and choose **MS Entity: Open Spectrum Viewer**. Click the spectrum
 button in a table row to update the spectrum panel.
 
+Use **Add dataset...** to load another MSDS, MSP, or MGF file into the current
+dataset editor. Select the active file from the dataset dropdown. Each file
+remembers its last metadata page, so switching away and back restores that
+page. Files added this way share one spectrum panel, which makes comparisons
+across files possible. Opening a dataset in a separate VS Code tab still
+creates a separate reusable spectrum panel.
+
 Normal opening detects the input format from the filename extension. To select
 it explicitly, right-click any file in Explorer and choose **MS Entity: Open as
 MSDS**, **MS Entity: Open as MSP**, or **MS Entity: Open as MGF**. These commands
@@ -80,14 +87,63 @@ full range. Clicking empty plot space clears the selected peak. The
 intensity axis always begins at zero, leaves 10% headroom above the highest
 peak, and uses the same adaptive tick scheme.
 
+The peak-table header provides **Copy TSV** and **Save TSV**. Both export the
+complete upper spectrum as two tab-separated columns named ``m/z`` and
+``Intensity``. Values are not rounded to the table's display precision, and
+the current plot zoom does not limit the exported peaks. Rows follow the peak
+table's current m/z or intensity sort key and direction. **Copy TSV** writes the
+text to the clipboard; **Save TSV** opens the VS Code save dialog.
+
+Compare spectra
+---------------
+
+Select a spectrum and use the pin button beside **Upper** to keep it in the
+upper slot. The next selected spectrum is drawn downward in red in the lower
+slot. Both plots use the same m/z positions. The upper and lower slots can be
+pinned independently: a new selection replaces the unpinned slot, and no slot
+changes while both are pinned. Use the trash button immediately to the left of
+the lower pin to remove the lower spectrum. The upper and lower pins remain
+vertically aligned.
+
+When both slots are populated, the viewer reports a score from 0 to 1 and the
+number of one-to-one matched peaks. The tolerance is editable in Da and
+defaults to ``0.05``. If more than one match is possible within the tolerance,
+the pairing with the largest intensity product is selected first. Available
+methods are:
+
+``Dot product``
+   Cosine of the full intensity vectors. Only direct fragment m/z matches are
+   included in the numerator; all peaks contribute to the two vector norms.
+
+``Reverse dot product``
+   Treats the upper spectrum as the query and the lower spectrum as the
+   reference. Unmatched upper/query peaks are omitted from its norm, reducing
+   the penalty from query-only noise.
+
+``Modified dot product``
+   Uses the same full-vector cosine denominator as dot product, but accepts
+   either direct fragment matches or equal neutral losses based on the
+   precursor m/z difference. It falls back to direct matching if precursor m/z
+   metadata is unavailable.
+
+``BONANZA``
+   Normalizes each peak to its spectrum's total intensity, accepts direct and
+   neutral-loss matches, and divides the matched dot product by that product
+   plus the squared intensities of unmatched peaks from both spectra.
+
 Choose **Export image...** to preview the current zoomed plot before saving.
-The preview can independently show or hide tick grid lines, tick numbers, and
-m/z labels above each peak. All three are off by default. When tick numbers are
+The preview can independently show or hide tick grid lines, m/z tick numbers,
+intensity tick numbers, and m/z labels above each peak. All four are off by
+default. A mirrored comparison includes intensity ticks and horizontal grid
+lines in both its upper and lower halves. When both kinds of tick numbers are
 hidden, the axis titles move closer to their axes and the unused margins are
-cropped. Choose **Save PNG** or **Save SVG** after checking the preview. Both
-formats use a transparent background. PNG output is rendered at twice the SVG
-dimensions; SVG output remains scalable. Export uses the currently visible m/z range,
-including any active zoom.
+cropped. Set width and height independently in pixels; plot geometry fills the
+requested aspect ratio while text keeps its original character proportions and
+size. Choose **Save PNG** or **Save SVG** after checking the preview. Both
+formats use a transparent background and the requested dimensions. **Copy
+PNG** writes a raster preview to the clipboard. **Copy SVG** writes an SVG
+clipboard item when supported, otherwise it copies the SVG source text. Export
+uses the currently visible m/z range, including any active zoom.
 
 Settings
 --------
