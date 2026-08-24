@@ -37,6 +37,41 @@
     vscode.postMessage({ type: "save-image", filename, bytes });
   };
 
+  const exportDimension = (value, fallback) => {
+    const number = Math.round(Number(value));
+    return Number.isFinite(number) && number > 0 ? Math.min(16384, number) : fallback;
+  };
+
+  const keepExportTextUnscaled = (svg) => {
+    const viewBox = String(svg.getAttribute("viewBox") || "0 0 900 540")
+      .trim().split(/[\s,]+/).map(Number);
+    const viewWidth = viewBox[2] > 0 ? viewBox[2] : 900;
+    const viewHeight = viewBox[3] > 0 ? viewBox[3] : 540;
+    const outputWidth = exportDimension(svg.getAttribute("width"), viewWidth);
+    const outputHeight = exportDimension(svg.getAttribute("height"), viewHeight);
+    const inverseX = viewWidth / outputWidth;
+    const inverseY = viewHeight / outputHeight;
+    const namespace = "http://www.w3.org/2000/svg";
+
+    svg.querySelectorAll("text").forEach((element) => {
+      let centerX = Number(element.getAttribute("x")) || 0;
+      let centerY = Number(element.getAttribute("y")) || 0;
+      const translation = String(element.getAttribute("transform") || "")
+        .match(/translate\(\s*(-?[\d.]+)(?:[ ,]+)(-?[\d.]+)\s*\)/);
+      if (translation) {
+        centerX = Number(translation[1]);
+        centerY = Number(translation[2]);
+      }
+      const wrapper = document.createElementNS(namespace, "g");
+      wrapper.setAttribute(
+        "transform",
+        `translate(${centerX} ${centerY}) scale(${inverseX} ${inverseY}) translate(${-centerX} ${-centerY})`
+      );
+      element.parentNode?.insertBefore(wrapper, element);
+      wrapper.append(element);
+    });
+  };
+
   const prepareExportSvg = (options) => {
     const source = document.getElementById("spectrum-svg");
     if (!source) return null;
@@ -59,6 +94,12 @@
       svg.setAttribute("width", "866");
       svg.setAttribute("height", "510");
     }
+
+    svg.setAttribute("width", String(exportDimension(options.width, Number(svg.getAttribute("width")) || 900)));
+    svg.setAttribute("height", String(exportDimension(options.height, Number(svg.getAttribute("height")) || 540)));
+    // Fill the requested dimensions instead of preserving the plot's original
+    // aspect ratio and adding transparent letterbox space.
+    svg.setAttribute("preserveAspectRatio", "none");
 
     const styles = getComputedStyle(document.documentElement);
     const color = (name, fallback) => styles.getPropertyValue(name).trim() || fallback;
@@ -100,10 +141,33 @@
       element.setAttribute("font-size", "11");
       element.setAttribute("font-style", "italic");
     });
+    keepExportTextUnscaled(svg);
     return svg;
   };
 
-  const saveExport = (format, options, title) => {
+  const renderPng = (svg) => new Promise((resolve, reject) => {
+    const markup = new XMLSerializer().serializeToString(svg);
+    const image = new Image();
+    const url = URL.createObjectURL(new Blob([markup], { type: "image/svg+xml;charset=utf-8" }));
+    image.onload = () => {
+      const canvas = document.createElement("canvas");
+      const exportWidth = exportDimension(svg.getAttribute("width"), 900);
+      const exportHeight = exportDimension(svg.getAttribute("height"), 540);
+      canvas.width = exportWidth;
+      canvas.height = exportHeight;
+      const context = canvas.getContext("2d");
+      context.drawImage(image, 0, 0, exportWidth, exportHeight);
+      URL.revokeObjectURL(url);
+      canvas.toBlob((blob) => blob ? resolve(blob) : reject(new Error("PNG image could not be created.")), "image/png");
+    };
+    image.onerror = () => {
+      URL.revokeObjectURL(url);
+      reject(new Error("PNG preview could not be rendered."));
+    };
+    image.src = url;
+  });
+
+  const saveExport = async (format, options, title) => {
     const svg = prepareExportSvg(options);
     if (!svg) return;
     const markup = new XMLSerializer().serializeToString(svg);
@@ -114,22 +178,11 @@
       return;
     }
 
-    const image = new Image();
-    const url = URL.createObjectURL(new Blob([markup], { type: "image/svg+xml;charset=utf-8" }));
-    image.onload = () => {
-      const canvas = document.createElement("canvas");
-      const exportWidth = Number(svg.getAttribute("width")) || 900;
-      const exportHeight = Number(svg.getAttribute("height")) || 540;
-      canvas.width = exportWidth * 2;
-      canvas.height = exportHeight * 2;
-      const context = canvas.getContext("2d");
-      context.scale(2, 2);
-      context.drawImage(image, 0, 0, exportWidth, exportHeight);
-      URL.revokeObjectURL(url);
-      canvas.toBlob((blob) => blob && save(blob, `${basename}.png`), "image/png");
-    };
-    image.onerror = () => vscode.postMessage({ type: "export-error", message: "PNG preview could not be rendered." });
-    image.src = url;
+    try {
+      await save(await renderPng(svg), `${basename}.png`);
+    } catch (error) {
+      vscode.postMessage({ type: "export-error", message: error?.message || "PNG preview could not be rendered." });
+    }
   };
 
   const openExportPreview = () => {
@@ -139,17 +192,66 @@
     const controls = {
       gridLines: document.getElementById("export-grid"),
       tickLabels: document.getElementById("export-ticks"),
-      peakLabels: document.getElementById("export-peaks")
+      peakLabels: document.getElementById("export-peaks"),
+      width: document.getElementById("export-width"),
+      height: document.getElementById("export-height")
     };
-    const options = () => Object.fromEntries(Object.entries(controls).map(([key, input]) => [key, Boolean(input?.checked)]));
+    const options = () => ({
+      gridLines: Boolean(controls.gridLines?.checked),
+      tickLabels: Boolean(controls.tickLabels?.checked),
+      peakLabels: Boolean(controls.peakLabels?.checked),
+      width: exportDimension(controls.width?.value, 900),
+      height: exportDimension(controls.height?.value, 540)
+    });
+    const status = document.getElementById("export-status");
     const update = () => {
       const svg = prepareExportSvg(options());
+      if (svg) svg.style.aspectRatio = `${svg.getAttribute("width")} / ${svg.getAttribute("height")}`;
       preview.replaceChildren(...(svg ? [svg] : []));
+      if (status) status.textContent = "";
     };
-    Object.values(controls).forEach((input) => input?.addEventListener("change", update));
+    Object.values(controls).forEach((input) => {
+      input.onchange = update;
+      if (input.type === "number") input.oninput = update;
+    });
     document.getElementById("export-cancel").onclick = () => dialog.close();
     document.getElementById("export-png").onclick = () => saveExport("png", options(), state?.title);
     document.getElementById("export-svg").onclick = () => saveExport("svg", options(), state?.title);
+    document.getElementById("copy-png").onclick = async () => {
+      try {
+        if (!navigator.clipboard?.write || typeof ClipboardItem === "undefined") {
+          throw new Error("Image clipboard access is not available in this VS Code environment.");
+        }
+        const svg = prepareExportSvg(options());
+        if (!svg) throw new Error("No preview image is available.");
+        const blob = await renderPng(svg);
+        await navigator.clipboard.write([new ClipboardItem({ "image/png": blob })]);
+        if (status) status.textContent = `Copied ${svg.getAttribute("width")} × ${svg.getAttribute("height")} PNG to clipboard.`;
+      } catch (error) {
+        if (status) status.textContent = error?.message || "Could not copy the preview image.";
+      }
+    };
+    document.getElementById("copy-svg").onclick = async () => {
+      try {
+        if (!navigator.clipboard) {
+          throw new Error("Clipboard access is not available in this VS Code environment.");
+        }
+        const svg = prepareExportSvg(options());
+        if (!svg) throw new Error("No preview image is available.");
+        const markup = new XMLSerializer().serializeToString(svg);
+        const blob = new Blob([markup], { type: "image/svg+xml" });
+        try {
+          if (!navigator.clipboard.write || typeof ClipboardItem === "undefined") throw new Error();
+          await navigator.clipboard.write([new ClipboardItem({ "image/svg+xml": blob })]);
+          if (status) status.textContent = `Copied ${svg.getAttribute("width")} × ${svg.getAttribute("height")} SVG to clipboard.`;
+        } catch {
+          await navigator.clipboard.writeText(markup);
+          if (status) status.textContent = "This environment does not support SVG image MIME on the clipboard; copied the SVG source instead.";
+        }
+      } catch (error) {
+        if (status) status.textContent = error?.message || "Could not copy the SVG preview.";
+      }
+    };
     update();
     dialog.showModal();
   };
@@ -208,8 +310,14 @@
             <label><input id="export-ticks" type="checkbox"> Tick numbers</label>
             <label><input id="export-peaks" type="checkbox"> m/z above peaks</label>
           </fieldset>
+          <fieldset class="export-options export-size">
+            <legend>Image size</legend>
+            <label>Width <input id="export-width" type="number" value="900" min="1" max="16384" step="1"> px</label>
+            <label>Height <input id="export-height" type="number" value="540" min="1" max="16384" step="1"> px</label>
+          </fieldset>
           <div id="export-preview" class="export-preview" aria-label="Image preview"></div>
-          <div class="export-actions"><button id="export-cancel" type="button">Cancel</button><button id="export-svg" type="button">Save SVG</button><button id="export-png" type="button">Save PNG</button></div>
+          <div id="export-status" class="export-status" role="status" aria-live="polite"></div>
+          <div class="export-actions"><button id="export-cancel" type="button">Cancel</button><button id="copy-svg" type="button">Copy SVG</button><button id="copy-png" type="button">Copy PNG</button><button id="export-svg" type="button">Save SVG</button><button id="export-png" type="button">Save PNG</button></div>
         </dialog>
       </main>`;
     setupSpectrumPlot(mz, intensity);

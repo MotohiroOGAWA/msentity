@@ -81,8 +81,12 @@ Open an `.msds`, `.msp`, or `.mgf` file. Click a spectrum button in the table;
 the reusable **Mass Spectrum** panel opens and updates when another record is
 selected. Drag horizontally to zoom m/z only, vertically to zoom intensity
 only, or diagonally to zoom both axes. Choose **Export image...**, select the
-elements to include, check the preview, and save the visible plot as a
-transparent PNG or SVG. Tick grid lines are excluded by default.
+elements to include, set any output width and height in pixels, and save the
+visible plot as a transparent PNG or SVG. The requested dimensions are filled
+even when their aspect ratio differs from the plot. **Copy PNG** and **Copy
+SVG** copy the current preview to the clipboard. Tick grid lines are excluded
+by default. Plot geometry follows the requested aspect ratio, while axis,
+tick, and peak-label text keeps its original size and character proportions.
 The exported image uses the current zoom range and leaves 10% intensity
 headroom so labels above maximum-intensity peaks remain readable.
 When tick numbers are disabled, export compacts the axis-title spacing and

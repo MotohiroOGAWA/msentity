@@ -85,6 +85,10 @@ Optionally install the versioned package locally for a smoke test:
 ```bash
 code --install-extension "./dist/msentity-spectrum-viewer-${RELEASE_VERSION}.vsix" --force
 ```
+or
+```bash
+code --install-extension "./dist/msentity-spectrum-viewer.vsix" --force
+```
 
 Open an MSDS, MSP, or MGF file and confirm that the viewer loads correctly.
 
