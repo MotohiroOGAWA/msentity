@@ -12,6 +12,9 @@
   let selectedSpectrumIndex = null;
   let loadingProgress = null;
   let exporting = false;
+  let datasetOptions = [];
+  let activeDatasetId = "";
+  const datasetPages = new Map();
 
   const esc = (v) => String(v ?? "")
     .replaceAll("&", "&amp;")
@@ -55,7 +58,7 @@
     loadingPage = true;
     selectedSpectrumIndex = null;
     render();
-    vscode.postMessage({ type: "page-request", page: target });
+    vscode.postMessage({ type: "page-request", page: target, datasetId: activeDatasetId });
   }
 
   function toggleColumn(column) {
@@ -95,7 +98,7 @@
     app.innerHTML = `
       <div class="viewer">
         <div class="toolbar">
-          <div><div class="title">${esc(filename)}</div><div class="summary">${totalRows().toLocaleString()} spectra · ${selectedColumns.length}/${cols.length} columns${value.description ? ` · ${esc(value.description)}` : ""}</div></div>
+          <div><div class="dataset-heading"><select id="dataset-select" aria-label="Active dataset">${datasetOptions.map((dataset) => `<option value="${esc(dataset.id)}" ${dataset.id === activeDatasetId ? "selected" : ""}>${esc(dataset.name)}</option>`).join("")}</select><button class="secondary-button" id="add-dataset">Add dataset…</button></div><div class="summary">${totalRows().toLocaleString()} spectra · ${selectedColumns.length}/${cols.length} columns${value.description ? ` · ${esc(value.description)}` : ""}</div></div>
           <div class="tools">
             <div class="columns"><button id="columns-button">Columns</button>${columnMenu}</div>
             <label class="search"><input id="search-input" value="${esc(query)}" placeholder="Filter current page…" /></label>
@@ -113,8 +116,17 @@
     document.querySelector("[data-action='all-columns']")?.addEventListener("click", () => { selectedColumns = allSelected ? [] : [...cols]; render(); });
     document.querySelectorAll("[data-column]").forEach((el) => el.addEventListener("click", () => toggleColumn(el.dataset.column)));
     document.getElementById("search-input")?.addEventListener("input", (e) => { query = e.currentTarget.value; render(); });
-    document.getElementById("export-button")?.addEventListener("click", () => { exporting = true; render(); vscode.postMessage({ type: "export-dataset" }); });
-    document.getElementById("reload-button")?.addEventListener("click", () => { loadingPage = true; selectedSpectrumIndex = null; render(); vscode.postMessage({ type: "reload" }); });
+    document.getElementById("dataset-select")?.addEventListener("change", (event) => {
+      activeDatasetId = event.currentTarget.value;
+      const savedPage = datasetPages.get(activeDatasetId) ?? 0;
+      loadingPage = true;
+      selectedSpectrumIndex = null;
+      render();
+      vscode.postMessage({ type: "page-request", page: savedPage, datasetId: activeDatasetId });
+    });
+    document.getElementById("add-dataset")?.addEventListener("click", () => vscode.postMessage({ type: "add-dataset" }));
+    document.getElementById("export-button")?.addEventListener("click", () => { exporting = true; render(); vscode.postMessage({ type: "export-dataset", datasetId: activeDatasetId, datasetPath: value.dataset_path }); });
+    document.getElementById("reload-button")?.addEventListener("click", () => { loadingPage = true; selectedSpectrumIndex = null; render(); vscode.postMessage({ type: "reload", datasetId: activeDatasetId }); });
     document.getElementById("prev-page")?.addEventListener("click", () => requestPage(page() - 1));
     document.getElementById("next-page")?.addEventListener("click", () => requestPage(page() + 1));
     const pageInput = document.getElementById("page-input");
@@ -137,7 +149,10 @@
         row,
         columns: columns(),
         globalIndex,
-        title: titleFor(row, globalIndex)
+        title: titleFor(row, globalIndex),
+        datasetId: activeDatasetId,
+        datasetName: value.dataset_name || filename,
+        datasetPath: value.dataset_path || ""
       }
     });
   }
@@ -146,12 +161,26 @@
     const message = event.data;
     if (message?.type === "backend-ready") {
       loadingProgress = null;
-      vscode.postMessage({ type: "ready" });
+      if (message.dataset) {
+        datasetOptions = [message.dataset];
+        activeDatasetId = message.dataset.id;
+        datasetPages.set(activeDatasetId, 0);
+      }
+      vscode.postMessage({ type: "ready", datasetId: activeDatasetId });
+    } else if (message?.type === "dataset-added") {
+      const dataset = message.dataset;
+      if (dataset && !datasetOptions.some((item) => item.id === dataset.id)) datasetOptions.push(dataset);
+      if (dataset) {
+        activeDatasetId = dataset.id;
+        if (!datasetPages.has(activeDatasetId)) datasetPages.set(activeDatasetId, 0);
+      }
     } else if (message?.type === "loading-progress") {
       loadingProgress = message;
       renderLoading(`Reading ${String(message.file_type || "dataset").toUpperCase()}…`);
     } else if (message?.type === "dataset-page") {
       value = message.value;
+      activeDatasetId = String(value?.dataset_id || activeDatasetId);
+      datasetPages.set(activeDatasetId, Number.isInteger(value?.page) ? value.page : 0);
       loadingProgress = null;
       loadingPage = false;
       query = "";

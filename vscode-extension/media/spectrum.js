@@ -2,6 +2,9 @@
   const vscode = acquireVsCodeApi();
   const app = document.getElementById("spectrum-app");
   let state = null;
+  const comparison = { top: null, bottom: null, topPinned: false, bottomPinned: false };
+  let similarityMethod = "dot";
+  let similarityTolerance = 0.05;
 
   const esc = (v) => String(v ?? "")
     .replaceAll("&", "&amp;")
@@ -37,28 +40,150 @@
     vscode.postMessage({ type: "save-image", filename, bytes });
   };
 
+  const exportDimension = (value, fallback) => {
+    const number = Math.round(Number(value));
+    return Number.isFinite(number) && number > 0 ? Math.min(16384, number) : fallback;
+  };
+
+  const precursorMz = (payload) => {
+    const row = payload?.row || {};
+    for (const key of ["PrecursorMZ", "PRECURSORMZ", "precursor_mz", "precursorMz", "PEPMASS", "ParentMZ"]) {
+      const value = Number(String(row[key] ?? "").split(/[ ,]/)[0]);
+      if (Number.isFinite(value)) return value;
+    }
+    return null;
+  };
+
+  const spectrumPeaks = (payload) => {
+    const mz = Array.isArray(payload?.spectrum?.mz) ? payload.spectrum.mz : [];
+    const intensity = Array.isArray(payload?.spectrum?.intensity) ? payload.spectrum.intensity : [];
+    return mz.map((value, index) => ({ mz: Number(value), intensity: Math.max(0, Number(intensity[index]) || 0), index }))
+      .filter((peak) => Number.isFinite(peak.mz) && peak.intensity > 0);
+  };
+
+  const peaksAsTsv = (mz, intensity) => {
+    const lines = ["m/z\tIntensity"];
+    const peaks = mz.map((value, index) => ({ mz: Number(value), intensity: Number(intensity[index] ?? 0) }))
+      .filter((peak) => Number.isFinite(peak.mz) && Number.isFinite(peak.intensity));
+    const key = state?.sortKey === "intensity" ? "intensity" : "mz";
+    const direction = state?.sortAscending === false ? -1 : 1;
+    peaks.sort((a, b) => (a[key] - b[key]) * direction);
+    peaks.forEach((peak) => lines.push(`${peak.mz}\t${peak.intensity}`));
+    return `${lines.join("\n")}\n`;
+  };
+
+  const matchSpectrumPeaks = (upper, lower, allowShift) => {
+    const shift = allowShift && precursorMz(comparison.top) !== null && precursorMz(comparison.bottom) !== null
+      ? precursorMz(comparison.top) - precursorMz(comparison.bottom)
+      : null;
+    const candidates = [];
+    upper.forEach((a, upperIndex) => lower.forEach((b, lowerIndex) => {
+      const directError = Math.abs(a.mz - b.mz);
+      const shiftedError = shift === null ? Infinity : Math.abs((a.mz - b.mz) - shift);
+      const error = Math.min(directError, shiftedError);
+      if (error <= similarityTolerance) candidates.push({ upperIndex, lowerIndex, error, product: a.intensity * b.intensity });
+    }));
+    candidates.sort((a, b) => b.product - a.product || a.error - b.error);
+    const usedUpper = new Set(), usedLower = new Set(), matches = [];
+    for (const candidate of candidates) {
+      if (usedUpper.has(candidate.upperIndex) || usedLower.has(candidate.lowerIndex)) continue;
+      usedUpper.add(candidate.upperIndex);
+      usedLower.add(candidate.lowerIndex);
+      matches.push(candidate);
+    }
+    return { matches, usedUpper, usedLower };
+  };
+
+  const calculateSimilarity = () => {
+    if (!comparison.top || !comparison.bottom) return null;
+    const upper = spectrumPeaks(comparison.top);
+    const lower = spectrumPeaks(comparison.bottom);
+    if (!upper.length || !lower.length) return { score: 0, matched: 0 };
+    const shifted = similarityMethod === "modified" || similarityMethod === "bonanza";
+    const { matches, usedUpper, usedLower } = matchSpectrumPeaks(upper, lower, shifted);
+    if (!matches.length) return { score: 0, matched: 0 };
+
+    if (similarityMethod === "bonanza") {
+      const upperTotal = upper.reduce((sum, peak) => sum + peak.intensity, 0);
+      const lowerTotal = lower.reduce((sum, peak) => sum + peak.intensity, 0);
+      const upperNormalized = upper.map((peak) => peak.intensity / upperTotal);
+      const lowerNormalized = lower.map((peak) => peak.intensity / lowerTotal);
+      const product = matches.reduce((sum, match) => sum + upperNormalized[match.upperIndex] * lowerNormalized[match.lowerIndex], 0);
+      const unmatchedUpper = upperNormalized.reduce((sum, value, index) => sum + (usedUpper.has(index) ? 0 : value * value), 0);
+      const unmatchedLower = lowerNormalized.reduce((sum, value, index) => sum + (usedLower.has(index) ? 0 : value * value), 0);
+      return { score: product / (product + unmatchedUpper + unmatchedLower), matched: matches.length };
+    }
+
+    const numerator = matches.reduce((sum, match) => sum + upper[match.upperIndex].intensity * lower[match.lowerIndex].intensity, 0);
+    const upperNorm = similarityMethod === "reverse"
+      ? Math.sqrt(matches.reduce((sum, match) => sum + upper[match.upperIndex].intensity ** 2, 0))
+      : Math.sqrt(upper.reduce((sum, peak) => sum + peak.intensity ** 2, 0));
+    const lowerNorm = Math.sqrt(lower.reduce((sum, peak) => sum + peak.intensity ** 2, 0));
+    return { score: upperNorm && lowerNorm ? numerator / (upperNorm * lowerNorm) : 0, matched: matches.length };
+  };
+
+  const keepExportTextUnscaled = (svg) => {
+    const viewBox = String(svg.getAttribute("viewBox") || "0 0 900 540")
+      .trim().split(/[\s,]+/).map(Number);
+    const viewWidth = viewBox[2] > 0 ? viewBox[2] : 900;
+    const viewHeight = viewBox[3] > 0 ? viewBox[3] : 540;
+    const outputWidth = exportDimension(svg.getAttribute("width"), viewWidth);
+    const outputHeight = exportDimension(svg.getAttribute("height"), viewHeight);
+    const inverseX = viewWidth / outputWidth;
+    const inverseY = viewHeight / outputHeight;
+    const namespace = "http://www.w3.org/2000/svg";
+
+    svg.querySelectorAll("text").forEach((element) => {
+      let centerX = Number(element.getAttribute("x")) || 0;
+      let centerY = Number(element.getAttribute("y")) || 0;
+      const translation = String(element.getAttribute("transform") || "")
+        .match(/translate\(\s*(-?[\d.]+)(?:[ ,]+)(-?[\d.]+)\s*\)/);
+      if (translation) {
+        centerX = Number(translation[1]);
+        centerY = Number(translation[2]);
+      }
+      const wrapper = document.createElementNS(namespace, "g");
+      wrapper.setAttribute(
+        "transform",
+        `translate(${centerX} ${centerY}) scale(${inverseX} ${inverseY}) translate(${-centerX} ${-centerY})`
+      );
+      element.parentNode?.insertBefore(wrapper, element);
+      wrapper.append(element);
+    });
+  };
+
   const prepareExportSvg = (options) => {
     const source = document.getElementById("spectrum-svg");
     if (!source) return null;
     const svg = source.cloneNode(true);
     svg.querySelector("#drag-box")?.remove();
     if (!options.gridLines) svg.querySelectorAll(".grid").forEach((element) => element.remove());
-    if (!options.tickLabels) svg.querySelectorAll(".tick-label").forEach((element) => element.remove());
+    if (!options.mzTickLabels) svg.querySelectorAll(".mz-tick-label").forEach((element) => element.remove());
+    if (!options.intensityTickLabels) svg.querySelectorAll(".intensity-tick-label").forEach((element) => element.remove());
     if (!options.peakLabels) svg.querySelectorAll(".peak-label").forEach((element) => element.remove());
     svg.setAttribute("xmlns", "http://www.w3.org/2000/svg");
     svg.setAttribute("width", "900");
     svg.setAttribute("height", "540");
-    if (!options.tickLabels) {
+    if (!options.mzTickLabels) svg.querySelector(".mz-title")?.setAttribute("y", "508");
+    if (!options.intensityTickLabels) {
+      svg.querySelectorAll(".axis-title:not(.mz-title)").forEach((element) => {
+        const transform = String(element.getAttribute("transform") || "");
+        element.setAttribute("transform", transform.replace(/translate\([^ ]+ /, "translate(42 "));
+      });
+    }
+    if (!options.mzTickLabels && !options.intensityTickLabels) {
       // Tick labels account for most of the left/bottom margins. Move the axis
       // titles toward their axes and crop those unused margins for export.
-      const mzTitle = svg.querySelector(".mz-title");
-      const intensityTitle = [...svg.querySelectorAll(".axis-title")].find((element) => element !== mzTitle);
-      mzTitle?.setAttribute("y", "508");
-      intensityTitle?.setAttribute("transform", "translate(42 254) rotate(-90)");
       svg.setAttribute("viewBox", "24 10 866 510");
       svg.setAttribute("width", "866");
       svg.setAttribute("height", "510");
     }
+
+    svg.setAttribute("width", String(exportDimension(options.width, Number(svg.getAttribute("width")) || 900)));
+    svg.setAttribute("height", String(exportDimension(options.height, Number(svg.getAttribute("height")) || 540)));
+    // Fill the requested dimensions instead of preserving the plot's original
+    // aspect ratio and adding transparent letterbox space.
+    svg.setAttribute("preserveAspectRatio", "none");
 
     const styles = getComputedStyle(document.documentElement);
     const color = (name, fallback) => styles.getPropertyValue(name).trim() || fallback;
@@ -66,11 +191,13 @@
       text { font: 13px system-ui, sans-serif; fill: ${color("--plot-text", "#667085")} }
       .grid { stroke: ${color("--grid", "#d0d5dd")}; stroke-width: 1; opacity: .72 }
       .peak { stroke: ${color("--peak", "#2563eb")}; stroke-width: 2.4 }
+      .peak.lower-peak { stroke: ${color("--lower-peak", "#dc2626")}; }
       .peak.selected { stroke: ${color("--peak-selected", "#dc2626")}; stroke-width: 4 }
       .axis { stroke: #000; stroke-width: 1.5 }
       .axis-title { font-weight: 650; fill: #000 }
       .mz-title { font-style: italic }
       .peak-label { font-size: 11px; font-style: italic; fill: #000 }
+      .intensity-tick-label { fill: #000 }
     `;
     const style = document.createElementNS("http://www.w3.org/2000/svg", "style");
     style.textContent = css;
@@ -83,7 +210,7 @@
       element.setAttribute("opacity", ".72");
     });
     svg.querySelectorAll(".peak").forEach((element) => {
-      element.setAttribute("stroke", element.classList.contains("selected") ? color("--peak-selected", "#dc2626") : color("--peak", "#2563eb"));
+      element.setAttribute("stroke", element.classList.contains("lower-peak") ? color("--lower-peak", "#dc2626") : element.classList.contains("selected") ? color("--peak-selected", "#dc2626") : color("--peak", "#2563eb"));
       element.setAttribute("stroke-width", element.classList.contains("selected") ? "4" : "2.4");
     });
     svg.querySelectorAll(".axis").forEach((element) => {
@@ -96,14 +223,38 @@
       element.setAttribute("font-size", "13");
     });
     svg.querySelectorAll(".axis-title, .peak-label").forEach((element) => element.setAttribute("fill", "#000"));
+    svg.querySelectorAll(".intensity-tick-label").forEach((element) => element.setAttribute("fill", "#000"));
     svg.querySelectorAll(".peak-label").forEach((element) => {
       element.setAttribute("font-size", "11");
       element.setAttribute("font-style", "italic");
     });
+    keepExportTextUnscaled(svg);
     return svg;
   };
 
-  const saveExport = (format, options, title) => {
+  const renderPng = (svg) => new Promise((resolve, reject) => {
+    const markup = new XMLSerializer().serializeToString(svg);
+    const image = new Image();
+    const url = URL.createObjectURL(new Blob([markup], { type: "image/svg+xml;charset=utf-8" }));
+    image.onload = () => {
+      const canvas = document.createElement("canvas");
+      const exportWidth = exportDimension(svg.getAttribute("width"), 900);
+      const exportHeight = exportDimension(svg.getAttribute("height"), 540);
+      canvas.width = exportWidth;
+      canvas.height = exportHeight;
+      const context = canvas.getContext("2d");
+      context.drawImage(image, 0, 0, exportWidth, exportHeight);
+      URL.revokeObjectURL(url);
+      canvas.toBlob((blob) => blob ? resolve(blob) : reject(new Error("PNG image could not be created.")), "image/png");
+    };
+    image.onerror = () => {
+      URL.revokeObjectURL(url);
+      reject(new Error("PNG preview could not be rendered."));
+    };
+    image.src = url;
+  });
+
+  const saveExport = async (format, options, title) => {
     const svg = prepareExportSvg(options);
     if (!svg) return;
     const markup = new XMLSerializer().serializeToString(svg);
@@ -114,22 +265,11 @@
       return;
     }
 
-    const image = new Image();
-    const url = URL.createObjectURL(new Blob([markup], { type: "image/svg+xml;charset=utf-8" }));
-    image.onload = () => {
-      const canvas = document.createElement("canvas");
-      const exportWidth = Number(svg.getAttribute("width")) || 900;
-      const exportHeight = Number(svg.getAttribute("height")) || 540;
-      canvas.width = exportWidth * 2;
-      canvas.height = exportHeight * 2;
-      const context = canvas.getContext("2d");
-      context.scale(2, 2);
-      context.drawImage(image, 0, 0, exportWidth, exportHeight);
-      URL.revokeObjectURL(url);
-      canvas.toBlob((blob) => blob && save(blob, `${basename}.png`), "image/png");
-    };
-    image.onerror = () => vscode.postMessage({ type: "export-error", message: "PNG preview could not be rendered." });
-    image.src = url;
+    try {
+      await save(await renderPng(svg), `${basename}.png`);
+    } catch (error) {
+      vscode.postMessage({ type: "export-error", message: error?.message || "PNG preview could not be rendered." });
+    }
   };
 
   const openExportPreview = () => {
@@ -138,23 +278,87 @@
     if (!dialog || !preview) return;
     const controls = {
       gridLines: document.getElementById("export-grid"),
-      tickLabels: document.getElementById("export-ticks"),
-      peakLabels: document.getElementById("export-peaks")
+      mzTickLabels: document.getElementById("export-mz-ticks"),
+      intensityTickLabels: document.getElementById("export-intensity-ticks"),
+      peakLabels: document.getElementById("export-peaks"),
+      width: document.getElementById("export-width"),
+      height: document.getElementById("export-height")
     };
-    const options = () => Object.fromEntries(Object.entries(controls).map(([key, input]) => [key, Boolean(input?.checked)]));
+    const options = () => ({
+      gridLines: Boolean(controls.gridLines?.checked),
+      mzTickLabels: Boolean(controls.mzTickLabels?.checked),
+      intensityTickLabels: Boolean(controls.intensityTickLabels?.checked),
+      peakLabels: Boolean(controls.peakLabels?.checked),
+      width: exportDimension(controls.width?.value, 900),
+      height: exportDimension(controls.height?.value, 540)
+    });
+    const status = document.getElementById("export-status");
     const update = () => {
       const svg = prepareExportSvg(options());
+      if (svg) svg.style.aspectRatio = `${svg.getAttribute("width")} / ${svg.getAttribute("height")}`;
       preview.replaceChildren(...(svg ? [svg] : []));
+      if (status) status.textContent = "";
     };
-    Object.values(controls).forEach((input) => input?.addEventListener("change", update));
+    Object.values(controls).forEach((input) => {
+      input.onchange = update;
+      if (input.type === "number") input.oninput = update;
+    });
     document.getElementById("export-cancel").onclick = () => dialog.close();
     document.getElementById("export-png").onclick = () => saveExport("png", options(), state?.title);
     document.getElementById("export-svg").onclick = () => saveExport("svg", options(), state?.title);
+    document.getElementById("copy-png").onclick = async () => {
+      try {
+        if (!navigator.clipboard?.write || typeof ClipboardItem === "undefined") {
+          throw new Error("Image clipboard access is not available in this VS Code environment.");
+        }
+        const svg = prepareExportSvg(options());
+        if (!svg) throw new Error("No preview image is available.");
+        const blob = await renderPng(svg);
+        await navigator.clipboard.write([new ClipboardItem({ "image/png": blob })]);
+        if (status) status.textContent = `Copied ${svg.getAttribute("width")} × ${svg.getAttribute("height")} PNG to clipboard.`;
+      } catch (error) {
+        if (status) status.textContent = error?.message || "Could not copy the preview image.";
+      }
+    };
+    document.getElementById("copy-svg").onclick = async () => {
+      try {
+        if (!navigator.clipboard) {
+          throw new Error("Clipboard access is not available in this VS Code environment.");
+        }
+        const svg = prepareExportSvg(options());
+        if (!svg) throw new Error("No preview image is available.");
+        const markup = new XMLSerializer().serializeToString(svg);
+        const blob = new Blob([markup], { type: "image/svg+xml" });
+        try {
+          if (!navigator.clipboard.write || typeof ClipboardItem === "undefined") throw new Error();
+          await navigator.clipboard.write([new ClipboardItem({ "image/svg+xml": blob })]);
+          if (status) status.textContent = `Copied ${svg.getAttribute("width")} × ${svg.getAttribute("height")} SVG to clipboard.`;
+        } catch {
+          await navigator.clipboard.writeText(markup);
+          if (status) status.textContent = "This environment does not support SVG image MIME on the clipboard; copied the SVG source instead.";
+        }
+      } catch (error) {
+        if (status) status.textContent = error?.message || "Could not copy the SVG preview.";
+      }
+    };
     update();
     dialog.showModal();
   };
 
-  function renderSpectrum(payload) {
+  function receiveSpectrum(payload) {
+    if (!comparison.top) comparison.top = payload;
+    else if (comparison.topPinned && !comparison.bottom) comparison.bottom = payload;
+    else if (comparison.topPinned && comparison.bottomPinned) return;
+    else if (comparison.topPinned) comparison.bottom = payload;
+    else if (comparison.bottomPinned) comparison.top = payload;
+    else if (comparison.bottom) comparison.top = payload;
+    else comparison.top = payload;
+    renderSpectrum();
+  }
+
+  function renderSpectrum() {
+    const payload = comparison.top;
+    if (!payload) return;
     const spectrum = payload?.spectrum ?? { mz: [], intensity: [] };
     const row = payload?.row ?? {};
     const columns = Array.isArray(payload?.columns) ? payload.columns.map(String) : Object.keys(row);
@@ -162,6 +366,7 @@
     const title = String(payload?.title || `Spectrum ${globalIndex + 1}`);
     const mz = Array.isArray(spectrum.mz) ? spectrum.mz.map(Number) : [];
     const intensity = Array.isArray(spectrum.intensity) ? spectrum.intensity.map(Number) : [];
+    const similarity = calculateSimilarity();
 
     state = {
       spectrum,
@@ -188,9 +393,15 @@
           <div class="actions"><span>${mz.length} peaks</span><button id="export-image">Export image…</button><button id="reset-zoom">Reset zoom</button></div>
         </header>
         <div class="spectrum-workspace">
-          <section class="plot-panel" id="plot-root"></section>
+          <section class="plot-panel">
+            <div class="comparison-slots">
+              <div class="comparison-slot"><span class="slot-action-spacer" aria-hidden="true"></span><button id="pin-top" class="pin-button ${comparison.topPinned ? "pinned" : ""}" title="${comparison.topPinned ? "Unpin" : "Pin"} upper spectrum" aria-pressed="${comparison.topPinned}">📌</button><span><strong>Upper</strong> · ${esc(payload.datasetName || "Dataset")} · ${esc(title)}</span></div>
+              ${comparison.bottom ? `<div class="comparison-slot"><button id="remove-bottom" class="remove-spectrum" title="Remove lower spectrum" aria-label="Remove lower spectrum"><svg viewBox="0 0 16 16" aria-hidden="true"><path class="trash-outline" d="M3 4h10M6 4V2h4v2m2 0-.6 10H4.6L4 4m2.5 2v6m3-6v6"/><path class="trash-inner" d="M3 4h10M6 4V2h4v2m2 0-.6 10H4.6L4 4m2.5 2v6m3-6v6"/></svg></button><button id="pin-bottom" class="pin-button ${comparison.bottomPinned ? "pinned" : ""}" title="${comparison.bottomPinned ? "Unpin" : "Pin"} lower spectrum" aria-pressed="${comparison.bottomPinned}">📌</button><span><strong>Lower</strong> · ${esc(comparison.bottom.datasetName || "Dataset")} · ${esc(comparison.bottom.title || "Spectrum")}</span></div><div class="similarity-row"><label>Similarity <select id="similarity-method"><option value="dot" ${similarityMethod === "dot" ? "selected" : ""}>Dot product</option><option value="reverse" ${similarityMethod === "reverse" ? "selected" : ""}>Reverse dot product</option><option value="modified" ${similarityMethod === "modified" ? "selected" : ""}>Modified dot product</option><option value="bonanza" ${similarityMethod === "bonanza" ? "selected" : ""}>BONANZA</option></select></label><label>Tolerance <span>±</span><input id="similarity-tolerance" type="number" min="0.000001" max="10" step="0.01" value="${similarityTolerance}"><span>Da</span></label><output>${Number(similarity?.score || 0).toFixed(4)}</output><span>${similarity?.matched || 0} matched peaks</span></div>` : `<div class="comparison-hint">Pin the upper spectrum, then select another spectrum to compare.</div>`}
+            </div>
+            <div id="plot-root"></div>
+          </section>
           <aside class="peaks-panel">
-            <h2>Peaks</h2>
+            <div class="peaks-header"><h2>Peaks</h2><div><button id="copy-peaks-tsv" type="button">Copy TSV</button><button id="save-peaks-tsv" type="button">Save TSV</button></div></div>
             <div class="peak-scroll">
               <table class="peak-table">
                 <thead><tr><th><button class="sort-button" id="sort-mz">m/z ↑</button></th><th><button class="sort-button" id="sort-intensity">Intensity</button></th></tr></thead>
@@ -205,19 +416,71 @@
           <fieldset class="export-options">
             <legend>Elements to include</legend>
             <label><input id="export-grid" type="checkbox"> Tick grid lines</label>
-            <label><input id="export-ticks" type="checkbox"> Tick numbers</label>
+            <label><input id="export-mz-ticks" type="checkbox"> m/z tick numbers</label>
+            <label><input id="export-intensity-ticks" type="checkbox"> Intensity tick numbers</label>
             <label><input id="export-peaks" type="checkbox"> m/z above peaks</label>
           </fieldset>
+          <fieldset class="export-options export-size">
+            <legend>Image size</legend>
+            <label>Width <input id="export-width" type="number" value="900" min="1" max="16384" step="1"> px</label>
+            <label>Height <input id="export-height" type="number" value="540" min="1" max="16384" step="1"> px</label>
+          </fieldset>
           <div id="export-preview" class="export-preview" aria-label="Image preview"></div>
-          <div class="export-actions"><button id="export-cancel" type="button">Cancel</button><button id="export-svg" type="button">Save SVG</button><button id="export-png" type="button">Save PNG</button></div>
+          <div id="export-status" class="export-status" role="status" aria-live="polite"></div>
+          <div class="export-actions"><button id="export-cancel" type="button">Cancel</button><button id="copy-svg" type="button">Copy SVG</button><button id="copy-png" type="button">Copy PNG</button><button id="export-svg" type="button">Save SVG</button><button id="export-png" type="button">Save PNG</button></div>
         </dialog>
       </main>`;
-    setupSpectrumPlot(mz, intensity);
+    document.getElementById("pin-top").onclick = () => {
+      comparison.topPinned = !comparison.topPinned;
+      renderSpectrum();
+    };
+    const pinBottom = document.getElementById("pin-bottom");
+    if (pinBottom) pinBottom.onclick = () => {
+      comparison.bottomPinned = !comparison.bottomPinned;
+      renderSpectrum();
+    };
+    const removeBottom = document.getElementById("remove-bottom");
+    if (removeBottom) removeBottom.onclick = () => {
+      comparison.bottom = null;
+      comparison.bottomPinned = false;
+      renderSpectrum();
+    };
+    const methodSelect = document.getElementById("similarity-method");
+    if (methodSelect) methodSelect.onchange = () => {
+      similarityMethod = methodSelect.value;
+      renderSpectrum();
+    };
+    document.getElementById("copy-peaks-tsv").onclick = async () => {
+      try {
+        await navigator.clipboard.writeText(peaksAsTsv(mz, intensity));
+        vscode.postMessage({ type: "copy-notification", message: `Copied ${mz.length} peaks as TSV.` });
+      } catch (error) {
+        vscode.postMessage({ type: "clipboard-error", message: error?.message || "Could not copy peak TSV." });
+      }
+    };
+    document.getElementById("save-peaks-tsv").onclick = () => {
+      const text = peaksAsTsv(mz, intensity);
+      const bytes = Array.from(new TextEncoder().encode(text));
+      const basename = String(title || "spectrum").replace(/[^\w.-]+/g, "_");
+      vscode.postMessage({ type: "save-peaks", filename: `${basename}.tsv`, bytes, sourcePath: payload.datasetPath });
+    };
+    const toleranceInput = document.getElementById("similarity-tolerance");
+    if (toleranceInput) toleranceInput.onchange = () => {
+      const value = Number(toleranceInput.value);
+      if (Number.isFinite(value) && value > 0) similarityTolerance = Math.min(10, value);
+      renderSpectrum();
+    };
+    const lowerSpectrum = comparison.bottom?.spectrum;
+    setupSpectrumPlot(mz, intensity,
+      Array.isArray(lowerSpectrum?.mz) ? lowerSpectrum.mz.map(Number) : [],
+      Array.isArray(lowerSpectrum?.intensity) ? lowerSpectrum.intensity.map(Number) : []);
   }
 
-  function setupSpectrumPlot(mz, intensities) {
+  function setupSpectrumPlot(mz, intensities, lowerMz = [], lowerIntensities = []) {
     if (!state) return;
     const peaks = mz.map((x, index) => ({ x, y: intensities[index] ?? 0, index }))
+      .filter((p) => Number.isFinite(p.x) && Number.isFinite(p.y));
+    const lowerPeaks = lowerMz.map((x, index) => ({ x, y: lowerIntensities[index] ?? 0, index }))
       .filter((p) => Number.isFinite(p.x) && Number.isFinite(p.y));
     const root = document.getElementById("plot-root");
     const tbody = document.getElementById("peak-body");
@@ -228,10 +491,12 @@
     if (!root || !tbody || !reset || !exportImage || !mzSort || !intensitySort) return;
 
     const W = 900, H = 540, L = 72, R = 32, T = 30, B = 62;
-    const rawMax = peaks.length ? Math.max(...peaks.map((p) => p.x)) : 1;
+    const allPeaks = [...peaks, ...lowerPeaks];
+    const rawMax = allPeaks.length ? Math.max(...allPeaks.map((p) => p.x)) : 1;
     const fullXStep = niceStep(Math.max(1, rawMax), 6);
     const full = [0, Math.max(fullXStep, Math.ceil(rawMax / fullXStep) * fullXStep)];
     const fullYMax = Math.max(1, ...peaks.map((p) => Math.max(0, p.y))) * 1.1;
+    const lowerYMax = Math.max(1, ...lowerPeaks.map((p) => Math.max(0, p.y))) * 1.1;
     if (!Array.isArray(state.domain)) state.domain = [...full];
     if (!Array.isArray(state.yDomain)) state.yDomain = [0, fullYMax];
     let start = null, current = null, pressedPeak = null;
@@ -249,25 +514,40 @@
       const yDomain = state.yDomain;
       const yDomainWidth = Math.max(Number.EPSILON, yDomain[1] - yDomain[0]);
       const shown = peaks.filter((p) => p.x >= domain[0] && p.x <= domain[1]);
+      const lowerShown = lowerPeaks.filter((p) => p.x >= domain[0] && p.x <= domain[1]);
+      const hasLower = lowerPeaks.length > 0;
+      const baseline = hasLower ? H / 2 : H - B;
       const sx = (x) => L + (x - domain[0]) / domainWidth * (W - L - R);
-      const sy = (y) => H - B - (y - yDomain[0]) / yDomainWidth * (H - T - B);
+      const sy = (y) => baseline - (y - yDomain[0]) / yDomainWidth * (baseline - T);
+      const lowerSy = (y) => baseline + Math.max(0, y) / lowerYMax * (H - B - baseline);
 
       let grid = "";
       const xTicks = ticks(domain[0], domain[1]);
       for (const value of xTicks.values) {
         const x = sx(value);
         grid += `<line x1="${x}" y1="${T}" x2="${x}" y2="${H - B}" class="grid"/>`;
-        grid += `<text class="tick-label" x="${x}" y="${H - B + 26}" text-anchor="middle">${value.toFixed(tickDecimals(xTicks.step))}</text>`;
+        grid += `<text class="tick-label mz-tick-label" x="${x}" y="${H - B + 26}" text-anchor="middle">${value.toFixed(tickDecimals(xTicks.step))}</text>`;
       }
       const yTicks = ticks(yDomain[0], yDomain[1]);
       for (const value of yTicks.values) {
         const y = sy(value);
         grid += `<line x1="${L}" y1="${y}" x2="${W - R}" y2="${y}" class="grid"/>`;
-        grid += `<text class="tick-label" x="${L - 10}" y="${y + 4}" text-anchor="end">${value.toFixed(tickDecimals(yTicks.step))}</text>`;
+        grid += `<text class="tick-label intensity-tick-label" x="${L - 10}" y="${y + 4}" text-anchor="end">${value.toFixed(tickDecimals(yTicks.step))}</text>`;
+      }
+      if (hasLower) {
+        const lowerTicks = ticks(0, lowerYMax);
+        for (const value of lowerTicks.values) {
+          if (Math.abs(value) < lowerTicks.step * 1e-9) continue;
+          const y = lowerSy(value);
+          grid += `<line x1="${L}" y1="${y}" x2="${W - R}" y2="${y}" class="grid lower-grid"/>`;
+          grid += `<text class="tick-label intensity-tick-label lower-tick-label" x="${L - 10}" y="${y + 4}" text-anchor="end">${value.toFixed(tickDecimals(lowerTicks.step))}</text>`;
+        }
       }
       const sticks = shown.map((p) => `<line data-peak="${p.index}" x1="${sx(p.x)}" y1="${sy(Math.max(0, yDomain[0]))}" x2="${sx(p.x)}" y2="${sy(p.y)}" class="peak ${state.selectedPeak === p.index ? "selected" : ""}"><title>m/z ${p.x} · intensity ${p.y}</title></line>`).join("");
       const peakLabels = shown.filter((p) => p.y >= yDomain[0] && p.y <= yDomain[1]).map((p) => `<text x="${sx(p.x)}" y="${Math.max(T + 11, sy(p.y) - 8)}" text-anchor="middle" class="peak-label">${p.x.toFixed(4)}</text>`).join("");
-      root.innerHTML = `<svg id="spectrum-svg" viewBox="0 0 ${W} ${H}" role="img" aria-label="Mass spectrum"><defs><clipPath id="plot-clip"><rect x="${L}" y="${T}" width="${W - L - R}" height="${H - T - B}"/></clipPath></defs><g class="spectrum-grid">${grid}</g><line x1="${L}" y1="${H - B}" x2="${W - R}" y2="${H - B}" class="axis"/><line x1="${L}" y1="${T}" x2="${L}" y2="${H - B}" class="axis"/><g clip-path="url(#plot-clip)">${sticks}<g class="peak-labels">${peakLabels}</g></g><rect id="drag-box" x="${L}" y="${T}" width="0" height="${H - T - B}" class="selection"/><text x="${(L + W - R) / 2}" y="${H - 12}" text-anchor="middle" class="axis-title mz-title">m/z</text><text transform="translate(17 ${(T + H - B) / 2}) rotate(-90)" text-anchor="middle" class="axis-title">Intensity</text></svg>`;
+      const lowerSticks = lowerShown.map((p) => `<line x1="${sx(p.x)}" y1="${baseline}" x2="${sx(p.x)}" y2="${lowerSy(p.y)}" class="peak lower-peak"><title>m/z ${p.x} · intensity ${p.y}</title></line>`).join("");
+      const lowerLabels = lowerShown.map((p) => `<text x="${sx(p.x)}" y="${Math.min(H - B - 4, lowerSy(p.y) + 14)}" text-anchor="middle" class="peak-label lower-label">${p.x.toFixed(4)}</text>`).join("");
+      root.innerHTML = `<svg id="spectrum-svg" viewBox="0 0 ${W} ${H}" role="img" aria-label="${hasLower ? "Compared mass spectra" : "Mass spectrum"}"><defs><clipPath id="plot-clip"><rect x="${L}" y="${T}" width="${W - L - R}" height="${H - T - B}"/></clipPath></defs><g class="spectrum-grid">${grid}</g><line x1="${L}" y1="${baseline}" x2="${W - R}" y2="${baseline}" class="axis"/><line x1="${L}" y1="${T}" x2="${L}" y2="${H - B}" class="axis"/><g clip-path="url(#plot-clip)">${sticks}${lowerSticks}<g class="peak-labels">${peakLabels}${lowerLabels}</g></g><rect id="drag-box" x="${L}" y="${T}" width="0" height="${baseline - T}" class="selection"/><text x="${(L + W - R) / 2}" y="${H - 12}" text-anchor="middle" class="axis-title mz-title">m/z</text><text transform="translate(17 ${(T + baseline) / 2}) rotate(-90)" text-anchor="middle" class="axis-title">Intensity</text>${hasLower ? `<text transform="translate(17 ${(baseline + H - B) / 2}) rotate(-90)" text-anchor="middle" class="axis-title lower-axis-title">Intensity</text>` : ""}</svg>`;
 
       const ordered = [...peaks].sort((a, b) => (state.sortKey === "mz" ? a.x - b.x : a.y - b.y) * (state.sortAscending ? 1 : -1));
       tbody.innerHTML = ordered.map((p) => `<tr data-peak-row="${p.index}" class="peak-row ${state.selectedPeak === p.index ? "selected" : ""}"><td><button data-peak-button="${p.index}">${p.x.toFixed(5)}</button></td><td><button data-peak-button="${p.index}">${p.y.toLocaleString()}</button></td></tr>`).join("");
@@ -302,23 +582,23 @@
         const box = svg.querySelector("#drag-box");
         if (box) {
           const zoomX = Math.abs(current.x - start.x) > 8;
-          const zoomY = Math.abs(current.y - start.y) > 8;
+          const zoomY = !hasLower && Math.abs(current.y - start.y) > 8;
           box.setAttribute("x", String(zoomX ? Math.min(start.x, current.x) : L));
           box.setAttribute("width", String(zoomX ? Math.abs(current.x - start.x) : W - L - R));
           box.setAttribute("y", String(zoomY ? Math.min(start.y, current.y) : T));
-          box.setAttribute("height", String(zoomY ? Math.abs(current.y - start.y) : H - T - B));
+          box.setAttribute("height", String(zoomY ? Math.abs(current.y - start.y) : baseline - T));
         }
       });
       svg.addEventListener("pointerup", () => {
         const zoomX = start !== null && current !== null && Math.abs(current.x - start.x) > 8;
-        const zoomY = start !== null && current !== null && Math.abs(current.y - start.y) > 8;
+        const zoomY = !hasLower && start !== null && current !== null && Math.abs(current.y - start.y) > 8;
         const dragged = zoomX || zoomY;
         if (zoomX) {
           const toMz = (x) => domain[0] + (x - L) / (W - L - R) * domainWidth;
           state.domain = [toMz(Math.min(start.x, current.x)), toMz(Math.max(start.x, current.x))];
         }
         if (zoomY) {
-          const toIntensity = (y) => yDomain[1] - (y - T) / (H - T - B) * yDomainWidth;
+          const toIntensity = (y) => yDomain[1] - (y - T) / (baseline - T) * yDomainWidth;
           state.yDomain = [toIntensity(Math.max(start.y, current.y)), toIntensity(Math.min(start.y, current.y))];
         }
         const clickedPeak = pressedPeak;
@@ -361,7 +641,7 @@
   }
 
   window.addEventListener("message", (event) => {
-    if (event.data?.type === "spectrum") renderSpectrum(event.data.payload);
+    if (event.data?.type === "spectrum") receiveSpectrum(event.data.payload);
   });
 
   vscode.postMessage({ type: "ready" });

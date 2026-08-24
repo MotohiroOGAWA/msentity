@@ -11,6 +11,7 @@
   --row-hover: var(--vscode-list-hoverBackground, #f5f3ff);
   --peak: #2563eb;
   --peak-selected: #dc2626;
+  --lower-peak: #dc2626;
   --axis: #344054;
   --grid: #d0d5dd;
   --plot-text: #667085;
@@ -48,17 +49,41 @@ h2 { font-size: 15px; margin: 0 0 10px; color: var(--text); }
 .spectrum-workspace { display: grid; grid-template-columns: minmax(0, 1fr) 300px; gap: 14px; padding-top: 14px; }
 .plot-panel, .peaks-panel, .metadata-panel { border: 1px solid var(--border); background: var(--panel); border-radius: 6px; }
 .plot-panel { padding: 8px; touch-action: none; min-width: 0; overflow: hidden; }
-.plot-panel svg { display: block; width: 100%; height: auto; min-height: 420px; user-select: none; background: var(--panel); }
-.plot-panel svg text { font: 13px var(--vscode-font-family, system-ui, sans-serif); fill: var(--plot-text); }
-.plot-panel svg .grid { stroke: var(--grid); stroke-width: 1; opacity: .72; }
-.plot-panel svg .peak { stroke: var(--peak); stroke-width: 2.4; cursor: pointer; }
-.plot-panel svg .peak:hover, .plot-panel svg .peak.selected { stroke: var(--peak-selected); stroke-width: 4; }
-.plot-panel svg .axis { stroke: var(--axis); stroke-width: 1.6; }
-.plot-panel svg .axis-title { font-weight: 650; fill: var(--axis); }
-.plot-panel svg .mz-title { font-style: italic; }
-.plot-panel svg .peak-label { display: none; font-size: 11px; font-style: italic; fill: var(--axis); pointer-events: none; }
-.plot-panel svg .selection { fill: var(--selection-fill); stroke: var(--peak); stroke-width: 1.3; stroke-dasharray: 5 3; pointer-events: none; }
+.comparison-slots { display: grid; gap: 4px; padding: 2px 4px 8px; color: var(--muted); font-size: 12px; }
+.comparison-slots > div { display: flex; align-items: center; gap: 7px; min-height: 27px; }
+.comparison-slots > .comparison-slot { display: grid; grid-template-columns: 26px 26px minmax(0, 1fr); gap: 5px; }
+.slot-action-spacer { width: 26px; height: 26px; }
+.pin-button { display: inline-grid; place-items: center; width: 26px; height: 26px; border: 0; padding: 2px; opacity: .45; background: transparent; filter: grayscale(1); }
+.pin-button.pinned { opacity: 1; filter: none; background: var(--row-hover); }
+.comparison-hint { padding-left: 34px; font-style: italic; }
+.remove-spectrum { display: inline-grid; place-items: center; width: 26px; height: 26px; padding: 3px; background: transparent; border: 0; }
+.remove-spectrum:hover { background: var(--row-hover); }
+.remove-spectrum svg { width: 16px; height: 16px; fill: none; stroke-linecap: round; stroke-linejoin: round; }
+.remove-spectrum .trash-outline { stroke: #000; stroke-width: 3.4; }
+.remove-spectrum .trash-inner { stroke: #fff; stroke-width: 1.4; }
+.similarity-row { margin-left: 34px; flex-wrap: wrap; }
+.similarity-row label { display: flex; align-items: center; gap: 7px; }
+.similarity-row select { padding: 4px 7px; color: var(--vscode-input-foreground, var(--text)); background: var(--vscode-input-background, var(--panel)); border: 1px solid var(--vscode-input-border, var(--border)); border-radius: 4px; }
+.similarity-row input { width: 82px; padding: 4px 6px; color: var(--vscode-input-foreground, var(--text)); background: var(--vscode-input-background, var(--panel)); border: 1px solid var(--vscode-input-border, var(--border)); border-radius: 4px; }
+.similarity-row output { min-width: 64px; color: var(--text); font-size: 16px; font-weight: 700; font-variant-numeric: tabular-nums; }
+#plot-root > svg { display: block; width: 100%; height: auto; min-height: 420px; user-select: none; background: var(--panel); }
+#plot-root > svg text { font: 13px var(--vscode-font-family, system-ui, sans-serif); fill: var(--plot-text); }
+#plot-root > svg .grid { stroke: var(--grid); stroke-width: 1; opacity: .72; }
+#plot-root > svg .peak { stroke: var(--peak); stroke-width: 2.4; cursor: pointer; }
+#plot-root > svg .peak:hover, #plot-root > svg .peak.selected { stroke: var(--peak-selected); stroke-width: 4; }
+#plot-root > svg .peak.lower-peak { stroke: var(--lower-peak); }
+#plot-root > svg .lower-axis-title, #plot-root > svg .lower-label { fill: var(--lower-peak); }
+#plot-root > svg .intensity-tick-label { fill: var(--axis); }
+#plot-root > svg .axis { stroke: var(--axis); stroke-width: 1.6; }
+#plot-root > svg .axis-title { font-weight: 650; fill: var(--axis); }
+#plot-root > svg .mz-title { font-style: italic; }
+#plot-root > svg .peak-label { display: none; font-size: 11px; font-style: italic; fill: var(--axis); pointer-events: none; }
+#plot-root > svg .selection { fill: var(--selection-fill); stroke: var(--peak); stroke-width: 1.3; stroke-dasharray: 5 3; pointer-events: none; }
 .peaks-panel { padding: 12px; min-width: 0; }
+.peaks-header { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 10px; }
+.peaks-header h2 { margin: 0; }
+.peaks-header > div { display: flex; gap: 5px; }
+.peaks-header button { padding: 4px 7px; font-size: 11px; }
 .peak-scroll { max-height: 535px; overflow: auto; }
 .peak-table { width: 100%; border-collapse: collapse; font-size: 12px; }
 .peak-table th { position: sticky; top: 0; background: var(--panel); border-bottom: 1px solid var(--border); }
@@ -78,17 +103,21 @@ h2 { font-size: 15px; margin: 0 0 10px; color: var(--text); }
 .export-header button { font-size: 20px; padding: 2px 9px; }
 .export-options { display: flex; flex-wrap: wrap; gap: 16px; margin: 0 0 12px; border: 1px solid var(--border); }
 .export-options label { display: flex; align-items: center; gap: 6px; }
+.export-size input { width: 110px; padding: 5px 7px; color: var(--vscode-input-foreground, var(--text)); background: var(--vscode-input-background, var(--panel)); border: 1px solid var(--vscode-input-border, var(--border)); }
 .export-preview { padding: 10px; overflow: auto; border: 1px solid var(--border); background-color: #fff; background-image: linear-gradient(45deg, #ddd 25%, transparent 25%), linear-gradient(-45deg, #ddd 25%, transparent 25%), linear-gradient(45deg, transparent 75%, #ddd 75%), linear-gradient(-45deg, transparent 75%, #ddd 75%); background-size: 20px 20px; background-position: 0 0, 0 10px, 10px -10px, -10px 0; }
 .export-preview svg { display: block; width: 100%; height: auto; background: transparent; }
 .export-preview svg .peak { stroke: var(--peak); stroke-width: 2.4; }
 .export-preview svg .peak.selected { stroke: var(--peak-selected); stroke-width: 4; }
+.export-preview svg .peak.lower-peak { stroke: var(--lower-peak); }
+.export-preview svg .intensity-tick-label { fill: #000; }
 .export-preview svg .axis { stroke: #000; stroke-width: 1.5; }
 .export-preview svg .axis-title { fill: #000; }
 .export-preview svg .peak-label { display: block; fill: #000; }
+.export-status { min-height: 20px; padding-top: 6px; color: var(--muted); }
 .export-actions { justify-content: flex-end; margin-top: 12px; }
 @media (max-width: 850px) {
   .spectrum-workspace { grid-template-columns: 1fr; }
   .peak-scroll { max-height: 260px; }
   .spectrum-header { align-items: start; flex-direction: column; }
-  .plot-panel svg { min-height: 300px; }
+  #plot-root > svg { min-height: 300px; }
 }
