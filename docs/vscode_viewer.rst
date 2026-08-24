@@ -9,17 +9,17 @@ reusable VS Code panel. It does not use or require Gradio.
 Install a release VSIX
 ----------------------
 
-1. Open the `msentity releases page
-   <https://github.com/MotohiroOGAWA/msentity/releases>`_.
-2. Open release ``msentity-v0.1.1`` and download
-   ``msentity-spectrum-viewer-0.1.1.vsix`` from **Assets**.
-3. Install the downloaded file with either method below.
+1. Download the `latest msentity-spectrum-viewer.vsix
+   <https://github.com/MotohiroOGAWA/msentity/releases/latest/download/msentity-spectrum-viewer.vsix>`_.
+   This URL always points to the newest release, so no version needs to be
+   specified.
+2. Install the downloaded file with either method below.
 
 From a terminal:
 
 .. code-block:: bash
 
-   code --install-extension ./msentity-spectrum-viewer-0.1.1.vsix
+   code --install-extension ./msentity-spectrum-viewer.vsix
 
 From VS Code, open **Extensions**, choose **Views and More Actions (...)**,
 select **Install from VSIX...**, and choose the downloaded file. Run
@@ -115,12 +115,16 @@ Node.js and npm are needed only to package the extension:
    npm run package
 
 The last command creates
-``vscode-extension/msentity-spectrum-viewer-0.1.1.vsix``. Install and replace
-an existing copy with:
+``vscode-extension/dist/msentity-spectrum-viewer-<version>.vsix``, where
+``<version>`` comes from ``vscode-extension/package.json``. Install and replace
+an existing copy by substituting the generated version in this command:
 
 .. code-block:: bash
 
-   code --install-extension ./msentity-spectrum-viewer-0.1.1.vsix --force
+   code --install-extension ./dist/msentity-spectrum-viewer-<version>.vsix --force
 
-For a release, attach that exact VSIX file to the matching GitHub release so
-users do not need Node.js or the source checkout.
+For a release, run ``npm run package:release`` instead. It creates both the
+versioned VSIX and ``msentity-spectrum-viewer.vsix`` under ``dist/``; attach
+both files to the matching GitHub release. The fixed asset name keeps the recommended
+``latest/download`` URL valid while the versioned asset remains available for
+pinned downloads.

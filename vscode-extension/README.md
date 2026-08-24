@@ -20,15 +20,18 @@ This extension is the graphical viewer included in the
 - Transparent PNG and SVG plot export (all optional elements off by default)
 - VS Code light, dark, and high-contrast theme support
 
-## Download and install 0.1.1
+## Download and install the latest release
 
-Download `msentity-spectrum-viewer-0.1.1.vsix` from the assets of the
-[`msentity-v0.1.1` release](https://github.com/MotohiroOGAWA/msentity/releases/tag/msentity-v0.1.1).
+Download the
+[latest `msentity-spectrum-viewer.vsix`](https://github.com/MotohiroOGAWA/msentity/releases/latest/download/msentity-spectrum-viewer.vsix).
+This URL always points to the newest release, so no version needs to be
+specified. Versioned files remain available from individual release pages when
+a specific version is required.
 
 Install it from a terminal:
 
 ```console
-code --install-extension ./msentity-spectrum-viewer-0.1.1.vsix
+code --install-extension ./msentity-spectrum-viewer.vsix
 ```
 
 Or open VS Code's Extensions view, choose **Views and More Actions (...) →
@@ -44,7 +47,7 @@ python -c "import msentity; print(msentity.__file__)"
 Set `msentitySpectrumViewer.pythonPath` if that interpreter is not available as
 `python` from VS Code.
 
-## Build `msentity-spectrum-viewer-0.1.1.vsix`
+## Build a versioned VSIX
 
 From a clone of `msentity`:
 
@@ -54,15 +57,23 @@ npm ci
 npm run package
 ```
 
-The VSIX is written to the current directory. Test it with:
+The VSIX is written to
+`dist/msentity-spectrum-viewer-<version>.vsix`; `<version>` is read from
+`package.json`. The ignored `dist/` directory keeps generated packages separate
+from extension source files. Test it by substituting the generated version:
 
 ```console
-code --install-extension ./msentity-spectrum-viewer-0.1.1.vsix --force
+code --install-extension ./dist/msentity-spectrum-viewer-<version>.vsix --force
 ```
 
 `npm ci` uses the committed lock file for a reproducible dependency install.
 `npm run package` invokes the official VS Code extension packager. The
 `.vscodeignore` file excludes development-only files from the VSIX.
+
+For a GitHub release, run `npm run package:release`. It creates both the
+versioned VSIX and `dist/msentity-spectrum-viewer.vsix` under `dist/`; upload
+both assets to the release. The fixed filename is required by the recommended `latest/download`
+URL, while the versioned filename supports pinned downloads.
 
 ## Usage
 

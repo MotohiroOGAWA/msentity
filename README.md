@@ -75,12 +75,13 @@ view.
 
 ## VS Code spectrum viewer
 
-Download `msentity-spectrum-viewer-0.1.1.vsix` from the assets of the
-[`msentity-v0.1.1` GitHub release](https://github.com/MotohiroOGAWA/msentity/releases/tag/msentity-v0.1.1),
-then install it from a terminal:
+Download the
+[latest `msentity-spectrum-viewer.vsix`](https://github.com/MotohiroOGAWA/msentity/releases/latest/download/msentity-spectrum-viewer.vsix),
+then install it from a terminal. This URL always points to the newest release,
+so no version needs to be specified:
 
 ```console
-code --install-extension ./msentity-spectrum-viewer-0.1.1.vsix
+code --install-extension ./msentity-spectrum-viewer.vsix
 ```
 
 Alternatively, open VS Code's Extensions view, choose **Views and More
@@ -119,7 +120,9 @@ npm ci
 npm run package
 ```
 
-This creates `vscode-extension/msentity-spectrum-viewer-0.1.1.vsix`. See the
+This creates
+`vscode-extension/dist/msentity-spectrum-viewer-<version>.vsix`, where
+`<version>` comes from `vscode-extension/package.json`. See the
 [extension README](vscode-extension/README.md) and the
 [viewer documentation](https://msentity.readthedocs.io/en/latest/vscode_viewer.html)
 for setup, settings, development, and release instructions.

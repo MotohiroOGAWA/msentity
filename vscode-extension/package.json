@@ -2,7 +2,7 @@
   "name": "msentity-spectrum-viewer",
   "displayName": "msentity Spectrum Viewer",
   "description": "View msentity datasets in VS Code with a separate reusable mass-spectrum panel, without Gradio.",
-  "version": "0.1.1",
+  "version": "1.0.0",
   "publisher": "motohiroogawa",
   "icon": "media/editor-icon.png",
   "license": "MIT",
@@ -29,7 +29,7 @@
     "workspace"
   ],
   "main": "./extension.js",
-    "activationEvents": [
+  "activationEvents": [
     "onCustomEditor:msentity.spectrumViewer",
     "onCommand:msentitySpectrumViewer.open",
     "onCommand:msentitySpectrumViewer.showLogs",
@@ -140,7 +140,8 @@
     }
   },
   "scripts": {
-    "package": "npx @vscode/vsce package"
+    "package": "node scripts/package-vsix.js",
+    "package:release": "node scripts/package-vsix.js --release"
   },
   "devDependencies": {
     "@vscode/vsce": "^3.6.0"
