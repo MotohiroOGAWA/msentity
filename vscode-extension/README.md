@@ -79,7 +79,15 @@ URL, while the versioned filename supports pinned downloads.
 
 Open an `.msds`, `.msp`, or `.mgf` file. Click a spectrum button in the table;
 the reusable **Mass Spectrum** panel opens and updates when another record is
-selected. Drag horizontally to zoom m/z only, vertically to zoom intensity
+selected. Use **Add dataset…** to load more files into the same dataset viewer,
+then switch between them with the dataset dropdown. Spectra opened from those
+datasets share the same Mass Spectrum panel, while datasets opened in separate
+VS Code tabs continue to use separate spectrum panels.
+
+Pin the upper spectrum and select another spectrum to compare them on a shared
+m/z axis. The second spectrum is drawn downward in red. Each side can be pinned
+independently: new selections replace the unpinned side, and neither side
+changes while both are pinned. Drag horizontally to zoom m/z only, vertically to zoom intensity
 only, or diagonally to zoom both axes. Choose **Export image...**, select the
 elements to include, set any output width and height in pixels, and save the
 visible plot as a transparent PNG or SVG. The requested dimensions are filled

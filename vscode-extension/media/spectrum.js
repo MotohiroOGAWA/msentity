@@ -2,6 +2,7 @@
   const vscode = acquireVsCodeApi();
   const app = document.getElementById("spectrum-app");
   let state = null;
+  const comparison = { top: null, bottom: null, topPinned: false, bottomPinned: false };
 
   const esc = (v) => String(v ?? "")
     .replaceAll("&", "&amp;")
@@ -107,6 +108,7 @@
       text { font: 13px system-ui, sans-serif; fill: ${color("--plot-text", "#667085")} }
       .grid { stroke: ${color("--grid", "#d0d5dd")}; stroke-width: 1; opacity: .72 }
       .peak { stroke: ${color("--peak", "#2563eb")}; stroke-width: 2.4 }
+      .peak.lower-peak { stroke: ${color("--lower-peak", "#dc2626")}; }
       .peak.selected { stroke: ${color("--peak-selected", "#dc2626")}; stroke-width: 4 }
       .axis { stroke: #000; stroke-width: 1.5 }
       .axis-title { font-weight: 650; fill: #000 }
@@ -124,7 +126,7 @@
       element.setAttribute("opacity", ".72");
     });
     svg.querySelectorAll(".peak").forEach((element) => {
-      element.setAttribute("stroke", element.classList.contains("selected") ? color("--peak-selected", "#dc2626") : color("--peak", "#2563eb"));
+      element.setAttribute("stroke", element.classList.contains("lower-peak") ? color("--lower-peak", "#dc2626") : element.classList.contains("selected") ? color("--peak-selected", "#dc2626") : color("--peak", "#2563eb"));
       element.setAttribute("stroke-width", element.classList.contains("selected") ? "4" : "2.4");
     });
     svg.querySelectorAll(".axis").forEach((element) => {
@@ -256,7 +258,20 @@
     dialog.showModal();
   };
 
-  function renderSpectrum(payload) {
+  function receiveSpectrum(payload) {
+    if (!comparison.top) comparison.top = payload;
+    else if (comparison.topPinned && !comparison.bottom) comparison.bottom = payload;
+    else if (comparison.topPinned && comparison.bottomPinned) return;
+    else if (comparison.topPinned) comparison.bottom = payload;
+    else if (comparison.bottomPinned) comparison.top = payload;
+    else if (comparison.bottom) comparison.top = payload;
+    else comparison.top = payload;
+    renderSpectrum();
+  }
+
+  function renderSpectrum() {
+    const payload = comparison.top;
+    if (!payload) return;
     const spectrum = payload?.spectrum ?? { mz: [], intensity: [] };
     const row = payload?.row ?? {};
     const columns = Array.isArray(payload?.columns) ? payload.columns.map(String) : Object.keys(row);
@@ -290,7 +305,13 @@
           <div class="actions"><span>${mz.length} peaks</span><button id="export-image">Export image…</button><button id="reset-zoom">Reset zoom</button></div>
         </header>
         <div class="spectrum-workspace">
-          <section class="plot-panel" id="plot-root"></section>
+          <section class="plot-panel">
+            <div class="comparison-slots">
+              <div><button id="pin-top" class="pin-button ${comparison.topPinned ? "pinned" : ""}" title="${comparison.topPinned ? "Unpin" : "Pin"} upper spectrum" aria-pressed="${comparison.topPinned}">📌</button><span><strong>Upper</strong> · ${esc(payload.datasetName || "Dataset")} · ${esc(title)}</span></div>
+              ${comparison.bottom ? `<div><button id="pin-bottom" class="pin-button ${comparison.bottomPinned ? "pinned" : ""}" title="${comparison.bottomPinned ? "Unpin" : "Pin"} lower spectrum" aria-pressed="${comparison.bottomPinned}">📌</button><span><strong>Lower</strong> · ${esc(comparison.bottom.datasetName || "Dataset")} · ${esc(comparison.bottom.title || "Spectrum")}</span></div>` : `<div class="comparison-hint">Pin the upper spectrum, then select another spectrum to compare.</div>`}
+            </div>
+            <div id="plot-root"></div>
+          </section>
           <aside class="peaks-panel">
             <h2>Peaks</h2>
             <div class="peak-scroll">
@@ -320,12 +341,26 @@
           <div class="export-actions"><button id="export-cancel" type="button">Cancel</button><button id="copy-svg" type="button">Copy SVG</button><button id="copy-png" type="button">Copy PNG</button><button id="export-svg" type="button">Save SVG</button><button id="export-png" type="button">Save PNG</button></div>
         </dialog>
       </main>`;
-    setupSpectrumPlot(mz, intensity);
+    document.getElementById("pin-top").onclick = () => {
+      comparison.topPinned = !comparison.topPinned;
+      renderSpectrum();
+    };
+    const pinBottom = document.getElementById("pin-bottom");
+    if (pinBottom) pinBottom.onclick = () => {
+      comparison.bottomPinned = !comparison.bottomPinned;
+      renderSpectrum();
+    };
+    const lowerSpectrum = comparison.bottom?.spectrum;
+    setupSpectrumPlot(mz, intensity,
+      Array.isArray(lowerSpectrum?.mz) ? lowerSpectrum.mz.map(Number) : [],
+      Array.isArray(lowerSpectrum?.intensity) ? lowerSpectrum.intensity.map(Number) : []);
   }
 
-  function setupSpectrumPlot(mz, intensities) {
+  function setupSpectrumPlot(mz, intensities, lowerMz = [], lowerIntensities = []) {
     if (!state) return;
     const peaks = mz.map((x, index) => ({ x, y: intensities[index] ?? 0, index }))
+      .filter((p) => Number.isFinite(p.x) && Number.isFinite(p.y));
+    const lowerPeaks = lowerMz.map((x, index) => ({ x, y: lowerIntensities[index] ?? 0, index }))
       .filter((p) => Number.isFinite(p.x) && Number.isFinite(p.y));
     const root = document.getElementById("plot-root");
     const tbody = document.getElementById("peak-body");
@@ -336,10 +371,12 @@
     if (!root || !tbody || !reset || !exportImage || !mzSort || !intensitySort) return;
 
     const W = 900, H = 540, L = 72, R = 32, T = 30, B = 62;
-    const rawMax = peaks.length ? Math.max(...peaks.map((p) => p.x)) : 1;
+    const allPeaks = [...peaks, ...lowerPeaks];
+    const rawMax = allPeaks.length ? Math.max(...allPeaks.map((p) => p.x)) : 1;
     const fullXStep = niceStep(Math.max(1, rawMax), 6);
     const full = [0, Math.max(fullXStep, Math.ceil(rawMax / fullXStep) * fullXStep)];
     const fullYMax = Math.max(1, ...peaks.map((p) => Math.max(0, p.y))) * 1.1;
+    const lowerYMax = Math.max(1, ...lowerPeaks.map((p) => Math.max(0, p.y))) * 1.1;
     if (!Array.isArray(state.domain)) state.domain = [...full];
     if (!Array.isArray(state.yDomain)) state.yDomain = [0, fullYMax];
     let start = null, current = null, pressedPeak = null;
@@ -357,8 +394,12 @@
       const yDomain = state.yDomain;
       const yDomainWidth = Math.max(Number.EPSILON, yDomain[1] - yDomain[0]);
       const shown = peaks.filter((p) => p.x >= domain[0] && p.x <= domain[1]);
+      const lowerShown = lowerPeaks.filter((p) => p.x >= domain[0] && p.x <= domain[1]);
+      const hasLower = lowerPeaks.length > 0;
+      const baseline = hasLower ? H / 2 : H - B;
       const sx = (x) => L + (x - domain[0]) / domainWidth * (W - L - R);
-      const sy = (y) => H - B - (y - yDomain[0]) / yDomainWidth * (H - T - B);
+      const sy = (y) => baseline - (y - yDomain[0]) / yDomainWidth * (baseline - T);
+      const lowerSy = (y) => baseline + Math.max(0, y) / lowerYMax * (H - B - baseline);
 
       let grid = "";
       const xTicks = ticks(domain[0], domain[1]);
@@ -375,7 +416,9 @@
       }
       const sticks = shown.map((p) => `<line data-peak="${p.index}" x1="${sx(p.x)}" y1="${sy(Math.max(0, yDomain[0]))}" x2="${sx(p.x)}" y2="${sy(p.y)}" class="peak ${state.selectedPeak === p.index ? "selected" : ""}"><title>m/z ${p.x} · intensity ${p.y}</title></line>`).join("");
       const peakLabels = shown.filter((p) => p.y >= yDomain[0] && p.y <= yDomain[1]).map((p) => `<text x="${sx(p.x)}" y="${Math.max(T + 11, sy(p.y) - 8)}" text-anchor="middle" class="peak-label">${p.x.toFixed(4)}</text>`).join("");
-      root.innerHTML = `<svg id="spectrum-svg" viewBox="0 0 ${W} ${H}" role="img" aria-label="Mass spectrum"><defs><clipPath id="plot-clip"><rect x="${L}" y="${T}" width="${W - L - R}" height="${H - T - B}"/></clipPath></defs><g class="spectrum-grid">${grid}</g><line x1="${L}" y1="${H - B}" x2="${W - R}" y2="${H - B}" class="axis"/><line x1="${L}" y1="${T}" x2="${L}" y2="${H - B}" class="axis"/><g clip-path="url(#plot-clip)">${sticks}<g class="peak-labels">${peakLabels}</g></g><rect id="drag-box" x="${L}" y="${T}" width="0" height="${H - T - B}" class="selection"/><text x="${(L + W - R) / 2}" y="${H - 12}" text-anchor="middle" class="axis-title mz-title">m/z</text><text transform="translate(17 ${(T + H - B) / 2}) rotate(-90)" text-anchor="middle" class="axis-title">Intensity</text></svg>`;
+      const lowerSticks = lowerShown.map((p) => `<line x1="${sx(p.x)}" y1="${baseline}" x2="${sx(p.x)}" y2="${lowerSy(p.y)}" class="peak lower-peak"><title>m/z ${p.x} · intensity ${p.y}</title></line>`).join("");
+      const lowerLabels = lowerShown.map((p) => `<text x="${sx(p.x)}" y="${Math.min(H - B - 4, lowerSy(p.y) + 14)}" text-anchor="middle" class="peak-label lower-label">${p.x.toFixed(4)}</text>`).join("");
+      root.innerHTML = `<svg id="spectrum-svg" viewBox="0 0 ${W} ${H}" role="img" aria-label="${hasLower ? "Compared mass spectra" : "Mass spectrum"}"><defs><clipPath id="plot-clip"><rect x="${L}" y="${T}" width="${W - L - R}" height="${H - T - B}"/></clipPath></defs><g class="spectrum-grid">${grid}</g><line x1="${L}" y1="${baseline}" x2="${W - R}" y2="${baseline}" class="axis"/><line x1="${L}" y1="${T}" x2="${L}" y2="${H - B}" class="axis"/><g clip-path="url(#plot-clip)">${sticks}${lowerSticks}<g class="peak-labels">${peakLabels}${lowerLabels}</g></g><rect id="drag-box" x="${L}" y="${T}" width="0" height="${baseline - T}" class="selection"/><text x="${(L + W - R) / 2}" y="${H - 12}" text-anchor="middle" class="axis-title mz-title">m/z</text><text transform="translate(17 ${(T + baseline) / 2}) rotate(-90)" text-anchor="middle" class="axis-title">Intensity</text>${hasLower ? `<text transform="translate(17 ${(baseline + H - B) / 2}) rotate(-90)" text-anchor="middle" class="axis-title lower-axis-title">Intensity</text>` : ""}</svg>`;
 
       const ordered = [...peaks].sort((a, b) => (state.sortKey === "mz" ? a.x - b.x : a.y - b.y) * (state.sortAscending ? 1 : -1));
       tbody.innerHTML = ordered.map((p) => `<tr data-peak-row="${p.index}" class="peak-row ${state.selectedPeak === p.index ? "selected" : ""}"><td><button data-peak-button="${p.index}">${p.x.toFixed(5)}</button></td><td><button data-peak-button="${p.index}">${p.y.toLocaleString()}</button></td></tr>`).join("");
@@ -410,23 +453,23 @@
         const box = svg.querySelector("#drag-box");
         if (box) {
           const zoomX = Math.abs(current.x - start.x) > 8;
-          const zoomY = Math.abs(current.y - start.y) > 8;
+          const zoomY = !hasLower && Math.abs(current.y - start.y) > 8;
           box.setAttribute("x", String(zoomX ? Math.min(start.x, current.x) : L));
           box.setAttribute("width", String(zoomX ? Math.abs(current.x - start.x) : W - L - R));
           box.setAttribute("y", String(zoomY ? Math.min(start.y, current.y) : T));
-          box.setAttribute("height", String(zoomY ? Math.abs(current.y - start.y) : H - T - B));
+          box.setAttribute("height", String(zoomY ? Math.abs(current.y - start.y) : baseline - T));
         }
       });
       svg.addEventListener("pointerup", () => {
         const zoomX = start !== null && current !== null && Math.abs(current.x - start.x) > 8;
-        const zoomY = start !== null && current !== null && Math.abs(current.y - start.y) > 8;
+        const zoomY = !hasLower && start !== null && current !== null && Math.abs(current.y - start.y) > 8;
         const dragged = zoomX || zoomY;
         if (zoomX) {
           const toMz = (x) => domain[0] + (x - L) / (W - L - R) * domainWidth;
           state.domain = [toMz(Math.min(start.x, current.x)), toMz(Math.max(start.x, current.x))];
         }
         if (zoomY) {
-          const toIntensity = (y) => yDomain[1] - (y - T) / (H - T - B) * yDomainWidth;
+          const toIntensity = (y) => yDomain[1] - (y - T) / (baseline - T) * yDomainWidth;
           state.yDomain = [toIntensity(Math.max(start.y, current.y)), toIntensity(Math.min(start.y, current.y))];
         }
         const clickedPeak = pressedPeak;
@@ -469,7 +512,7 @@
   }
 
   window.addEventListener("message", (event) => {
-    if (event.data?.type === "spectrum") renderSpectrum(event.data.payload);
+    if (event.data?.type === "spectrum") receiveSpectrum(event.data.payload);
   });
 
   vscode.postMessage({ type: "ready" });

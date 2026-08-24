@@ -41,7 +41,7 @@ def json_value(value: Any) -> Any:
     return str(value)
 
 
-def serialize_page(dataset: Any, page: int, page_size: int) -> dict[str, Any]:
+def serialize_page(dataset: Any, page: int, page_size: int, dataset_id: str, input_file: Path) -> dict[str, Any]:
     total_rows = len(dataset)
     total_pages = max(1, math.ceil(total_rows / page_size))
     page = min(max(0, int(page)), total_pages - 1)
@@ -63,6 +63,9 @@ def serialize_page(dataset: Any, page: int, page_size: int) -> dict[str, Any]:
         for local_index, spectrum in enumerate(page_view.peaks)
     ]
     return {
+        "dataset_id": dataset_id,
+        "dataset_name": input_file.name,
+        "dataset_path": str(input_file),
         "columns": [str(column) for column in metadata.columns],
         "rows": rows,
         "spectra": spectra,
@@ -160,11 +163,16 @@ def main() -> int:
         })
         return 1
 
+    initial_id = str(input_file)
+    datasets: dict[str, dict[str, Any]] = {
+        initial_id: {"dataset": dataset, "path": input_file, "file_type": args.file_type}
+    }
     emit({
         "type": "backend-ready",
         "file": str(input_file),
         "total_rows": len(dataset),
         "page_size": page_size,
+        "dataset": {"id": initial_id, "name": input_file.name, "path": str(input_file), "total_rows": len(dataset)},
     })
 
     for line in sys.stdin:
@@ -174,18 +182,38 @@ def main() -> int:
         try:
             request = json.loads(line)
             request_type = request.get("type")
+            dataset_id = str(request.get("dataset_id") or initial_id)
+            entry = datasets.get(dataset_id)
             if request_type == "page":
+                if entry is None:
+                    raise ValueError(f"Unknown dataset: {dataset_id}")
                 page = int(request.get("page", 0))
-                emit({"type": "dataset-page", "value": serialize_page(dataset, page, page_size)})
+                emit({"type": "dataset-page", "value": serialize_page(entry["dataset"], page, page_size, dataset_id, entry["path"])})
+            elif request_type == "add-dataset":
+                added_path = Path(str(request.get("path", ""))).expanduser().resolve()
+                if not added_path.is_file():
+                    raise FileNotFoundError(str(added_path))
+                added_id = str(added_path)
+                if added_id not in datasets:
+                    added_type = request.get("file_type")
+                    added_dataset = load_dataset(added_path, added_type)
+                    datasets[added_id] = {"dataset": added_dataset, "path": added_path, "file_type": added_type}
+                added_entry = datasets[added_id]
+                emit({"type": "dataset-added", "dataset": {"id": added_id, "name": added_path.name, "path": added_id, "total_rows": len(added_entry["dataset"])}})
+                emit({"type": "dataset-page", "value": serialize_page(added_entry["dataset"], 0, page_size, added_id, added_path)})
             elif request_type == "reload":
-                dataset = load_dataset(input_file, args.file_type)
-                emit({"type": "dataset-page", "value": serialize_page(dataset, 0, page_size)})
+                if entry is None:
+                    raise ValueError(f"Unknown dataset: {dataset_id}")
+                entry["dataset"] = load_dataset(entry["path"], entry["file_type"])
+                emit({"type": "dataset-page", "value": serialize_page(entry["dataset"], 0, page_size, dataset_id, entry["path"])})
             elif request_type == "export":
+                if entry is None:
+                    raise ValueError(f"Unknown dataset: {dataset_id}")
                 output_file = Path(str(request.get("path", ""))).expanduser().resolve()
                 emit({"type": "export-start", "path": str(output_file)})
                 try:
-                    export_dataset(dataset, output_file, request.get("file_type"))
-                    emit({"type": "export-complete", "path": str(output_file), "total_rows": len(dataset)})
+                    export_dataset(entry["dataset"], output_file, request.get("file_type"))
+                    emit({"type": "export-complete", "path": str(output_file), "total_rows": len(entry["dataset"])})
                 except Exception as exc:  # noqa: BLE001
                     traceback.print_exc(file=sys.stderr)
                     emit({"type": "export-error", "message": str(exc)})

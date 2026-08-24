@@ -118,14 +118,23 @@ class MSEntityViewerProvider {
     const messageDisposable = webview.onDidReceiveMessage(async (message) => {
       switch (message?.type) {
         case "ready":
-          writeRequest({ type: "page", page: 0 });
+          writeRequest({ type: "page", page: 0, dataset_id: message.datasetId });
           break;
         case "page-request":
-          writeRequest({ type: "page", page: Number(message.page) || 0 });
+          writeRequest({ type: "page", page: Number(message.page) || 0, dataset_id: message.datasetId });
           break;
         case "reload":
-          writeRequest({ type: "reload" });
+          writeRequest({ type: "reload", dataset_id: message.datasetId });
           break;
+        case "add-dataset": {
+          const selected = await vscode.window.showOpenDialog({
+            title: "Add dataset to this viewer",
+            canSelectMany: false,
+            filters: { "Mass spectrum datasets": ["msds", "msp", "mgf"] }
+          });
+          if (selected?.[0]) writeRequest({ type: "add-dataset", path: selected[0].fsPath });
+          break;
+        }
         case "export-dataset": {
           const format = await vscode.window.showQuickPick(["msds", "msp", "mgf"], {
             title: "Export msentity dataset",
@@ -135,7 +144,8 @@ class MSEntityViewerProvider {
             send({ type: "export-cancelled" });
             break;
           }
-          const sourceName = path.basename(document.uri.fsPath, path.extname(document.uri.fsPath));
+          const sourcePath = String(message.datasetPath || document.uri.fsPath);
+          const sourceName = path.basename(sourcePath, path.extname(sourcePath));
           const target = await vscode.window.showSaveDialog({
             defaultUri: vscode.Uri.joinPath(document.uri, "..", `${sourceName}.${format}`),
             filters: format === "msds" ? { "msentity dataset": ["msds"] } : format === "msp" ? { "NIST MSP": ["msp"] } : { "Mascot Generic Format": ["mgf"] }
@@ -147,7 +157,7 @@ class MSEntityViewerProvider {
               : selectedExtension
                 ? `${target.fsPath.slice(0, -selectedExtension.length)}.${format}`
                 : `${target.fsPath}.${format}`;
-            writeRequest({ type: "export", path: exportPath, file_type: format });
+            writeRequest({ type: "export", path: exportPath, file_type: format, dataset_id: message.datasetId });
           } else send({ type: "export-cancelled" });
           break;
         }

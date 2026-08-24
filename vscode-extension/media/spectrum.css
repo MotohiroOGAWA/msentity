@@ -11,6 +11,7 @@
   --row-hover: var(--vscode-list-hoverBackground, #f5f3ff);
   --peak: #2563eb;
   --peak-selected: #dc2626;
+  --lower-peak: #dc2626;
   --axis: #344054;
   --grid: #d0d5dd;
   --plot-text: #667085;
@@ -48,11 +49,18 @@ h2 { font-size: 15px; margin: 0 0 10px; color: var(--text); }
 .spectrum-workspace { display: grid; grid-template-columns: minmax(0, 1fr) 300px; gap: 14px; padding-top: 14px; }
 .plot-panel, .peaks-panel, .metadata-panel { border: 1px solid var(--border); background: var(--panel); border-radius: 6px; }
 .plot-panel { padding: 8px; touch-action: none; min-width: 0; overflow: hidden; }
+.comparison-slots { display: grid; gap: 4px; padding: 2px 4px 8px; color: var(--muted); font-size: 12px; }
+.comparison-slots > div { display: flex; align-items: center; gap: 7px; min-height: 27px; }
+.pin-button { border: 0; padding: 3px 5px; opacity: .45; background: transparent; filter: grayscale(1); }
+.pin-button.pinned { opacity: 1; filter: none; background: var(--row-hover); }
+.comparison-hint { padding-left: 34px; font-style: italic; }
 .plot-panel svg { display: block; width: 100%; height: auto; min-height: 420px; user-select: none; background: var(--panel); }
 .plot-panel svg text { font: 13px var(--vscode-font-family, system-ui, sans-serif); fill: var(--plot-text); }
 .plot-panel svg .grid { stroke: var(--grid); stroke-width: 1; opacity: .72; }
 .plot-panel svg .peak { stroke: var(--peak); stroke-width: 2.4; cursor: pointer; }
 .plot-panel svg .peak:hover, .plot-panel svg .peak.selected { stroke: var(--peak-selected); stroke-width: 4; }
+.plot-panel svg .peak.lower-peak { stroke: var(--lower-peak); }
+.plot-panel svg .lower-axis-title, .plot-panel svg .lower-label { fill: var(--lower-peak); }
 .plot-panel svg .axis { stroke: var(--axis); stroke-width: 1.6; }
 .plot-panel svg .axis-title { font-weight: 650; fill: var(--axis); }
 .plot-panel svg .mz-title { font-style: italic; }
@@ -83,6 +91,7 @@ h2 { font-size: 15px; margin: 0 0 10px; color: var(--text); }
 .export-preview svg { display: block; width: 100%; height: auto; background: transparent; }
 .export-preview svg .peak { stroke: var(--peak); stroke-width: 2.4; }
 .export-preview svg .peak.selected { stroke: var(--peak-selected); stroke-width: 4; }
+.export-preview svg .peak.lower-peak { stroke: var(--lower-peak); }
 .export-preview svg .axis { stroke: #000; stroke-width: 1.5; }
 .export-preview svg .axis-title { fill: #000; }
 .export-preview svg .peak-label { display: block; fill: #000; }
