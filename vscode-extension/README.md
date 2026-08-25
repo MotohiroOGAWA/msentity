@@ -2,13 +2,14 @@
 
 This extension is the graphical viewer included in the
 [`msentity`](https://github.com/MotohiroOGAWA/msentity) repository. It opens
-`.msds`, `.msp`, and `.mgf` datasets without Gradio.
+`.msds`, `.msp`, and `.mgf` datasets without Gradio, with explicit TSV import/export.
 
 ## Features
 
-- Paged spectrum metadata table and one reusable spectrum panel
+- Paged spectrum metadata table with reorderable columns and one reusable spectrum panel
+- Full-dataset, multi-condition filtering (separate text/number `=`, text `!=`, `contains`, `>`, `>=`, `<`, `<=`) and prioritized multi-column row sorting
 - MSP/MGF loading progress with bytes, percentage, and spectrum count
-- Full-dataset export to MSDS, MSP, or MGF through the VS Code save dialog
+- Export to MSDS, MSP, MGF, or TSV using the visible column order and current row filters/sort order
 - msentity file-type icon for `.msds`, `.msp`, and `.mgf` tabs
 - one transparent PNG for the extension listing, file type, and editor tabs
 - Optional VS Code floating plot window
@@ -82,7 +83,8 @@ URL, while the versioned filename supports pinned downloads.
 
 ## Usage
 
-Open an `.msds`, `.msp`, or `.mgf` file. Click a spectrum button in the table;
+Open an `.msds`, `.msp`, or `.mgf` file. For TSV, use **MS Entity: Open as TSV**
+so ordinary TSV files remain associated with VS Code's normal text editor. Click a spectrum button in the table;
 the reusable **Mass Spectrum** panel opens and updates when another record is
 selected. Use **Add dataset…** to load more files into the same dataset viewer,
 then switch between them with the dataset dropdown. Spectra opened from those
@@ -119,12 +121,14 @@ unrounded values to a tab-separated file. These actions include the complete
 spectrum, independent of the current plot zoom, in the peak table's current
 m/z or Intensity sort order.
 
-Opening normally detects MSDS, MSP, or MGF from the extension. To override it,
+Opening normally detects MSDS, MSP, or MGF from the extension. TSV is intentionally
+not registered as a custom-editor file extension. To open one as a spectrum table,
 right-click a file in Explorer and choose **MS Entity: Open as MSDS**, **Open as
-MSP**, or **Open as MGF**. The same commands are available in the Command
-Palette. Dataset **Export...** first asks for MSDS, MSP, or MGF and then for the
+MSP**, **Open as MGF**, or **Open as TSV**. The same commands are available in the Command
+Palette. Dataset **Export...** first asks for MSDS, MSP, MGF, or TSV and then for the
 save location; the chosen format takes precedence and its extension is applied
-automatically.
+automatically. The exported dataset contains the currently selected columns in
+their displayed order and the rows in their current filtered and sorted order.
 
 Set `msentitySpectrumViewer.spectrumFloatingWindow` to `false` if the spectrum
 should remain in an editor pane beside the dataset table.

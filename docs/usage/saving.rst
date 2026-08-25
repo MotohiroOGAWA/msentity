@@ -62,7 +62,17 @@ Saving MSP and MGF files
    write_msp(dataset, "output.msp")
    write_mgf(dataset, "output.mgf")
 
+Saving TSV files
+----------------
+
+Write one spectrum per row with metadata in ordinary tab-separated columns.
+The final ``Peak`` column uses ``mz1,intensity1;mz2,intensity2;...``::
+
+   from msentity import write_tsv
+
+   write_tsv(dataset, "output.tsv")
+
 The writer call order is ``(dataset, output_path)``. For conversion on the
 command line, ``msentity convert`` selects the output from its extension.
-``msentity merge-dir`` can recursively combine a directory of MSP/MGF/MSDS
+``msentity merge-dir`` can recursively combine a directory of MSP/MGF/MSDS/TSV
 files and optionally attach source paths and source spectrum indices.

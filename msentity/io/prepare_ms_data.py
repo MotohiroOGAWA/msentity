@@ -5,6 +5,7 @@ from .. import MSDataset
 from ..processing.id import set_spec_id
 from .msp import read_msp
 from .mgf import read_mgf
+from .tsv import read_tsv
 
 def load_ms_dataset(
     input_file: Union[str, Path],
@@ -25,6 +26,8 @@ def load_ms_dataset(
             file_type = "mgf"
         elif suffix in {".msds", ".hdf5", ".h5"}:
             file_type = "msds"
+        elif suffix == ".tsv":
+            file_type = "tsv"
         else:
             raise ValueError(
                 "Cannot determine file type from extension. "
@@ -39,8 +42,10 @@ def load_ms_dataset(
         dataset = read_mgf(input_path, spec_id_prefix=spec_id_prefix, show_progress=show_progress, progress_callback=progress_callback)
     elif file_type == "msds":
         dataset = MSDataset.load(input_path)
+    elif file_type == "tsv":
+        dataset = read_tsv(input_path, spec_id_prefix=spec_id_prefix, show_progress=show_progress)
     else:
-        raise ValueError("Unsupported file type. Use 'msp', 'mgf' or 'msds'.")
+        raise ValueError("Unsupported file type. Use 'msp', 'mgf', 'msds' or 'tsv'.")
 
     if "SpecID" not in dataset.columns and spec_id_prefix is not None:
         set_spec_id(dataset=dataset, prefix=spec_id_prefix)

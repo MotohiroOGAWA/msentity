@@ -1,7 +1,9 @@
 from __future__ import annotations
 
 import argparse
+import csv
 import inspect
+import io
 import json
 import math
 import sys
@@ -39,6 +41,80 @@ def json_value(value: Any) -> Any:
     if hasattr(value, "tolist"):
         return json_value(value.tolist())
     return str(value)
+
+
+def apply_view(dataset: Any, filters: Any = None, sort: Any = None, columns: Any = None) -> Any:
+    """Return a dataset view with UI filtering, row sorting, and column order applied."""
+    import pandas as pd
+
+    view = dataset[:]
+    available = dataset.columns
+    for condition in filters if isinstance(filters, list) else []:
+        column = str(condition.get("column", ""))
+        operator = str(condition.get("operator", "text_eq"))
+        raw_value = condition.get("value", "")
+        if column not in available or raw_value is None or str(raw_value) == "":
+            continue
+
+        series = view[column]
+        if operator in {">", ">=", "<", "<="}:
+            left = pd.to_numeric(series, errors="coerce")
+            try:
+                right = float(raw_value)
+            except (TypeError, ValueError) as exc:
+                raise ValueError(f"Filter value for {column} must be numeric") from exc
+            mask = left.notna() & {
+                ">": left > right,
+                ">=": left >= right,
+                "<": left < right,
+                "<=": left <= right,
+            }[operator]
+        elif operator == "numeric_eq":
+            try:
+                right = float(raw_value)
+            except (TypeError, ValueError) as exc:
+                raise ValueError(f"Filter value for {column} must be numeric") from exc
+            left = pd.to_numeric(series, errors="coerce")
+            mask = left.notna() & (left == right)
+        else:
+            left = series.fillna("").astype(str).str.casefold()
+            right = str(raw_value).casefold()
+            if operator == "contains":
+                mask = left.str.contains(right, regex=False)
+            elif operator == "!=":
+                mask = left != right
+            else:
+                mask = left == right
+        view = view[mask]
+
+    sort_items = [sort] if isinstance(sort, dict) else sort if isinstance(sort, list) else []
+    sort_columns: list[str] = []
+    sort_ascending: list[bool] = []
+    for item in sort_items:
+        if not isinstance(item, dict):
+            continue
+        sort_column = str(item.get("column", ""))
+        if sort_column in available and sort_column not in sort_columns:
+            sort_columns.append(sort_column)
+            sort_ascending.append(str(item.get("direction", "asc")) != "desc")
+    if sort_columns:
+        sorted_metadata = view.metadata
+        # Apply lower-priority keys first. Stable mergesort then preserves each
+        # lower-priority ordering inside equal groups of every higher key.
+        for sort_column, ascending in reversed(list(zip(sort_columns, sort_ascending))):
+            sorted_metadata = sorted_metadata.sort_values(
+                by=sort_column,
+                ascending=ascending,
+                kind="mergesort",
+                na_position="last",
+            )
+        order = sorted_metadata.index.to_numpy()
+        view = view[order]
+
+    if isinstance(columns, list):
+        ordered = [str(column) for column in columns if str(column) in available]
+        view.columns = ordered
+    return view
 
 
 def serialize_page(dataset: Any, page: int, page_size: int, dataset_id: str, input_file: Path) -> dict[str, Any]:
@@ -80,6 +156,54 @@ def serialize_page(dataset: Any, page: int, page_size: int, dataset_id: str, inp
     }
 
 
+def read_tsv_compat(input_file: Path) -> Any:
+    """Read the viewer TSV format when the installed msentity predates TSV I/O."""
+    import numpy as np
+    import pandas as pd
+    from msentity import MSDataset, PeakSeries
+
+    text = input_file.read_text(encoding="utf-8-sig")
+    reader = csv.DictReader(io.StringIO(text), delimiter="\t")
+    if reader.fieldnames is None or "Peak" not in reader.fieldnames:
+        raise ValueError("TSV must contain a 'Peak' column")
+    columns = [column for column in reader.fieldnames if column != "Peak"]
+    metadata_rows: list[dict[str, Any]] = []
+    peak_rows: list[tuple[float, float]] = []
+    offsets = [0]
+    for row_number, row in enumerate(reader, start=2):
+        metadata_rows.append({column: row.get(column, "") or "" for column in columns})
+        peak_text = row.get("Peak", "") or ""
+        for peak_number, item in enumerate(peak_text.split(";"), start=1):
+            if not item.strip():
+                continue
+            parts = [part.strip() for part in item.split(",")]
+            if len(parts) != 2:
+                raise ValueError(f"Invalid Peak at TSV row {row_number}, peak {peak_number}")
+            peak_rows.append((float(parts[0]), float(parts[1])))
+        offsets.append(len(peak_rows))
+    metadata = pd.DataFrame(metadata_rows, columns=columns)
+    for column in columns:
+        numeric = pd.to_numeric(metadata[column], errors="coerce")
+        nonempty = metadata[column].ne("")
+        if numeric[nonempty].notna().all():
+            metadata[column] = numeric
+    peak_data = np.asarray(peak_rows, dtype=float).reshape((-1, 2))
+    return MSDataset(metadata, PeakSeries(peak_data, np.asarray(offsets, dtype=np.int64)))
+
+
+def write_tsv_compat(dataset: Any, output_file: Path) -> None:
+    """Write the viewer TSV format without requiring a new msentity install."""
+    with output_file.open("w", encoding="utf-8", newline="") as stream:
+        writer = csv.writer(stream, delimiter="\t", lineterminator="\n")
+        writer.writerow([*dataset.columns, "Peak"])
+        for record in dataset:
+            peak_text = ";".join(
+                f"{format(float(peak.mz), '.17g')},{format(float(peak.intensity), '.17g')}"
+                for peak in record.peaks
+            )
+            writer.writerow([*(record[column] for column in dataset.columns), peak_text])
+
+
 def load_dataset(input_file: Path, file_type: str | None = None) -> Any:
     try:
         from msentity import load_ms_dataset
@@ -89,6 +213,13 @@ def load_dataset(input_file: Path, file_type: str | None = None) -> Any:
             "Install msentity in the same Python environment used by the VS Code extension."
         ) from exc
     detected_type = (file_type or input_file.suffix.lstrip(".")).lower()
+
+    if detected_type == "tsv":
+        try:
+            from msentity import read_tsv
+        except ImportError:
+            return read_tsv_compat(input_file)
+        return read_tsv(input_file, show_progress=False)
 
     def progress(processed: int, total: int, success: int, records: int) -> None:
         emit({
@@ -126,8 +257,8 @@ def load_dataset(input_file: Path, file_type: str | None = None) -> Any:
 
 def export_dataset(dataset: Any, output_file: Path, file_type: str | None = None) -> None:
     output_type = (file_type or output_file.suffix.lstrip(".")).lower()
-    if output_type not in {"msds", "msp", "mgf"}:
-        raise ValueError("Output format must be msds, msp, or mgf")
+    if output_type not in {"msds", "msp", "mgf", "tsv"}:
+        raise ValueError("Output format must be msds, msp, mgf, or tsv")
     output_file.parent.mkdir(parents=True, exist_ok=True)
     if output_type == "msds":
         dataset.save(str(output_file))
@@ -137,13 +268,20 @@ def export_dataset(dataset: Any, output_file: Path, file_type: str | None = None
     elif output_type == "mgf":
         from msentity import write_mgf
         write_mgf(dataset, str(output_file), show_progress=False)
+    elif output_type == "tsv":
+        try:
+            from msentity import write_tsv
+        except ImportError:
+            write_tsv_compat(dataset, output_file)
+        else:
+            write_tsv(dataset, str(output_file), show_progress=False)
 
 
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("input_file", type=Path)
     parser.add_argument("--page-size", type=int, default=20)
-    parser.add_argument("--file-type", choices=("msds", "msp", "mgf"))
+    parser.add_argument("--file-type", choices=("msds", "msp", "mgf", "tsv"))
     args = parser.parse_args()
 
     input_file = args.input_file.expanduser().resolve()
@@ -188,7 +326,10 @@ def main() -> int:
                 if entry is None:
                     raise ValueError(f"Unknown dataset: {dataset_id}")
                 page = int(request.get("page", 0))
-                emit({"type": "dataset-page", "value": serialize_page(entry["dataset"], page, page_size, dataset_id, entry["path"])})
+                view = apply_view(entry["dataset"], request.get("filters"), request.get("sort"))
+                payload = serialize_page(view, page, page_size, dataset_id, entry["path"])
+                payload["all_columns"] = entry["dataset"].columns
+                emit({"type": "dataset-page", "value": payload})
             elif request_type == "add-dataset":
                 added_path = Path(str(request.get("path", ""))).expanduser().resolve()
                 if not added_path.is_file():
@@ -205,15 +346,19 @@ def main() -> int:
                 if entry is None:
                     raise ValueError(f"Unknown dataset: {dataset_id}")
                 entry["dataset"] = load_dataset(entry["path"], entry["file_type"])
-                emit({"type": "dataset-page", "value": serialize_page(entry["dataset"], 0, page_size, dataset_id, entry["path"])})
+                view = apply_view(entry["dataset"], request.get("filters"), request.get("sort"))
+                payload = serialize_page(view, 0, page_size, dataset_id, entry["path"])
+                payload["all_columns"] = entry["dataset"].columns
+                emit({"type": "dataset-page", "value": payload})
             elif request_type == "export":
                 if entry is None:
                     raise ValueError(f"Unknown dataset: {dataset_id}")
                 output_file = Path(str(request.get("path", ""))).expanduser().resolve()
                 emit({"type": "export-start", "path": str(output_file)})
                 try:
-                    export_dataset(entry["dataset"], output_file, request.get("file_type"))
-                    emit({"type": "export-complete", "path": str(output_file), "total_rows": len(entry["dataset"])})
+                    view = apply_view(entry["dataset"], request.get("filters"), request.get("sort"), request.get("columns"))
+                    export_dataset(view, output_file, request.get("file_type"))
+                    emit({"type": "export-complete", "path": str(output_file), "total_rows": len(view)})
                 except Exception as exc:  # noqa: BLE001
                     traceback.print_exc(file=sys.stderr)
                     emit({"type": "export-error", "message": str(exc)})

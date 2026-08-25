@@ -19,7 +19,7 @@
 * { box-sizing: border-box; }
 html, body { margin: 0; padding: 0; height: 100%; }
 body { background: var(--panel); color: var(--text); font-family: var(--vscode-font-family); font-size: var(--vscode-font-size); }
-button, input { font: inherit; }
+button, input, select { font: inherit; }
 button { cursor: pointer; }
 button:disabled { cursor: default; opacity: .5; }
 #app { min-height: 100vh; }
@@ -33,17 +33,31 @@ button:disabled { cursor: default; opacity: .5; }
 .search input, .page-controls input { background: var(--input-bg); color: var(--input-fg); border: 1px solid var(--vscode-input-border, var(--border)); border-radius: 4px; outline: none; }
 .search input { width: min(300px, 34vw); padding: 7px 9px; }
 .search input:focus, .page-controls input:focus { border-color: var(--vscode-focusBorder); }
-.columns { position: relative; }
-.columns > button, .secondary-button, .page-controls button, .modal-close, .sort-button { border: 1px solid var(--vscode-button-border, var(--border)); background: var(--vscode-button-secondaryBackground, var(--panel-alt)); color: var(--vscode-button-secondaryForeground, var(--text)); border-radius: 4px; padding: 7px 10px; }
+.columns, .filters { position: relative; }
+.columns > button, .filters > button, .secondary-button, .page-controls button, .modal-close, .sort-button { border: 1px solid var(--vscode-button-border, var(--border)); background: var(--vscode-button-secondaryBackground, var(--panel-alt)); color: var(--vscode-button-secondaryForeground, var(--text)); border-radius: 4px; padding: 7px 10px; }
+.filters > button.active { border-color: var(--accent); color: var(--accent); }
 .columns > button:hover, .secondary-button:hover, .page-controls button:hover, .modal-close:hover, .sort-button:hover { background: var(--vscode-button-secondaryHoverBackground, var(--row-hover)); }
 .column-menu { position: absolute; right: 0; top: calc(100% + 6px); z-index: 20; width: 260px; max-height: 360px; overflow: auto; padding: 6px; background: var(--vscode-menu-background, var(--panel)); color: var(--vscode-menu-foreground, var(--text)); border: 1px solid var(--vscode-menu-border, var(--border)); border-radius: 6px; box-shadow: 0 8px 24px #0006; }
-.column-option { width: 100%; display: flex; gap: 8px; align-items: center; text-align: left; border: 0; background: transparent; color: inherit; padding: 7px; border-radius: 4px; }
+.column-option { width: 100%; display: flex; gap: 4px; align-items: center; text-align: left; border: 0; background: transparent; color: inherit; padding: 3px; border-radius: 4px; }
 .column-option:hover { background: var(--vscode-menu-selectionBackground, var(--row-hover)); color: var(--vscode-menu-selectionForeground, inherit); }
+.column-toggle { flex: 1; min-width: 0; display: flex; gap: 8px; align-items: center; border: 0; padding: 4px; color: inherit; background: transparent; text-align: left; }
+.column-order { display: flex; gap: 2px; }
+.column-order button { width: 25px; height: 25px; border: 0; border-radius: 3px; color: inherit; background: transparent; }
+.column-order button:hover { background: var(--row-hover); }
+.filter-menu { position: absolute; right: 0; top: calc(100% + 6px); z-index: 20; width: min(720px, 80vw); padding: 10px; background: var(--vscode-menu-background, var(--panel)); color: var(--vscode-menu-foreground, var(--text)); border: 1px solid var(--vscode-menu-border, var(--border)); border-radius: 6px; box-shadow: 0 8px 24px #0006; }
+.filter-title, .filter-actions { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.filter-title button, .filter-actions > :last-child { border: 1px solid var(--vscode-button-border, var(--border)); border-radius: 4px; background: var(--button-bg); color: var(--button-fg); padding: 5px 10px; }
+.filter-row { display: grid; grid-template-columns: minmax(130px, 1fr) 90px minmax(120px, 1fr) 30px; gap: 6px; margin-top: 8px; }
+.filter-row select, .filter-row input { min-width: 0; padding: 6px; border: 1px solid var(--vscode-input-border, var(--border)); border-radius: 4px; background: var(--input-bg); color: var(--input-fg); }
+.remove-filter { border: 0; border-radius: 4px; background: transparent; color: var(--danger); font-size: 18px; }
+.filter-empty { padding: 18px 4px; color: var(--muted); }
+.filter-actions { justify-content: flex-end; margin-top: 10px; }
 .checkmark { display: inline-grid; place-items: center; width: 17px; height: 17px; border: 1px solid var(--muted); border-radius: 3px; color: transparent; }
 .checkmark.checked { background: var(--button-bg); color: var(--button-fg); border-color: var(--button-bg); }
 .table-wrap { flex: 1 1 auto; overflow: auto; }
 .dataset-table { width: 100%; border-collapse: separate; border-spacing: 0; white-space: nowrap; }
 .dataset-table th { position: sticky; top: 0; z-index: 2; text-align: left; background: var(--vscode-editorStickyScroll-background, var(--panel-alt)); color: var(--muted); border-bottom: 1px solid var(--border); padding: 9px 11px; font-weight: 600; }
+.table-sort { display: flex; align-items: center; gap: 6px; width: 100%; padding: 0; border: 0; background: transparent; color: inherit; font-weight: inherit; text-align: left; }
 .dataset-table td { max-width: 360px; overflow: hidden; text-overflow: ellipsis; border-bottom: 1px solid var(--border); padding: 8px 11px; }
 .dataset-table tbody tr:hover td { background: var(--row-hover); }
 .row-column { width: 66px; text-align: right !important; color: var(--muted); font-variant-numeric: tabular-nums; }

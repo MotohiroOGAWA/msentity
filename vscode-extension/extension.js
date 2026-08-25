@@ -121,22 +121,25 @@ class MSEntityViewerProvider {
           writeRequest({ type: "page", page: 0, dataset_id: message.datasetId });
           break;
         case "page-request":
-          writeRequest({ type: "page", page: Number(message.page) || 0, dataset_id: message.datasetId });
+          writeRequest({
+            type: "page", page: Number(message.page) || 0, dataset_id: message.datasetId,
+            filters: message.filters, sort: message.sort, columns: message.columns
+          });
           break;
         case "reload":
-          writeRequest({ type: "reload", dataset_id: message.datasetId });
+          writeRequest({ type: "reload", dataset_id: message.datasetId, filters: message.filters, sort: message.sort });
           break;
         case "add-dataset": {
           const selected = await vscode.window.showOpenDialog({
             title: "Add dataset to this viewer",
             canSelectMany: false,
-            filters: { "Mass spectrum datasets": ["msds", "msp", "mgf"] }
+            filters: { "Mass spectrum datasets": ["msds", "msp", "mgf", "tsv"] }
           });
           if (selected?.[0]) writeRequest({ type: "add-dataset", path: selected[0].fsPath });
           break;
         }
         case "export-dataset": {
-          const format = await vscode.window.showQuickPick(["msds", "msp", "mgf"], {
+          const format = await vscode.window.showQuickPick(["msds", "msp", "mgf", "tsv"], {
             title: "Export msentity dataset",
             placeHolder: "Choose the output format"
           });
@@ -148,7 +151,7 @@ class MSEntityViewerProvider {
           const sourceName = path.basename(sourcePath, path.extname(sourcePath));
           const target = await vscode.window.showSaveDialog({
             defaultUri: vscode.Uri.joinPath(document.uri, "..", `${sourceName}.${format}`),
-            filters: format === "msds" ? { "msentity dataset": ["msds"] } : format === "msp" ? { "NIST MSP": ["msp"] } : { "Mascot Generic Format": ["mgf"] }
+            filters: format === "msds" ? { "msentity dataset": ["msds"] } : format === "msp" ? { "NIST MSP": ["msp"] } : format === "mgf" ? { "Mascot Generic Format": ["mgf"] } : { "Tab-separated spectrum table": ["tsv"] }
           });
           if (target) {
             const selectedExtension = path.extname(target.fsPath);
@@ -157,7 +160,10 @@ class MSEntityViewerProvider {
               : selectedExtension
                 ? `${target.fsPath.slice(0, -selectedExtension.length)}.${format}`
                 : `${target.fsPath}.${format}`;
-            writeRequest({ type: "export", path: exportPath, file_type: format, dataset_id: message.datasetId });
+            writeRequest({
+              type: "export", path: exportPath, file_type: format, dataset_id: message.datasetId,
+              filters: message.filters, sort: message.sort, columns: message.columns
+            });
           } else send({ type: "export-cancelled" });
           break;
         }
@@ -347,7 +353,7 @@ function activate(context) {
     })
   );
 
-  for (const fileType of ["msds", "msp", "mgf"]) {
+  for (const fileType of ["msds", "msp", "mgf", "tsv"]) {
     context.subscriptions.push(
       vscode.commands.registerCommand(`msentitySpectrumViewer.openAs${fileType.toUpperCase()}`, (uri) => provider.openAs(uri, fileType))
     );
@@ -357,7 +363,7 @@ function activate(context) {
     vscode.commands.registerCommand("msentitySpectrumViewer.open", async (uri) => {
       const target = uri || vscode.window.activeTextEditor?.document?.uri;
       if (!target) {
-        vscode.window.showWarningMessage("Select an .msds, .msp, or .mgf file first.");
+        vscode.window.showWarningMessage("Select an .msds, .msp, or .mgf file first, or use “MS Entity: Open as TSV”.");
         return;
       }
       await vscode.commands.executeCommand("vscode.openWith", target, VIEW_TYPE);
