@@ -1,7 +1,9 @@
 from __future__ import annotations
 
 import argparse
+import csv
 import inspect
+import io
 import json
 import math
 import sys
@@ -154,6 +156,54 @@ def serialize_page(dataset: Any, page: int, page_size: int, dataset_id: str, inp
     }
 
 
+def read_tsv_compat(input_file: Path) -> Any:
+    """Read the viewer TSV format when the installed msentity predates TSV I/O."""
+    import numpy as np
+    import pandas as pd
+    from msentity import MSDataset, PeakSeries
+
+    text = input_file.read_text(encoding="utf-8-sig")
+    reader = csv.DictReader(io.StringIO(text), delimiter="\t")
+    if reader.fieldnames is None or "Peak" not in reader.fieldnames:
+        raise ValueError("TSV must contain a 'Peak' column")
+    columns = [column for column in reader.fieldnames if column != "Peak"]
+    metadata_rows: list[dict[str, Any]] = []
+    peak_rows: list[tuple[float, float]] = []
+    offsets = [0]
+    for row_number, row in enumerate(reader, start=2):
+        metadata_rows.append({column: row.get(column, "") or "" for column in columns})
+        peak_text = row.get("Peak", "") or ""
+        for peak_number, item in enumerate(peak_text.split(";"), start=1):
+            if not item.strip():
+                continue
+            parts = [part.strip() for part in item.split(",")]
+            if len(parts) != 2:
+                raise ValueError(f"Invalid Peak at TSV row {row_number}, peak {peak_number}")
+            peak_rows.append((float(parts[0]), float(parts[1])))
+        offsets.append(len(peak_rows))
+    metadata = pd.DataFrame(metadata_rows, columns=columns)
+    for column in columns:
+        numeric = pd.to_numeric(metadata[column], errors="coerce")
+        nonempty = metadata[column].ne("")
+        if numeric[nonempty].notna().all():
+            metadata[column] = numeric
+    peak_data = np.asarray(peak_rows, dtype=float).reshape((-1, 2))
+    return MSDataset(metadata, PeakSeries(peak_data, np.asarray(offsets, dtype=np.int64)))
+
+
+def write_tsv_compat(dataset: Any, output_file: Path) -> None:
+    """Write the viewer TSV format without requiring a new msentity install."""
+    with output_file.open("w", encoding="utf-8", newline="") as stream:
+        writer = csv.writer(stream, delimiter="\t", lineterminator="\n")
+        writer.writerow([*dataset.columns, "Peak"])
+        for record in dataset:
+            peak_text = ";".join(
+                f"{format(float(peak.mz), '.17g')},{format(float(peak.intensity), '.17g')}"
+                for peak in record.peaks
+            )
+            writer.writerow([*(record[column] for column in dataset.columns), peak_text])
+
+
 def load_dataset(input_file: Path, file_type: str | None = None) -> Any:
     try:
         from msentity import load_ms_dataset
@@ -163,6 +213,13 @@ def load_dataset(input_file: Path, file_type: str | None = None) -> Any:
             "Install msentity in the same Python environment used by the VS Code extension."
         ) from exc
     detected_type = (file_type or input_file.suffix.lstrip(".")).lower()
+
+    if detected_type == "tsv":
+        try:
+            from msentity import read_tsv
+        except ImportError:
+            return read_tsv_compat(input_file)
+        return read_tsv(input_file, show_progress=False)
 
     def progress(processed: int, total: int, success: int, records: int) -> None:
         emit({
@@ -200,8 +257,8 @@ def load_dataset(input_file: Path, file_type: str | None = None) -> Any:
 
 def export_dataset(dataset: Any, output_file: Path, file_type: str | None = None) -> None:
     output_type = (file_type or output_file.suffix.lstrip(".")).lower()
-    if output_type not in {"msds", "msp", "mgf"}:
-        raise ValueError("Output format must be msds, msp, or mgf")
+    if output_type not in {"msds", "msp", "mgf", "tsv"}:
+        raise ValueError("Output format must be msds, msp, mgf, or tsv")
     output_file.parent.mkdir(parents=True, exist_ok=True)
     if output_type == "msds":
         dataset.save(str(output_file))
@@ -211,13 +268,20 @@ def export_dataset(dataset: Any, output_file: Path, file_type: str | None = None
     elif output_type == "mgf":
         from msentity import write_mgf
         write_mgf(dataset, str(output_file), show_progress=False)
+    elif output_type == "tsv":
+        try:
+            from msentity import write_tsv
+        except ImportError:
+            write_tsv_compat(dataset, output_file)
+        else:
+            write_tsv(dataset, str(output_file), show_progress=False)
 
 
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("input_file", type=Path)
     parser.add_argument("--page-size", type=int, default=20)
-    parser.add_argument("--file-type", choices=("msds", "msp", "mgf"))
+    parser.add_argument("--file-type", choices=("msds", "msp", "mgf", "tsv"))
     args = parser.parse_args()
 
     input_file = args.input_file.expanduser().resolve()

@@ -40,10 +40,12 @@ Use the viewer
 --------------
 
 Open an ``.msds``, ``.msp``, or ``.mgf`` file normally, or right-click it in
-Explorer and choose **MS Entity: Open Spectrum Viewer**. Click the spectrum
+Explorer and choose **MS Entity: Open Spectrum Viewer**. TSV is intentionally
+not associated with the custom editor; use **MS Entity: Open as TSV** for an
+msentity spectrum table. Click the spectrum
 button in a table row to update the spectrum panel.
 
-Use **Add dataset...** to load another MSDS, MSP, or MGF file into the current
+Use **Add dataset...** to load another MSDS, MSP, MGF, or TSV file into the current
 dataset editor. Select the active file from the dataset dropdown. Each file
 remembers its last metadata page, so switching away and back restores that
 page. Files added this way share one spectrum panel, which makes comparisons
@@ -60,7 +62,7 @@ While an MSP or MGF file is being parsed, the editor displays a progress bar
 with the percentage, processed bytes, and successfully loaded spectrum count.
 The same progress display is used when **Reload** rereads the file.
 
-Choose **Export...** to save the entire loaded dataset as MSDS, MSP, or MGF.
+Choose **Export...** to save the current dataset view as MSDS, MSP, MGF, or TSV.
 First select the output format explicitly, then select the save location. The
 matching filename extension is applied automatically. Export always writes the
 full dataset, not only the current page or filtered table rows.

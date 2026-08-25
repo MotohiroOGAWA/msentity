@@ -35,7 +35,8 @@
     "onCommand:msentitySpectrumViewer.showLogs",
     "onCommand:msentitySpectrumViewer.openAsMSDS",
     "onCommand:msentitySpectrumViewer.openAsMSP",
-    "onCommand:msentitySpectrumViewer.openAsMGF"
+    "onCommand:msentitySpectrumViewer.openAsMGF",
+    "onCommand:msentitySpectrumViewer.openAsTSV"
   ],
   "contributes": {
     "languages": [
@@ -93,6 +94,10 @@
       {
         "command": "msentitySpectrumViewer.openAsMGF",
         "title": "MS Entity: Open as MGF"
+      },
+      {
+        "command": "msentitySpectrumViewer.openAsTSV",
+        "title": "MS Entity: Open as TSV"
       }
     ],
     "menus": {
@@ -113,6 +118,10 @@
         {
           "command": "msentitySpectrumViewer.openAsMGF",
           "group": "msentity@23"
+        },
+        {
+          "command": "msentitySpectrumViewer.openAsTSV",
+          "group": "msentity@24"
         }
       ]
     },

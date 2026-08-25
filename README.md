@@ -92,12 +92,12 @@ by `msentitySpectrumViewer.pythonPath` must have `msentity` installed.
 Open an `.msds`, `.msp`, or `.mgf` file and click a spectrum row to display its
 mass spectrum. The viewer supports peak selection and sorting, drag-to-zoom,
 zoom-dependent readable axis ticks, and previewed transparent PNG/SVG export.
-The complete loaded dataset can also be converted and saved as MSDS, MSP, or
-MGF directly from the viewer.
+The complete loaded dataset can also be converted and saved as MSDS, MSP, MGF,
+or TSV directly from the viewer.
 File extensions are used for automatic input detection. To specify the input
-format explicitly, right-click a file in Explorer and choose **MS Entity: Open
-as MSDS**, **Open as MSP**, or **Open as MGF**; the same commands are available
-from the Command Palette. **Export...** asks for MSDS, MSP, or MGF before the
+format explicitly—including TSV—right-click a file in Explorer and choose **MS Entity: Open
+as MSDS**, **Open as MSP**, **Open as MGF**, or **Open as TSV**; the same commands are available
+from the Command Palette. **Export...** asks for MSDS, MSP, MGF, or TSV before the
 save location, so the output format is explicit and the matching extension is
 applied automatically.
 The export dialog can independently include tick grid lines, tick numbers, and

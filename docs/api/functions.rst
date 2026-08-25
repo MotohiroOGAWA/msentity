@@ -10,6 +10,9 @@ Functions
    msentity.read_mgf
    msentity.read_mgf_text
    msentity.write_mgf
+   msentity.read_tsv
+   msentity.read_tsv_text
+   msentity.write_tsv
    msentity.load_ms_dataset
    msentity.processing.id.set_spec_id
    msentity.processing.id.set_peak_id

@@ -90,7 +90,7 @@ or
 code --install-extension "./dist/msentity-spectrum-viewer.vsix" --force
 ```
 
-Open an MSDS, MSP, or MGF file and confirm that the viewer loads correctly.
+Open an MSDS, MSP, MGF, or TSV file and confirm that the viewer loads correctly.
 
 ## 3. Commit the version update
 

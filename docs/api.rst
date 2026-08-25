@@ -11,7 +11,7 @@ This reference documents the core modules of the package:
 - ``PeakSeries``: storage and manipulation of peak-level data across multiple spectra
 - ``Spectrum``: view of a single spectrum with m/z–intensity pairs and operations
 - ``Peak``: access to an individual peak and its optional annotation
-- I/O helpers for file paths and in-memory MSP/MGF text
+- I/O helpers for file paths and in-memory MSP/MGF/TSV text
 - processing helpers for identifiers, cosine similarity, and HDF5 inspection
 
 These classes are designed to support mass spectrometry workflows such as
@@ -55,9 +55,11 @@ Functions
      - Read an MGF file and return an MSDataset.
    * - :doc:`write_mgf <api/generated/msentity.write_mgf>`
      - Write an MSDataset to an MGF file.
+   * - ``read_tsv`` / ``write_tsv``
+     - Read or write a tab-separated spectrum table with a ``Peak`` column.
    * - ``load_ms_dataset``
-     - Detect MSP, MGF, or MSDS input from its extension and load it.
-   * - ``read_msp_text`` / ``read_mgf_text``
+     - Detect MSP, MGF, MSDS, or TSV input from its extension and load it.
+   * - ``read_msp_text`` / ``read_mgf_text`` / ``read_tsv_text``
      - Parse an in-memory text representation without a temporary file.
 
 

@@ -10,6 +10,7 @@ SUPPORTED_SUFFIXES = {
     ".msp",
     ".mgf",
     ".msds",
+    ".tsv",
     ".hdf5",
     ".h5",
 }
@@ -36,7 +37,7 @@ def setup_parser(
     parser.add_argument(
         "--file-type",
         default=None,
-        choices=["msp", "mgf", "msds"],
+        choices=["msp", "mgf", "msds", "tsv"],
         help="Input file type. If omitted, files are inferred from their extensions.",
     )
 
