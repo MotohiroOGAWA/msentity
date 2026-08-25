@@ -41,6 +41,61 @@ def json_value(value: Any) -> Any:
     return str(value)
 
 
+def apply_view(dataset: Any, filters: Any = None, sort: Any = None, columns: Any = None) -> Any:
+    """Return a dataset view with UI filtering, row sorting, and column order applied."""
+    import pandas as pd
+
+    view = dataset[:]
+    available = dataset.columns
+    for condition in filters if isinstance(filters, list) else []:
+        column = str(condition.get("column", ""))
+        operator = str(condition.get("operator", "text_eq"))
+        raw_value = condition.get("value", "")
+        if column not in available or raw_value is None or str(raw_value) == "":
+            continue
+
+        series = view[column]
+        if operator in {">", ">=", "<", "<="}:
+            left = pd.to_numeric(series, errors="coerce")
+            try:
+                right = float(raw_value)
+            except (TypeError, ValueError) as exc:
+                raise ValueError(f"Filter value for {column} must be numeric") from exc
+            mask = left.notna() & {
+                ">": left > right,
+                ">=": left >= right,
+                "<": left < right,
+                "<=": left <= right,
+            }[operator]
+        elif operator == "numeric_eq":
+            try:
+                right = float(raw_value)
+            except (TypeError, ValueError) as exc:
+                raise ValueError(f"Filter value for {column} must be numeric") from exc
+            left = pd.to_numeric(series, errors="coerce")
+            mask = left.notna() & (left == right)
+        else:
+            left = series.fillna("").astype(str).str.casefold()
+            right = str(raw_value).casefold()
+            if operator == "contains":
+                mask = left.str.contains(right, regex=False)
+            elif operator == "!=":
+                mask = left != right
+            else:
+                mask = left == right
+        view = view[mask]
+
+    if isinstance(sort, dict):
+        sort_column = str(sort.get("column", ""))
+        if sort_column in available:
+            view = view.sort_by(sort_column, ascending=str(sort.get("direction", "asc")) != "desc")
+
+    if isinstance(columns, list):
+        ordered = [str(column) for column in columns if str(column) in available]
+        view.columns = ordered
+    return view
+
+
 def serialize_page(dataset: Any, page: int, page_size: int, dataset_id: str, input_file: Path) -> dict[str, Any]:
     total_rows = len(dataset)
     total_pages = max(1, math.ceil(total_rows / page_size))
@@ -188,7 +243,10 @@ def main() -> int:
                 if entry is None:
                     raise ValueError(f"Unknown dataset: {dataset_id}")
                 page = int(request.get("page", 0))
-                emit({"type": "dataset-page", "value": serialize_page(entry["dataset"], page, page_size, dataset_id, entry["path"])})
+                view = apply_view(entry["dataset"], request.get("filters"), request.get("sort"))
+                payload = serialize_page(view, page, page_size, dataset_id, entry["path"])
+                payload["all_columns"] = entry["dataset"].columns
+                emit({"type": "dataset-page", "value": payload})
             elif request_type == "add-dataset":
                 added_path = Path(str(request.get("path", ""))).expanduser().resolve()
                 if not added_path.is_file():
@@ -205,15 +263,19 @@ def main() -> int:
                 if entry is None:
                     raise ValueError(f"Unknown dataset: {dataset_id}")
                 entry["dataset"] = load_dataset(entry["path"], entry["file_type"])
-                emit({"type": "dataset-page", "value": serialize_page(entry["dataset"], 0, page_size, dataset_id, entry["path"])})
+                view = apply_view(entry["dataset"], request.get("filters"), request.get("sort"))
+                payload = serialize_page(view, 0, page_size, dataset_id, entry["path"])
+                payload["all_columns"] = entry["dataset"].columns
+                emit({"type": "dataset-page", "value": payload})
             elif request_type == "export":
                 if entry is None:
                     raise ValueError(f"Unknown dataset: {dataset_id}")
                 output_file = Path(str(request.get("path", ""))).expanduser().resolve()
                 emit({"type": "export-start", "path": str(output_file)})
                 try:
-                    export_dataset(entry["dataset"], output_file, request.get("file_type"))
-                    emit({"type": "export-complete", "path": str(output_file), "total_rows": len(entry["dataset"])})
+                    view = apply_view(entry["dataset"], request.get("filters"), request.get("sort"), request.get("columns"))
+                    export_dataset(view, output_file, request.get("file_type"))
+                    emit({"type": "export-complete", "path": str(output_file), "total_rows": len(view)})
                 except Exception as exc:  # noqa: BLE001
                     traceback.print_exc(file=sys.stderr)
                     emit({"type": "export-error", "message": str(exc)})

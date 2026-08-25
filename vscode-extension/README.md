@@ -6,9 +6,10 @@ This extension is the graphical viewer included in the
 
 ## Features
 
-- Paged spectrum metadata table and one reusable spectrum panel
+- Paged spectrum metadata table with reorderable columns and one reusable spectrum panel
+- Full-dataset, multi-condition filtering (separate text/number `=`, text `!=`, `contains`, `>`, `>=`, `<`, `<=`) and sortable rows
 - MSP/MGF loading progress with bytes, percentage, and spectrum count
-- Full-dataset export to MSDS, MSP, or MGF through the VS Code save dialog
+- Export to MSDS, MSP, or MGF using the visible column order and current row filters/sort order
 - msentity file-type icon for `.msds`, `.msp`, and `.mgf` tabs
 - one transparent PNG for the extension listing, file type, and editor tabs
 - Optional VS Code floating plot window
@@ -124,7 +125,8 @@ right-click a file in Explorer and choose **MS Entity: Open as MSDS**, **Open as
 MSP**, or **Open as MGF**. The same commands are available in the Command
 Palette. Dataset **Export...** first asks for MSDS, MSP, or MGF and then for the
 save location; the chosen format takes precedence and its extension is applied
-automatically.
+automatically. The exported dataset contains the currently selected columns in
+their displayed order and the rows in their current filtered and sorted order.
 
 Set `msentitySpectrumViewer.spectrumFloatingWindow` to `false` if the spectrum
 should remain in an editor pane beside the dataset table.

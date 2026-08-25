@@ -121,10 +121,13 @@ class MSEntityViewerProvider {
           writeRequest({ type: "page", page: 0, dataset_id: message.datasetId });
           break;
         case "page-request":
-          writeRequest({ type: "page", page: Number(message.page) || 0, dataset_id: message.datasetId });
+          writeRequest({
+            type: "page", page: Number(message.page) || 0, dataset_id: message.datasetId,
+            filters: message.filters, sort: message.sort, columns: message.columns
+          });
           break;
         case "reload":
-          writeRequest({ type: "reload", dataset_id: message.datasetId });
+          writeRequest({ type: "reload", dataset_id: message.datasetId, filters: message.filters, sort: message.sort });
           break;
         case "add-dataset": {
           const selected = await vscode.window.showOpenDialog({
@@ -157,7 +160,10 @@ class MSEntityViewerProvider {
               : selectedExtension
                 ? `${target.fsPath.slice(0, -selectedExtension.length)}.${format}`
                 : `${target.fsPath}.${format}`;
-            writeRequest({ type: "export", path: exportPath, file_type: format, dataset_id: message.datasetId });
+            writeRequest({
+              type: "export", path: exportPath, file_type: format, dataset_id: message.datasetId,
+              filters: message.filters, sort: message.sort, columns: message.columns
+            });
           } else send({ type: "export-cancelled" });
           break;
         }
