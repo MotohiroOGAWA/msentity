@@ -7,7 +7,7 @@ This extension is the graphical viewer included in the
 ## Features
 
 - Paged spectrum metadata table with reorderable columns and one reusable spectrum panel
-- Full-dataset, multi-condition filtering (separate text/number `=`, text `!=`, `contains`, `>`, `>=`, `<`, `<=`) and sortable rows
+- Full-dataset, multi-condition filtering (separate text/number `=`, text `!=`, `contains`, `>`, `>=`, `<`, `<=`) and prioritized multi-column row sorting
 - MSP/MGF loading progress with bytes, percentage, and spectrum count
 - Export to MSDS, MSP, or MGF using the visible column order and current row filters/sort order
 - msentity file-type icon for `.msds`, `.msp`, and `.mgf` tabs

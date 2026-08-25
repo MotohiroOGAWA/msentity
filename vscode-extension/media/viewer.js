@@ -11,7 +11,7 @@
   let columnMenuScrollTop = 0;
   let filterMenuOpen = false;
   let filters = [];
-  let rowSort = null;
+  let rowSort = [];
   let filterSequence = 0;
   let selectedSpectrumIndex = null;
   let loadingProgress = null;
@@ -106,6 +106,10 @@
     const allSelected = cols.length > 0 && selectedColumns.length === cols.length;
     const start = rows().length ? rowOffset() + 1 : 0;
     const end = rowOffset() + rows().length;
+    const sortFor = (column) => {
+      const index = rowSort.findIndex((item) => item.column === column);
+      return index < 0 ? null : { ...rowSort[index], priority: index + 1 };
+    };
 
     const columnMenu = columnMenuOpen ? `
       <div class="column-menu" id="column-menu">
@@ -139,7 +143,7 @@
             <button class="secondary-button" id="reload-button" title="Reload dataset from disk">Reload</button>
           </div>
         </div>
-        <div class="table-wrap"><table class="dataset-table"><thead><tr><th class="row-column">Row</th><th class="spectrum-column">Spectrum</th>${selectedColumns.map((c) => `<th><button class="table-sort" data-sort-column="${esc(c)}" title="Sort rows by ${esc(c)}">${esc(c)}<span>${rowSort?.column === c ? (rowSort.direction === "asc" ? "▲" : "▼") : ""}</span></button></th>`).join("")}</tr></thead><tbody>
+        <div class="table-wrap"><table class="dataset-table"><thead><tr><th class="row-column">Row</th><th class="spectrum-column">Spectrum</th>${selectedColumns.map((c) => { const item = sortFor(c); return `<th><button class="table-sort" data-sort-column="${esc(c)}" title="Click: ascending → descending → remove sort">${esc(c)}<span>${item ? `${item.priority}${item.direction === "asc" ? "▲" : "▼"}` : ""}</span></button></th>`; }).join("")}</tr></thead><tbody>
           ${pageRows.length ? pageRows.map(({ row, index }) => `<tr class="${selectedSpectrumIndex === index ? "selected-record" : ""}"><td class="row-column">${rowOffset() + index + 1}</td><td class="spectrum-column"><button class="spectrum-button" data-spectrum-index="${index}" title="Show spectrum ${rowOffset() + index + 1}"><svg viewBox="0 0 28 22"><path d="M2 19h24M4 18V13m4 5V7m4 11v-4m4 4V3m4 15V9m4 9v-7"/></svg></button></td>${selectedColumns.map((c) => `<td title="${esc(display(row?.[c]))}">${esc(display(row?.[c]))}</td>`).join("")}</tr>`).join("") : `<tr><td colspan="${selectedColumns.length + 2}" class="empty">No spectra match the filters.</td></tr>`}
         </tbody></table></div>
         <div class="pagination"><span>${start}–${end} of ${totalRows()}</span><div class="page-controls"><button id="prev-page" ${page() === 0 || loadingPage ? "disabled" : ""}>‹</button><span><input id="page-input" type="number" min="1" max="${pageCount()}" value="${page() + 1}" ${loadingPage ? "disabled" : ""}/> / ${pageCount()}</span><button id="next-page" ${page() >= pageCount() - 1 || loadingPage ? "disabled" : ""}>›</button></div><span>${loadingPage ? "Loading…" : `${pageSize()} rows/page`}</span></div>
@@ -163,7 +167,10 @@
     document.getElementById("apply-filters")?.addEventListener("click", refreshView);
     document.querySelectorAll("[data-sort-column]").forEach((el) => el.addEventListener("click", () => {
       const column = el.dataset.sortColumn;
-      rowSort = rowSort?.column === column && rowSort.direction === "asc" ? { column, direction: "desc" } : { column, direction: "asc" };
+      const index = rowSort.findIndex((item) => item.column === column);
+      if (index < 0) rowSort.push({ column, direction: "asc" });
+      else if (rowSort[index].direction === "asc") rowSort[index] = { column, direction: "desc" };
+      else rowSort.splice(index, 1);
       refreshView();
     }));
     document.getElementById("dataset-select")?.addEventListener("change", (event) => {
@@ -172,7 +179,7 @@
       loadingPage = true;
       selectedSpectrumIndex = null;
       filters = [];
-      rowSort = null;
+      rowSort = [];
       selectedColumns = [];
       knownColumnsKey = "";
       render();
@@ -227,7 +234,7 @@
       if (dataset) {
         activeDatasetId = dataset.id;
         filters = [];
-        rowSort = null;
+        rowSort = [];
         selectedColumns = [];
         knownColumnsKey = "";
         if (!datasetPages.has(activeDatasetId)) datasetPages.set(activeDatasetId, 0);

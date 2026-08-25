@@ -85,10 +85,29 @@ def apply_view(dataset: Any, filters: Any = None, sort: Any = None, columns: Any
                 mask = left == right
         view = view[mask]
 
-    if isinstance(sort, dict):
-        sort_column = str(sort.get("column", ""))
-        if sort_column in available:
-            view = view.sort_by(sort_column, ascending=str(sort.get("direction", "asc")) != "desc")
+    sort_items = [sort] if isinstance(sort, dict) else sort if isinstance(sort, list) else []
+    sort_columns: list[str] = []
+    sort_ascending: list[bool] = []
+    for item in sort_items:
+        if not isinstance(item, dict):
+            continue
+        sort_column = str(item.get("column", ""))
+        if sort_column in available and sort_column not in sort_columns:
+            sort_columns.append(sort_column)
+            sort_ascending.append(str(item.get("direction", "asc")) != "desc")
+    if sort_columns:
+        sorted_metadata = view.metadata
+        # Apply lower-priority keys first. Stable mergesort then preserves each
+        # lower-priority ordering inside equal groups of every higher key.
+        for sort_column, ascending in reversed(list(zip(sort_columns, sort_ascending))):
+            sorted_metadata = sorted_metadata.sort_values(
+                by=sort_column,
+                ascending=ascending,
+                kind="mergesort",
+                na_position="last",
+            )
+        order = sorted_metadata.index.to_numpy()
+        view = view[order]
 
     if isinstance(columns, list):
         ordered = [str(column) for column in columns if str(column) in available]
