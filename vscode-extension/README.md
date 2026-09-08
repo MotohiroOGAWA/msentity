@@ -27,6 +27,57 @@ This extension is the graphical viewer included in the
 - Custom-sized transparent PNG/SVG export and clipboard copy
 - VS Code light, dark, and high-contrast theme support
 
+## Calculate similarity by key
+
+Use **Add dataset…** to load at least two datasets into the same viewer. Click
+**Calculate similarity…** next to **Reload**. With two datasets the pair is
+selected automatically; with three or more, select exactly two. Choose the key
+column for each dataset, m/z bin width, intensity exponent, and maximum cumulative
+peaks per chunk, then save the result as **`.mssim`**.
+
+Non-missing keys must be unique within each dataset. Duplicate values produce
+an error because they create one-to-many or many-to-many pairings. Missing keys
+and keys present on only one side are skipped. Calculation uses the entire loaded datasets, including
+unsaved SpecID edits; table filters do not restrict the calculation. Results
+follow the first dataset's row order and contain zero-based input positions.
+
+The `.mssim` file opens in a dedicated **Similarity Viewer**:
+
+- **Filter**: combine numeric comparisons and key/text conditions.
+- Click a column heading to sort; use Previous/Next for paging.
+- The histogram and count/mean/Q1/median/Q3/min/max summarize all filtered rows,
+  not just the current page. Choose 1–200 bins; click a bar or use the accessible
+  frequency table to filter a similarity range. The final bin includes 1.0.
+- Switch between a histogram and a box plot. Histogram counts support linear and
+  log10 scales.
+- **Save PNG…** opens an image preview where width, height, grid visibility,
+  histogram color, box color, and count scale can be changed before saving.
+- **Export…**: save the filtered/sorted results as `.mssim`, TSV, CSV, or Parquet.
+  Only `.mssim` preserves calculation metadata and the export filter definition.
+- **Reload**: reread the result from disk, retaining active filters. It does not
+  recalculate spectra. Start another calculation from the dataset viewer to do so.
+- Expand **Calculation metadata** to inspect parameters, creation time, input
+  paths, dataset descriptions/attributes/tags, and row counts.
+
+The result opens independently of the source files. The configured Python
+environment must contain the version of `msentity` from this checkout, including
+`msentity.similarity` (for development: `python -m pip install -e .`
+from the repository root).
+
+### Similarity file format (version 1)
+
+`.mssim` is an HDF5 container with root attributes `format = msentity.similarity`
+and `schema_version = 1`. `table.parquet` is a uint8 dataset containing the bytes
+produced by pandas `DataFrame.to_parquet(index=False)`; `metadata.json` is a UTF-8
+JSON scalar containing calculation/source metadata. Writes replace the target
+atomically after the entire container has been written.
+
+The same calculation is available from the CLI:
+
+```console
+msentity similarity-by-key first.msds second.msds --key1 SpecID --key2 SpecID --output result.mssim
+```
+
 ## Assign SpecID
 
 Click **Assign SpecID…** and enter a prefix (or leave it empty). IDs start at 1
@@ -154,3 +205,19 @@ should remain in an editor pane beside the dataset table.
 - `msentitySpectrumViewer.pageSize`: spectra per metadata page (default: `20`).
 - `msentitySpectrumViewer.spectrumFloatingWindow`: use a separate floating
   window for the spectrum (default: `true`).
+
+## Similarity tests
+
+From the repository root:
+
+```console
+python -m unittest discover -s tests/TestProcessing -p 'Test*.py'
+python -m unittest discover -s vscode-extension/tests -p 'test_*.py'
+```
+
+For the parameter wizard and browser interaction test, install Playwright in a
+separate test environment (or make it available through `NODE_PATH`), install its
+Chromium browser, and run `node vscode-extension/tests/test_similarity_ui.js`.
+`MSENTITY_PYTHON` selects the Python executable; `CHROMIUM_PATH` optionally selects
+an existing Chromium executable. The test uses the actual Python result backend
+and a mocked VS Code host, and writes a screenshot to the system temporary directory.

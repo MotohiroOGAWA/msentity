@@ -2,7 +2,7 @@
   "name": "msentity-spectrum-viewer",
   "displayName": "msentity Spectrum Viewer",
   "description": "View msentity datasets in VS Code with a separate reusable mass-spectrum panel, without Gradio.",
-  "version": "1.3.3",
+  "version": "1.4.1",
   "publisher": "motohiroogawa",
   "icon": "media/editor-icon.png",
   "license": "MIT",
@@ -36,7 +36,8 @@
     "onCommand:msentitySpectrumViewer.openAsMSDS",
     "onCommand:msentitySpectrumViewer.openAsMSP",
     "onCommand:msentitySpectrumViewer.openAsMGF",
-    "onCommand:msentitySpectrumViewer.openAsTSV"
+    "onCommand:msentitySpectrumViewer.openAsTSV",
+    "onCustomEditor:msentity.similarityViewer"
   ],
   "contributes": {
     "languages": [
@@ -54,6 +55,15 @@
           "light": "./media/editor-icon.png",
           "dark": "./media/editor-icon.png"
         }
+      },
+      {
+        "id": "msentity-similarity",
+        "aliases": [
+          "msentity Similarity"
+        ],
+        "extensions": [
+          ".mssim"
+        ]
       }
     ],
     "customEditors": [
@@ -69,6 +79,16 @@
           },
           {
             "filenamePattern": "*.mgf"
+          }
+        ],
+        "priority": "default"
+      },
+      {
+        "viewType": "msentity.similarityViewer",
+        "displayName": "msentity Similarity Viewer",
+        "selector": [
+          {
+            "filenamePattern": "*.mssim"
           }
         ],
         "priority": "default"
@@ -104,7 +124,7 @@
       "explorer/context": [
         {
           "command": "msentitySpectrumViewer.open",
-          "when": "resourceExtname == .msds || resourceExtname == .msp || resourceExtname == .mgf",
+          "when": "resourceExtname == .msds || resourceExtname == .msp || resourceExtname == .mgf || resourceExtname == .mssim",
           "group": "navigation@20"
         },
         {

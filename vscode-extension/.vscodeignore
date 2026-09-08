@@ -4,3 +4,7 @@ node_modules/**
 dist/**
 *.zip
 media/icon.png
+
+**/__pycache__/**
+**/*.pyc
+tests/**

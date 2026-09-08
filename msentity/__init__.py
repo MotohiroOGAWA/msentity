@@ -6,6 +6,7 @@ from .io.msp import read_msp, read_msp_text, write_msp
 from .io.mgf import read_mgf, read_mgf_text, write_mgf
 from .io.tsv import read_tsv, read_tsv_text, write_tsv
 from .io.prepare_ms_data import load_ms_dataset
+from .similarity import SimilarityDataset
 
 __all__ = [
     "MSDataset",
@@ -24,4 +25,5 @@ __all__ = [
     "read_tsv_text",
     "write_tsv",
     "load_ms_dataset",
+    "SimilarityDataset",
 ]

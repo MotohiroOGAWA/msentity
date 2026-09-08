@@ -350,6 +350,33 @@ def main() -> int:
                 payload = serialize_page(view, 0, page_size, dataset_id, entry["path"])
                 payload["all_columns"] = entry["dataset"].columns
                 emit({"type": "dataset-page", "value": payload})
+            elif request_type == "similarity-options":
+                emit({"type": "similarity-options", "datasets": [
+                    {"id": identifier, "name": item["path"].name,
+                     "columns": item["dataset"].columns}
+                    for identifier, item in datasets.items()
+                ]})
+            elif request_type == "calculate-similarity":
+                try:
+                    from msentity.similarity import SimilarityDataset
+
+                    id1, id2 = request["dataset1"], request["dataset2"]
+                    if id1 == id2 or id1 not in datasets or id2 not in datasets:
+                        raise ValueError("Select two different loaded datasets")
+                    first, second = datasets[id1], datasets[id2]
+                    target = Path(request["path"]).expanduser().resolve()
+                    if target in {item["path"] for item in datasets.values()}:
+                        raise ValueError("Output must not overwrite an input dataset")
+                    result = SimilarityDataset.from_datasets(
+                        first["dataset"], second["dataset"],
+                        source1=str(first["path"]), source2=str(second["path"]),
+                        **request.get("parameters", {}),
+                    )
+                    result.save(target)
+                    emit({"type": "similarity-complete", "path": str(target),
+                          "total_rows": len(result.table)})
+                except Exception as exc:
+                    emit({"type": "similarity-error", "message": str(exc)})
             elif request_type == "assign-spec-id":
                 try:
                     from msentity.processing.id import set_spec_id

@@ -396,14 +396,14 @@ class TestSpectrumSimilarityEdgeCases(unittest.TestCase):
         return MSDataset(metadata, PeakSeries(data.reshape(-1, 2), offsets.astype(np.int64)))
 
     def test_by_key_matches_in_left_order_with_correct_scores(self):
-        left = self.dataset(["b", "a", "left"],
-                            [[(100, 1)], [(200, 1)], [(300, 1)]])
-        right = self.dataset(["a", "right", "b"],
-                             [[(300, 1)], [(400, 1)], [(100, 2)]])
+        left = self.dataset(["b", "a"],
+                            [[(100, 1)], [(200, 1)]])
+        right = self.dataset(["a", "b"],
+                             [[(300, 1)], [(100, 2)]])
         actual = cosine_similarity_by_key(left, right)
         expected = pd.DataFrame({
             "SpecID": ["b", "a"], "index1": np.array([0, 1], dtype=np.int64),
-            "index2": np.array([2, 0], dtype=np.int64),
+            "index2": np.array([1, 0], dtype=np.int64),
             "cosine_similarity": np.array([1, 0], dtype=np.float32),
         })
         pd.testing.assert_frame_equal(actual, expected)
@@ -421,13 +421,40 @@ class TestSpectrumSimilarityEdgeCases(unittest.TestCase):
         self.assertEqual(result["index2"].tolist(), [1, 0])
         np.testing.assert_allclose(result["cosine_similarity"], [1, 1])
 
-    def test_by_key_ignores_repeated_missing_values(self):
-        left = self.dataset([None, "a", np.nan, pd.NA, "b"])
-        right = self.dataset([pd.NA, "b", None, "a", np.nan])
+    def test_by_key_ignores_missing_and_unmatched_values(self):
+        cases = [
+            ([], ["a"], []),
+            (["a"], [], []),
+            (["a"], ["b"], []),
+            (["a", "b", None], ["a"], ["a"]),
+            (["a", np.nan], [pd.NA, "a", "b"], ["a"]),
+        ]
+        for keys1, keys2, expected in cases:
+            with self.subTest(keys1=keys1, keys2=keys2):
+                result = cosine_similarity_by_key(self.dataset(keys1), self.dataset(keys2))
+                self.assertEqual(result["SpecID"].tolist(), expected)
+
+    def test_by_key_preserves_original_indices_when_ignored_rows_exist(self):
+        left = self.dataset([None, "shared", "left-only"])
+        right = self.dataset(["right-only", np.nan, "shared"])
         result = cosine_similarity_by_key(left, right)
-        self.assertEqual(result["SpecID"].tolist(), ["a", "b"])
-        self.assertEqual(result["index1"].tolist(), [1, 4])
-        self.assertEqual(result["index2"].tolist(), [3, 1])
+        self.assertEqual(result["SpecID"].tolist(), ["shared"])
+        self.assertEqual(result["index1"].tolist(), [1])
+        self.assertEqual(result["index2"].tolist(), [2])
+
+    def test_by_key_numeric_and_boolean_keys_follow_value_equality(self):
+        left = self.dataset([True, False], [[(100, 1)], [(200, 1)]])
+        right = self.dataset([0, 1], [[(200, 1)], [(100, 1)]])
+        result = cosine_similarity_by_key(left, right)
+        self.assertEqual(result["index2"].tolist(), [1, 0])
+        np.testing.assert_allclose(result["cosine_similarity"], [1, 1])
+
+    def test_by_key_rejects_result_column_name_collisions(self):
+        for key in ("index1", "index2", "cosine_similarity"):
+            with self.subTest(key=key):
+                with self.assertRaisesRegex(ValueError, "collide"):
+                    cosine_similarity_by_key(self.dataset(["a"], key=key),
+                                             self.dataset(["a"]), key1=key)
 
     def test_by_key_rejects_duplicates_even_when_unmatched(self):
         for side in (1, 2):
@@ -504,7 +531,7 @@ class TestSpectrumSimilarityEdgeCases(unittest.TestCase):
     def test_pair_rejects_nonpositive_options(self):
         ds = self.dataset(["a"])
         for option in ("bin_width", "intensity_exponent", "max_cum_peaks"):
-            for value in (0, -1):
+            for value in (0, -1, float("nan"), float("inf")):
                 with self.subTest(option=option, value=value):
                     with self.assertRaisesRegex(ValueError, option):
                         cosine_similarity_pair(ds, [0], ds, [0], **{option: value})

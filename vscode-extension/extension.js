@@ -4,6 +4,7 @@ const { spawn } = require("child_process");
 const crypto = require("crypto");
 
 const VIEW_TYPE = "msentity.spectrumViewer";
+const SIMILARITY_VIEW_TYPE = "msentity.similarityViewer";
 let outputChannel;
 
 class MSEntityDocument {
@@ -36,12 +37,13 @@ class MSEntityViewerProvider {
       enableScripts: true,
       localResourceRoots: [vscode.Uri.joinPath(this.context.extensionUri, "media")]
     };
-    webview.html = getDatasetWebviewHtml(webview, this.context.extensionUri, document.uri);
+    const isSimilarity = path.extname(document.uri.fsPath).toLowerCase() === ".mssim";
+    webview.html = getDatasetWebviewHtml(webview, this.context.extensionUri, document.uri, isSimilarity);
 
     const config = vscode.workspace.getConfiguration("msentitySpectrumViewer");
     const pythonPath = String(config.get("pythonPath", "python"));
     const pageSize = Math.max(1, Math.min(500, Number(config.get("pageSize", 20)) || 20));
-    const backendPath = this.context.asAbsolutePath(path.join("python", "backend.py"));
+    const backendPath = this.context.asAbsolutePath(path.join("python", isSimilarity ? "similarity_backend.py" : "backend.py"));
 
     outputChannel.appendLine(`[open] ${document.uri.fsPath}`);
     outputChannel.appendLine(`[python] ${pythonPath}`);
@@ -76,7 +78,15 @@ class MSEntityViewerProvider {
           continue;
         }
         try {
-          send(JSON.parse(line.slice("MSENTITY_JSON:".length)));
+          const message = JSON.parse(line.slice("MSENTITY_JSON:".length));
+          if (message.type === "similarity-options") {
+            this.configureSimilarity(message.datasets, document.uri, writeRequest, send, () => disposed)
+              .catch((error) => send({ type: "similarity-error", message: error.message || String(error) }));
+          } else if (message.type === "similarity-complete") {
+            vscode.commands.executeCommand("vscode.openWith", vscode.Uri.file(message.path), SIMILARITY_VIEW_TYPE)
+              .catch((error) => vscode.window.showErrorMessage(String(error)));
+          }
+          send(message);
         } catch (error) {
           outputChannel.appendLine(`[protocol error] ${String(error)} :: ${line}`);
         }
@@ -123,7 +133,7 @@ class MSEntityViewerProvider {
         case "page-request":
           writeRequest({
             type: "page", page: Number(message.page) || 0, dataset_id: message.datasetId,
-            filters: message.filters, sort: message.sort, columns: message.columns
+            filters: message.filters, sort: message.sort, columns: message.columns, bins: message.bins
           });
           break;
         case "assign-spec-id": {
@@ -167,8 +177,34 @@ class MSEntityViewerProvider {
           vscode.window.showErrorMessage(String(message.message || "Could not assign SpecID."));
           break;
         case "reload":
-          writeRequest({ type: "reload", dataset_id: message.datasetId, filters: message.filters, sort: message.sort });
+          writeRequest({ type: "reload", dataset_id: message.datasetId, filters: message.filters, sort: message.sort, bins: message.bins });
           break;
+        case "calculate-similarity":
+          writeRequest({ type: "similarity-options" });
+          break;
+        case "similarity-error-notification":
+          vscode.window.showErrorMessage(String(message.message || "Could not calculate similarity."));
+          break;
+        case "export-similarity": {
+          try {
+            const format = await vscode.window.showQuickPick(["mssim", "tsv", "csv", "parquet"], {
+              title: "Export filtered similarity results",
+              placeHolder: "MSSIM includes metadata; other formats contain the result table only"
+            });
+            if (!format || disposed) { send({ type: "export-cancelled" }); break; }
+            const name = path.basename(document.uri.fsPath, ".mssim");
+            const target = await vscode.window.showSaveDialog({
+              defaultUri: vscode.Uri.joinPath(document.uri, "..", `${name}-filtered.${format}`),
+              filters: { "Similarity results": [format] }
+            });
+            if (!target || disposed) { send({ type: "export-cancelled" }); break; }
+            if (path.extname(target.fsPath).toLowerCase() !== `.${format}`) {
+              throw new Error(`Use the .${format} extension for this export.`);
+            }
+            writeRequest({ type: "export", path: target.fsPath, filters: message.filters, sort: message.sort });
+          } catch (error) { send({ type: "error", message: error.message || String(error) }); }
+          break;
+        }
         case "add-dataset": {
           const selected = await vscode.window.showOpenDialog({
             title: "Add dataset to this viewer",
@@ -210,6 +246,17 @@ class MSEntityViewerProvider {
         case "open-spectrum":
           this.showSpectrum(document.uri, message.payload);
           break;
+        case "save-similarity-image":
+          try {
+            const savedPath = await this.saveImage(document.uri, message);
+            send(savedPath
+              ? { type: "image-save-complete", path: savedPath }
+              : { type: "image-save-cancelled" });
+          } catch (error) {
+            outputChannel.appendLine(`[similarity image export] ${error?.stack || String(error)}`);
+            send({ type: "image-save-error", message: error?.message || String(error) });
+          }
+          break;
         case "export-notification":
           vscode.window.showInformationMessage(`Exported ${Number(message.totalRows) || 0} spectra to ${path.basename(String(message.path || "dataset"))}`);
           break;
@@ -227,6 +274,59 @@ class MSEntityViewerProvider {
       messageDisposable.dispose();
       if (child.exitCode === null) child.kill();
     });
+  }
+
+  async configureSimilarity(datasets, documentUri, writeRequest, send, isDisposed) {
+    const cancel = () => send({ type: "similarity-cancelled" });
+    if (datasets.length < 2) throw new Error("Use Add dataset to load at least two datasets.");
+    let selected = datasets;
+    if (datasets.length > 2) {
+      const choices = await vscode.window.showQuickPick(
+        datasets.map((dataset) => ({ label: dataset.name, description: dataset.id, dataset })),
+        { title: "Calculate similarity: select exactly two datasets", canPickMany: true, ignoreFocusOut: true }
+      );
+      if (!choices || isDisposed()) return cancel();
+      if (choices.length !== 2) throw new Error("Select exactly two datasets.");
+      selected = choices.map((choice) => choice.dataset);
+    }
+    const parameters = {};
+    for (let i = 0; i < 2; i++) {
+      const dataset = selected[i];
+      const columns = [...dataset.columns].sort((a, b) => (a === "SpecID" ? -1 : b === "SpecID" ? 1 : a.localeCompare(b)));
+      const key = await vscode.window.showQuickPick(columns, {
+        title: `Similarity: key${i + 1} — ${dataset.name}`,
+        placeHolder: "Non-missing keys must be unique; values found on only one side are skipped", ignoreFocusOut: true
+      });
+      if (key === undefined || isDisposed()) return cancel();
+      parameters[`key${i + 1}`] = key;
+    }
+    for (const [name, title, value, integer] of [
+      ["bin_width", "m/z bin width", "0.01", false],
+      ["intensity_exponent", "Intensity exponent (0.5 = square root)", "1", false],
+      ["max_cum_peaks", "Maximum cumulative peaks per chunk", "200000", true]
+    ]) {
+      const input = await vscode.window.showInputBox({
+        title: `Similarity: ${title}`, value, ignoreFocusOut: true,
+        prompt: "Compare the entire loaded datasets, including unsaved edits. Table filters do not limit this calculation.",
+        validateInput: (text) => {
+          const number = Number(text);
+          return !Number.isFinite(number) || number <= 0 || (integer && !Number.isSafeInteger(number))
+            ? `Enter a positive ${integer ? "integer" : "finite number"}.` : undefined;
+        }
+      });
+      if (input === undefined || isDisposed()) return cancel();
+      parameters[name] = Number(input);
+    }
+    const target = await vscode.window.showSaveDialog({
+      title: "Save similarity results",
+      defaultUri: vscode.Uri.joinPath(documentUri, "..", "similarity.mssim"),
+      filters: { "msentity similarity": ["mssim"] }
+    });
+    if (!target || isDisposed()) return cancel();
+    if (path.extname(target.fsPath).toLowerCase() !== ".mssim") throw new Error("Use the .mssim extension.");
+    send({ type: "similarity-start" });
+    writeRequest({ type: "calculate-similarity", dataset1: selected[0].id, dataset2: selected[1].id,
+      parameters, path: target.fsPath });
   }
 
   showSpectrum(documentUri, payload) {
@@ -296,14 +396,16 @@ class MSEntityViewerProvider {
   async saveImage(documentUri, message) {
     const filename = String(message?.filename || "spectrum.svg").replace(/[^\w.-]+/g, "_");
     const bytes = Array.isArray(message?.bytes) ? Uint8Array.from(message.bytes) : null;
-    if (!bytes) return;
+    if (!bytes?.length) throw new Error("The generated image is empty.");
+    const parentUri = vscode.Uri.file(path.dirname(documentUri.fsPath));
     const target = await vscode.window.showSaveDialog({
-      defaultUri: vscode.Uri.joinPath(documentUri, "..", filename),
+      defaultUri: vscode.Uri.joinPath(parentUri, filename),
       filters: filename.endsWith(".png") ? { "PNG image": ["png"] } : { "SVG image": ["svg"] }
     });
-    if (!target) return;
+    if (!target) return null;
     await vscode.workspace.fs.writeFile(target, bytes);
     vscode.window.showInformationMessage(`Saved ${path.basename(target.fsPath)}`);
+    return target.fsPath;
   }
 
   async savePeaks(documentUri, message) {
@@ -337,9 +439,9 @@ class MSEntityViewerProvider {
   }
 }
 
-function getDatasetWebviewHtml(webview, extensionUri, documentUri) {
-  const scriptUri = webview.asWebviewUri(vscode.Uri.joinPath(extensionUri, "media", "viewer.js"));
-  const styleUri = webview.asWebviewUri(vscode.Uri.joinPath(extensionUri, "media", "viewer.css"));
+function getDatasetWebviewHtml(webview, extensionUri, documentUri, isSimilarity = false) {
+  const scriptUri = webview.asWebviewUri(vscode.Uri.joinPath(extensionUri, "media", isSimilarity ? "similarity.js" : "viewer.js"));
+  const styleUri = webview.asWebviewUri(vscode.Uri.joinPath(extensionUri, "media", isSimilarity ? "similarity.css" : "viewer.css"));
   const nonce = crypto.randomBytes(16).toString("base64");
   const filename = path.basename(documentUri.fsPath).replace(/[&<>"']/g, (c) => ({
     "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#039;"
@@ -393,6 +495,12 @@ function activate(context) {
     })
   );
 
+  context.subscriptions.push(
+    vscode.window.registerCustomEditorProvider(SIMILARITY_VIEW_TYPE, provider, {
+      webviewOptions: { retainContextWhenHidden: true }, supportsMultipleEditorsPerDocument: false
+    })
+  );
+
   for (const fileType of ["msds", "msp", "mgf", "tsv"]) {
     context.subscriptions.push(
       vscode.commands.registerCommand(`msentitySpectrumViewer.openAs${fileType.toUpperCase()}`, (uri) => provider.openAs(uri, fileType))
@@ -406,7 +514,8 @@ function activate(context) {
         vscode.window.showWarningMessage("Select an .msds, .msp, or .mgf file first, or use “MS Entity: Open as TSV”.");
         return;
       }
-      await vscode.commands.executeCommand("vscode.openWith", target, VIEW_TYPE);
+      await vscode.commands.executeCommand("vscode.openWith", target,
+        path.extname(target.fsPath).toLowerCase() === ".mssim" ? SIMILARITY_VIEW_TYPE : VIEW_TYPE);
     })
   );
 
