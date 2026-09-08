@@ -8,6 +8,7 @@ from msentity.core.PeakSeries import PeakSeries
 from msentity.processing.spectrum_similarity import (
     cosine_similarity_all_pairs_matrix,
     cosine_similarity_pair,
+    cosine_similarity_by_key,
 )
 
 
@@ -380,6 +381,146 @@ class TestSpectrumSimilarityFunctions(unittest.TestCase):
                 self.dataset,
                 max_pairs_per_call=0,
             )
+
+
+class TestSpectrumSimilarityEdgeCases(unittest.TestCase):
+    @staticmethod
+    def dataset(keys, spectra=None, key="SpecID"):
+        if spectra is None:
+            spectra = [[(100.0, 1.0)]] * len(keys)
+        data = np.asarray([peak for spec in spectra for peak in spec], dtype=float)
+        offsets = np.concatenate(([0], np.cumsum([len(spec) for spec in spectra])))
+        metadata = pd.DataFrame({key: pd.Series(keys, dtype=object)})
+        # Metadata labels must not be confused with positional spectrum indices.
+        metadata.index = np.arange(len(keys)) * 10 + 10
+        return MSDataset(metadata, PeakSeries(data.reshape(-1, 2), offsets.astype(np.int64)))
+
+    def test_by_key_matches_in_left_order_with_correct_scores(self):
+        left = self.dataset(["b", "a", "left"],
+                            [[(100, 1)], [(200, 1)], [(300, 1)]])
+        right = self.dataset(["a", "right", "b"],
+                             [[(300, 1)], [(400, 1)], [(100, 2)]])
+        actual = cosine_similarity_by_key(left, right)
+        expected = pd.DataFrame({
+            "SpecID": ["b", "a"], "index1": np.array([0, 1], dtype=np.int64),
+            "index2": np.array([2, 0], dtype=np.int64),
+            "cosine_similarity": np.array([1, 0], dtype=np.float32),
+        })
+        pd.testing.assert_frame_equal(actual, expected)
+
+    def test_by_key_different_column_names(self):
+        result = cosine_similarity_by_key(
+            self.dataset(["b", "a"], key="query_id"),
+            self.dataset(["a", "b"], key="reference_id"),
+            key1="query_id", key2="reference_id",
+        )
+        self.assertEqual(result.columns.tolist(),
+                         ["query_id", "reference_id", "index1", "index2", "cosine_similarity"])
+        self.assertEqual(result["query_id"].tolist(), ["b", "a"])
+        self.assertEqual(result["reference_id"].tolist(), ["b", "a"])
+        self.assertEqual(result["index2"].tolist(), [1, 0])
+        np.testing.assert_allclose(result["cosine_similarity"], [1, 1])
+
+    def test_by_key_ignores_repeated_missing_values(self):
+        left = self.dataset([None, "a", np.nan, pd.NA, "b"])
+        right = self.dataset([pd.NA, "b", None, "a", np.nan])
+        result = cosine_similarity_by_key(left, right)
+        self.assertEqual(result["SpecID"].tolist(), ["a", "b"])
+        self.assertEqual(result["index1"].tolist(), [1, 4])
+        self.assertEqual(result["index2"].tolist(), [3, 1])
+
+    def test_by_key_rejects_duplicates_even_when_unmatched(self):
+        for side in (1, 2):
+            with self.subTest(side=side):
+                duplicate = self.dataset(["duplicate", "duplicate"])
+                unique = self.dataset(["other"])
+                args = (duplicate, unique) if side == 1 else (unique, duplicate)
+                with self.assertRaisesRegex(ValueError, f"ds{side}.*duplicate"):
+                    cosine_similarity_by_key(*args)
+
+    def test_by_key_missing_column(self):
+        ds = self.dataset(["a"])
+        for side in (1, 2):
+            with self.subTest(side=side):
+                with self.assertRaisesRegex(KeyError, f"ds{side}.*absent"):
+                    cosine_similarity_by_key(ds, ds, **{f"key{side}": "absent"})
+
+    def test_by_key_empty_results_keep_schema(self):
+        for keys1, keys2 in [([], []), ([], ["a"]), (["a"], []),
+                             (["a"], ["b"]), ([None, None], [None])]:
+            for key2 in ("SpecID", "other_id"):
+                with self.subTest(keys1=keys1, keys2=keys2, key2=key2):
+                    result = cosine_similarity_by_key(
+                        self.dataset(keys1), self.dataset(keys2, key=key2), key2=key2)
+                    columns = ["SpecID"] + ([] if key2 == "SpecID" else [key2])
+                    self.assertEqual(result.columns.tolist(),
+                                     columns + ["index1", "index2", "cosine_similarity"])
+                    self.assertTrue(result.empty)
+                    self.assertEqual(result["cosine_similarity"].dtype, np.float32)
+                    self.assertEqual(result["index1"].dtype, np.int64)
+                    self.assertEqual(result["index2"].dtype, np.int64)
+
+    def test_by_key_reordered_views_use_local_indices(self):
+        ds = self.dataset(["a", "b", "c"],
+                          [[(100, 1)], [(200, 1)], [(300, 1)]])
+        result = cosine_similarity_by_key(ds[[2, 0]], ds[[0, 2]])
+        self.assertEqual(result["SpecID"].tolist(), ["c", "a"])
+        self.assertEqual(result["index1"].tolist(), [0, 1])
+        self.assertEqual(result["index2"].tolist(), [1, 0])
+        np.testing.assert_allclose(result["cosine_similarity"], [1, 1])
+
+    def test_by_key_calculation_options(self):
+        left = self.dataset(["a", "b"], [[(100.1, 4), (101.1, 1)]] * 2)
+        right = self.dataset(["b", "a"], [[(100.2, 1)]] * 2)
+        result = cosine_similarity_by_key(
+            left, right, bin_width=1, intensity_exponent=0.5, max_cum_peaks=1)
+        np.testing.assert_allclose(result["cosine_similarity"], [2 / np.sqrt(5)] * 2,
+                                   rtol=1e-6)
+
+    def test_pair_sums_intensities_in_same_bin_after_transform(self):
+        left = self.dataset(["a"], [[(100.1, 4), (100.2, 9), (101.1, 16)]])
+        right = self.dataset(["a"], [[(100.3, 1)]])
+        score = cosine_similarity_pair(left, [0], right, [0],
+                                       bin_width=1, intensity_exponent=0.5)
+        np.testing.assert_allclose(score, [5 / np.sqrt(41)], rtol=1e-6)
+
+    def test_pair_nearby_peaks_across_bin_boundary_do_not_match(self):
+        left = self.dataset(["a"], [[(100.99, 1)]])
+        right = self.dataset(["a"], [[(101.01, 1)]])
+        np.testing.assert_array_equal(
+            cosine_similarity_pair(left, [0], right, [0], bin_width=1), [0])
+
+    def test_pair_negative_zero_and_empty_intensities(self):
+        left = self.dataset(["a", "b", "c", "d"],
+                            [[(100, -4), (101, 9)], [(100, 0)], [], []])
+        right = self.dataset(["a", "b", "c", "d"],
+                             [[(101, 1)], [(100, 1)], [(100, 1)], []])
+        for limit in (1, 200_000):
+            with self.subTest(limit=limit):
+                scores = cosine_similarity_pair(left, [0, 1, 2, 3], right, [0, 1, 2, 3],
+                                                intensity_exponent=0.5, max_cum_peaks=limit)
+                np.testing.assert_array_equal(scores, [1, 0, 0, 0])
+
+    def test_pair_rejects_nonpositive_options(self):
+        ds = self.dataset(["a"])
+        for option in ("bin_width", "intensity_exponent", "max_cum_peaks"):
+            for value in (0, -1):
+                with self.subTest(option=option, value=value):
+                    with self.assertRaisesRegex(ValueError, option):
+                        cosine_similarity_pair(ds, [0], ds, [0], **{option: value})
+
+    def test_all_pairs_rectangular_chunking_and_transform(self):
+        left = self.dataset(["a", "b"], [[(100.1, 4), (101.1, 1)], []])
+        right = self.dataset(["a", "b", "c"],
+                             [[(100.2, 1)], [(101.2, 1)], [(200, 1)]])
+        expected = [[2 / np.sqrt(5), 1 / np.sqrt(5), 0], [0, 0, 0]]
+        for limit in (1, 4, 100):
+            with self.subTest(limit=limit):
+                result = cosine_similarity_all_pairs_matrix(
+                    left, right, bin_width=1, intensity_exponent=0.5,
+                    max_pairs_per_call=limit, max_cum_peaks=1)
+                self.assertEqual(result.dtype, np.float32)
+                np.testing.assert_allclose(result, expected, rtol=1e-6)
 
 
 if __name__ == "__main__":

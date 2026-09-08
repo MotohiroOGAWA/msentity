@@ -3,6 +3,7 @@ from __future__ import annotations
 from typing import Sequence
 
 import numpy as np
+import pandas as pd
 from tqdm import tqdm
 
 from ..core.MSDataset import MSDataset
@@ -122,6 +123,123 @@ def cosine_similarity_pair(
 
     return scores
 
+def cosine_similarity_by_key(
+    ds1: MSDataset,
+    ds2: MSDataset,
+    *,
+    key1: str = "SpecID",
+    key2: str = "SpecID",
+    bin_width: float = 0.01,
+    intensity_exponent: float = 1.0,
+    max_cum_peaks: int = 200_000,
+    show_progress: bool = False,
+) -> pd.DataFrame:
+    """
+    Compute paired cosine similarity by matching spectrum metadata keys.
+
+    Rows in ``ds1`` and ``ds2`` are paired when ``ds1[key1] == ds2[key2]``.
+    Only keys present in both datasets are compared. Key values must be unique
+    within each dataset; duplicate keys are rejected to avoid ambiguous
+    many-to-many pairings. Missing key values are ignored.
+
+    Parameters
+    ----------
+    ds1:
+        First MS dataset.
+    ds2:
+        Second MS dataset.
+    key1:
+        Metadata column in ``ds1`` used as the matching key.
+    key2:
+        Metadata column in ``ds2`` used as the matching key.
+    bin_width:
+        Width of the m/z bin.
+    intensity_exponent:
+        Exponent applied to non-negative intensities.
+    max_cum_peaks:
+        Maximum cumulative number of peaks in each internal chunk.
+    show_progress:
+        If True, show progress bar while computing cosine similarity.
+
+    Returns
+    -------
+    pandas.DataFrame
+        Table containing the matched key values, ``index1``, ``index2``, and
+        ``cosine_similarity``. The row order follows ``ds1``.
+
+    Raises
+    ------
+    KeyError
+        If ``key1`` or ``key2`` is not available in the corresponding dataset.
+    ValueError
+        If either key column contains duplicate non-missing values.
+    """
+    if key1 not in ds1.columns:
+        raise KeyError(f"ds1 does not contain key column: {key1}")
+    if key2 not in ds2.columns:
+        raise KeyError(f"ds2 does not contain key column: {key2}")
+
+    left = pd.DataFrame(
+        {
+            "index1": np.arange(ds1.n_rows, dtype=np.int64),
+            key1: ds1[key1].to_numpy(),
+        }
+    )
+    right = pd.DataFrame(
+        {
+            "index2": np.arange(ds2.n_rows, dtype=np.int64),
+            key2: ds2[key2].to_numpy(),
+        }
+    )
+
+    # Missing values should not be treated as matching identifiers.
+    left = left[left[key1].notna()]
+    right = right[right[key2].notna()]
+
+    duplicate1 = left[key1].duplicated(keep=False)
+    if duplicate1.any():
+        values = left.loc[duplicate1, key1].drop_duplicates().tolist()[:5]
+        raise ValueError(
+            f"ds1 key column {key1!r} contains duplicate values; "
+            f"examples: {values}"
+        )
+
+    duplicate2 = right[key2].duplicated(keep=False)
+    if duplicate2.any():
+        values = right.loc[duplicate2, key2].drop_duplicates().tolist()[:5]
+        raise ValueError(
+            f"ds2 key column {key2!r} contains duplicate values; "
+            f"examples: {values}"
+        )
+
+    pairs = left.merge(
+        right,
+        left_on=key1,
+        right_on=key2,
+        how="inner",
+        sort=False,
+        validate="one_to_one",
+    )
+
+    scores = cosine_similarity_pair(
+        ds1=ds1,
+        index1=pairs["index1"].to_numpy(dtype=np.int64),
+        ds2=ds2,
+        index2=pairs["index2"].to_numpy(dtype=np.int64),
+        bin_width=bin_width,
+        intensity_exponent=intensity_exponent,
+        max_cum_peaks=max_cum_peaks,
+        show_progress=show_progress,
+    )
+
+    pairs["cosine_similarity"] = scores
+
+    if key1 == key2:
+        columns = [key1, "index1", "index2", "cosine_similarity"]
+    else:
+        columns = [key1, key2, "index1", "index2", "cosine_similarity"]
+
+    return pairs[columns].reset_index(drop=True)
 
 def _aggregate_binned_peaks(
     *,
