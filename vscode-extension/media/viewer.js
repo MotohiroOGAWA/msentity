@@ -16,6 +16,7 @@
   let selectedSpectrumIndex = null;
   let loadingProgress = null;
   let exporting = false;
+  let assigningSpecId = false;
   let datasetOptions = [];
   let activeDatasetId = "";
   const datasetPages = new Map();
@@ -139,6 +140,7 @@
           <div class="tools">
             <div class="columns"><button id="columns-button">Columns</button>${columnMenu}</div>
             <div class="filters"><button id="filter-button" class="${filters.length ? "active" : ""}">Filter${filters.length ? ` (${filters.length})` : ""}</button>${filterMenu}</div>
+            <button class="secondary-button" id="assign-spec-id-button" ${assigningSpecId || loadingPage || exporting ? "disabled" : ""}>${assigningSpecId ? "Assigning SpecID…" : "Assign SpecID…"}</button>
             <button class="secondary-button" id="export-button" ${exporting ? "disabled" : ""}>${exporting ? "Exporting…" : "Export…"}</button>
             <button class="secondary-button" id="reload-button" title="Reload dataset from disk">Reload</button>
           </div>
@@ -186,6 +188,11 @@
       vscode.postMessage(viewRequest(savedPage));
     });
     document.getElementById("add-dataset")?.addEventListener("click", () => vscode.postMessage({ type: "add-dataset" }));
+    document.getElementById("assign-spec-id-button")?.addEventListener("click", () => {
+      assigningSpecId = true;
+      render();
+      vscode.postMessage({ type: "assign-spec-id", datasetId: activeDatasetId, hasSpecId: columns().includes("SpecID") });
+    });
     document.getElementById("export-button")?.addEventListener("click", () => { exporting = true; render(); vscode.postMessage({ type: "export-dataset", datasetId: activeDatasetId, datasetPath: value.dataset_path, filters, sort: rowSort, columns: selectedColumns }); });
     document.getElementById("reload-button")?.addEventListener("click", () => { loadingPage = true; selectedSpectrumIndex = null; render(); vscode.postMessage({ type: "reload", datasetId: activeDatasetId, filters, sort: rowSort }); });
     document.getElementById("prev-page")?.addEventListener("click", () => requestPage(page() - 1));
@@ -252,6 +259,20 @@
       filterMenuOpen = false;
       selectedSpectrumIndex = null;
       render();
+    } else if (message?.type === "spec-id-complete") {
+      assigningSpecId = false;
+      if (message.dataset_id === activeDatasetId) {
+        if (!selectedColumns.includes("SpecID")) selectedColumns.push("SpecID");
+        loadingPage = true;
+        selectedSpectrumIndex = null;
+        vscode.postMessage(viewRequest(page()));
+      }
+      render();
+      vscode.postMessage({ type: "spec-id-notification", totalRows: message.total_rows });
+    } else if (message?.type === "spec-id-cancelled" || message?.type === "spec-id-error") {
+      assigningSpecId = false;
+      render();
+      if (message.type === "spec-id-error") vscode.postMessage({ type: "spec-id-error-notification", message: message.message });
     } else if (message?.type === "export-start") {
       exporting = true;
       render();

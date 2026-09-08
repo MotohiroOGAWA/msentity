@@ -8,6 +8,7 @@ This extension is the graphical viewer included in the
 
 - Paged spectrum metadata table with reorderable columns and one reusable spectrum panel
 - Full-dataset, multi-condition filtering (separate text/number `=`, text `!=`, `contains`, `>`, `>=`, `<`, `<=`) and prioritized multi-column row sorting
+- Assign sequential SpecID values from the toolbar with an optional prefix
 - MSP/MGF loading progress with bytes, percentage, and spectrum count
 - Export to MSDS, MSP, MGF, or TSV using the visible column order and current row filters/sort order
 - msentity file-type icon for `.msds`, `.msp`, and `.mgf` tabs
@@ -25,6 +26,19 @@ This extension is the graphical viewer included in the
   and peak m/z labels
 - Custom-sized transparent PNG/SVG export and clipboard copy
 - VS Code light, dark, and high-contrast theme support
+
+## Assign SpecID
+
+Click **Assign SpecID…** and enter a prefix (or leave it empty). IDs start at 1
+and are zero-padded to the largest number: 12 spectra with prefix `SP` receive
+`SP01` through `SP12`. This assigns IDs to every spectrum in the active dataset
+in its original order, regardless of filters, sorting, or the current page.
+Existing SpecID values are replaced only after confirmation.
+
+The table refreshes after assignment. Use **Export…** with the SpecID column
+selected to save the changes. Export respects current filters and visible
+columns; clear filters to export all spectra. **Reload** or closing the viewer
+discards assignments that have not been exported.
 
 ## Download and install the latest release
 

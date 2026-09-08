@@ -126,6 +126,46 @@ class MSEntityViewerProvider {
             filters: message.filters, sort: message.sort, columns: message.columns
           });
           break;
+        case "assign-spec-id": {
+          try {
+            const prefix = await vscode.window.showInputBox({
+              title: "Assign SpecID",
+              prompt: "Prefix for sequential IDs (e.g. SP → SP01…SP12 for 12 spectra). Applies to all spectra in the selected dataset, in original order. Export to save; Reload discards changes.",
+              placeHolder: "Optional prefix",
+              value: "",
+              ignoreFocusOut: true
+            });
+            if (prefix === undefined || disposed) {
+              send({ type: "spec-id-cancelled" });
+              break;
+            }
+            let overwrite = false;
+            if (message.hasSpecId) {
+              const choice = await vscode.window.showWarningMessage(
+                "Replace all existing SpecID values in the selected dataset?",
+                { modal: true }, "Replace SpecID"
+              );
+              if (choice !== "Replace SpecID" || disposed) {
+                send({ type: "spec-id-cancelled" });
+                break;
+              }
+              overwrite = true;
+            }
+            if (child.exitCode !== null || !child.stdin.writable) {
+              throw new Error("The Python backend is not running. Reopen the viewer and try again.");
+            }
+            writeRequest({ type: "assign-spec-id", dataset_id: message.datasetId, prefix, overwrite });
+          } catch (error) {
+            send({ type: "spec-id-error", message: error.message || String(error) });
+          }
+          break;
+        }
+        case "spec-id-notification":
+          vscode.window.showInformationMessage(`Assigned SpecID to ${Number(message.totalRows) || 0} spectra. Use Export… to save the changes.`);
+          break;
+        case "spec-id-error-notification":
+          vscode.window.showErrorMessage(String(message.message || "Could not assign SpecID."));
+          break;
         case "reload":
           writeRequest({ type: "reload", dataset_id: message.datasetId, filters: message.filters, sort: message.sort });
           break;

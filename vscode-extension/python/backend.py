@@ -350,6 +350,23 @@ def main() -> int:
                 payload = serialize_page(view, 0, page_size, dataset_id, entry["path"])
                 payload["all_columns"] = entry["dataset"].columns
                 emit({"type": "dataset-page", "value": payload})
+            elif request_type == "assign-spec-id":
+                try:
+                    from msentity.processing.id import set_spec_id
+
+                    if entry is None:
+                        raise ValueError(f"Unknown dataset: {dataset_id}")
+                    prefix = request.get("prefix", "")
+                    overwrite = request.get("overwrite", False)
+                    if not isinstance(prefix, str) or not isinstance(overwrite, bool):
+                        raise ValueError("prefix must be a string and overwrite must be a boolean")
+                    changed = set_spec_id(entry["dataset"], prefix=prefix, overwrite=overwrite)
+                    if not changed:
+                        raise ValueError("SpecID already exists. Allow replacement to assign new IDs.")
+                    emit({"type": "spec-id-complete", "dataset_id": dataset_id, "total_rows": len(entry["dataset"])})
+                except Exception as exc:  # noqa: BLE001
+                    traceback.print_exc(file=sys.stderr)
+                    emit({"type": "spec-id-error", "dataset_id": dataset_id, "message": str(exc)})
             elif request_type == "export":
                 if entry is None:
                     raise ValueError(f"Unknown dataset: {dataset_id}")
