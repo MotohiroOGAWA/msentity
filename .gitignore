@@ -213,6 +213,8 @@ cython_debug/
 # VS Code extension build output
 vscode-extension/node_modules/
 vscode-extension/*.vsix
+vscode-extension/runtime/
+vscode-extension/.runtime-cache/
 
 # Marimo
 marimo/_static/

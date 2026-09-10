@@ -72,10 +72,13 @@ The `.mssim` file opens in a dedicated **Similarity Viewer**:
 - Expand **Calculation metadata** to inspect parameters, creation time, input
   paths, dataset descriptions/attributes/tags, and row counts.
 
-The result opens independently of the source files. The configured Python
-environment must contain the version of `msentity` from this checkout, including
-`msentity.similarity` (for development: `python -m pip install -e .`
-from the repository root).
+The result opens independently of the source files. The Windows and Linux
+(x64) release builds of this extension include `msentity.similarity` in
+their bundled Python runtime. When running from a source checkout for
+development, the Python environment selected by
+`msentitySpectrumViewer.pythonPath` must instead contain the version of
+`msentity` from that checkout (`python -m pip install -e .` from the
+repository root).
 
 ### Similarity file format (version 2)
 
@@ -110,30 +113,33 @@ discards assignments that have not been exported.
 
 ## Download and install the latest release
 
-Download the
-[latest `msentity-spectrum-viewer.vsix`](https://github.com/MotohiroOGAWA/msentity/releases/latest/download/msentity-spectrum-viewer.vsix).
-This URL always points to the newest release, so no version needs to be
+No separate Python installation is required. The Windows and Linux (x64)
+release builds each include a private, self-contained Python runtime with
+`msentity` and its dependencies preinstalled.
+
+Download the release VSIX matching your OS:
+
+- Windows (x64):
+  [latest `msentity-spectrum-viewer-win32-x64.vsix`](https://github.com/MotohiroOGAWA/msentity/releases/latest/download/msentity-spectrum-viewer-win32-x64.vsix)
+- Linux (x64):
+  [latest `msentity-spectrum-viewer-linux-x64.vsix`](https://github.com/MotohiroOGAWA/msentity/releases/latest/download/msentity-spectrum-viewer-linux-x64.vsix)
+
+These URLs always point to the newest release, so no version needs to be
 specified. Versioned files remain available from individual release pages when
 a specific version is required.
 
 Install it from a terminal:
 
 ```console
-code --install-extension ./msentity-spectrum-viewer.vsix
+code --install-extension ./msentity-spectrum-viewer-<platform>.vsix
 ```
 
 Or open VS Code's Extensions view, choose **Views and More Actions (...) →
 Install from VSIX...**, and select the downloaded file. Then run **Developer:
 Reload Window**.
 
-The configured Python environment must contain `msentity`:
-
-```console
-python -c "import msentity; print(msentity.__file__)"
-```
-
-Set `msentitySpectrumViewer.pythonPath` if that interpreter is not available as
-`python` from VS Code.
+`msentitySpectrumViewer.pythonPath` is only needed to point the extension at
+a different Python environment, for example inside a Dev Container.
 
 ## Build a versioned VSIX
 
@@ -147,8 +153,11 @@ npm run package
 
 The VSIX is written to
 `dist/msentity-spectrum-viewer-<version>.vsix`; `<version>` is read from
-`package.json`. The ignored `dist/` directory keeps generated packages separate
-from extension source files. Test it by substituting the generated version:
+`package.json`. This unbundled package has no embedded Python runtime (it
+requires `msentitySpectrumViewer.pythonPath`, as in development) and is meant
+for quick local iteration, not distribution. The ignored `dist/` directory
+keeps generated packages separate from extension source files. Test it by
+substituting the generated version:
 
 ```console
 code --install-extension ./dist/msentity-spectrum-viewer-<version>.vsix --force
@@ -158,10 +167,17 @@ code --install-extension ./dist/msentity-spectrum-viewer-<version>.vsix --force
 `npm run package` invokes the official VS Code extension packager. The
 `.vscodeignore` file excludes development-only files from the VSIX.
 
-For a GitHub release, run `npm run package:release`. It creates both the
-versioned VSIX and `dist/msentity-spectrum-viewer.vsix` under `dist/`; upload
-both assets to the release. The fixed filename is required by the recommended `latest/download`
-URL, while the versioned filename supports pinned downloads.
+For a GitHub release, run `npm run package:release`. It first assembles a
+private Python runtime with `msentity` preinstalled for each of `linux-x64`
+and `win32-x64` (see `scripts/build-runtime.js`; this requires a Python 3.9+
+with `pip` and network access on the build machine, but not a real Windows
+machine — the Linux build machine cross-installs the Windows wheels too),
+then produces one versioned and one fixed-name VSIX per platform under
+`dist/`: `msentity-spectrum-viewer-<version>-<platform>.vsix` and
+`msentity-spectrum-viewer-<platform>.vsix`. Upload all four assets to the
+release; the fixed filenames are required by the `latest/download` URLs
+above, while the versioned filenames support pinned downloads. See
+`RELEASING.md` for the full release process.
 
 ## Usage
 
@@ -224,7 +240,10 @@ should remain in an editor pane beside the dataset table.
 ## Settings
 
 - `msentitySpectrumViewer.pythonPath`: Python executable used to load datasets
-  (default: `python`).
+  (default: empty, which uses this extension's bundled Python runtime when the
+  current build includes one, otherwise falls back to `python` on PATH). Set
+  this to use a different Python environment, for example inside a Dev
+  Container.
 - `msentitySpectrumViewer.pageSize`: spectra per metadata page (default: `20`).
 - `msentitySpectrumViewer.spectrumFloatingWindow`: use a separate floating
   window for the spectrum (default: `true`).

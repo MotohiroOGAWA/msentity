@@ -1,17 +1,29 @@
 # Releasing the VS Code extension
 
 This guide publishes a specific version of `msentity Spectrum Viewer` to
-GitHub Releases. A release contains two identical VSIX packages with different
-filenames:
+GitHub Releases. A release contains four VSIX packages: one versioned and one
+fixed-name file for each of two platforms (`linux-x64` and `win32-x64`). Each
+platform's package embeds a private Python runtime with `msentity`
+preinstalled, so installing it requires no separate Python setup.
 
-- `msentity-spectrum-viewer-<version>.vsix` supports version-pinned downloads.
-- `msentity-spectrum-viewer.vsix` supports the stable
-  [`latest/download` URL](https://github.com/MotohiroOGAWA/msentity/releases/latest/download/msentity-spectrum-viewer.vsix).
+- `msentity-spectrum-viewer-<version>-<platform>.vsix` supports version-pinned
+  downloads.
+- `msentity-spectrum-viewer-<platform>.vsix` supports the stable
+  `latest/download` URLs, e.g.
+  [`.../latest/download/msentity-spectrum-viewer-linux-x64.vsix`](https://github.com/MotohiroOGAWA/msentity/releases/latest/download/msentity-spectrum-viewer-linux-x64.vsix).
+
+Only `linux-x64` and `win32-x64` (x64) are built; ARM64 is not currently
+supported.
 
 ## Prerequisites
 
-Install Node.js, npm, Git, and the GitHub CLI (`gh`). Authenticate the GitHub
-CLI before starting:
+Install Node.js, npm, Git, and the GitHub CLI (`gh`). Building the release
+assets also requires a Python 3.9+ interpreter with `pip` and network access
+to PyPI and GitHub on the build machine — this can be any single OS (e.g.
+Linux), since `scripts/build-runtime.js` cross-installs the Windows wheels
+too using pip's `--platform`/`--python-version`/`--abi` flags; no actual
+Windows machine is needed to build the `win32-x64` package. Authenticate the
+GitHub CLI before starting:
 
 ```bash
 gh auth login
@@ -57,42 +69,59 @@ git diff -- package.json package-lock.json
 
 ## 2. Install dependencies and build the release assets
 
-Install the exact dependencies recorded in `package-lock.json`, then build both
-VSIX filenames:
+Install the exact dependencies recorded in `package-lock.json`, then build the
+runtime bundles and both platforms' VSIX files:
 
 ```bash
 npm ci
 npm run package:release
 ```
 
+This first runs `scripts/build-runtime.js`, which downloads a pinned CPython
+3.11 build for each platform from `astral-sh/python-build-standalone` and
+installs `msentity`'s pinned dependency versions into
+`runtime/linux-x64/` and `runtime/win32-x64/` (both git-ignored; this step
+needs network access and takes a few minutes). It then packages each
+platform, using `@vscode/vsce`'s `ignoreOtherTargetFolders` option so a given
+platform's VSIX only contains that platform's `runtime/<platform>/` folder.
+
 For the selected version, this produces the following files under the ignored
 `dist/` directory:
 
 ```text
-dist/msentity-spectrum-viewer-<version>.vsix
-dist/msentity-spectrum-viewer.vsix
+dist/msentity-spectrum-viewer-<version>-linux-x64.vsix
+dist/msentity-spectrum-viewer-linux-x64.vsix
+dist/msentity-spectrum-viewer-<version>-win32-x64.vsix
+dist/msentity-spectrum-viewer-win32-x64.vsix
 ```
 
-Verify that both files exist and are identical:
+Verify that the versioned and fixed-name file are identical for each platform:
 
 ```bash
-ls -lh "dist/msentity-spectrum-viewer-${RELEASE_VERSION}.vsix" dist/msentity-spectrum-viewer.vsix
-cmp "dist/msentity-spectrum-viewer-${RELEASE_VERSION}.vsix" dist/msentity-spectrum-viewer.vsix
+for PLATFORM in linux-x64 win32-x64; do
+  ls -lh "dist/msentity-spectrum-viewer-${RELEASE_VERSION}-${PLATFORM}.vsix" "dist/msentity-spectrum-viewer-${PLATFORM}.vsix"
+  cmp "dist/msentity-spectrum-viewer-${RELEASE_VERSION}-${PLATFORM}.vsix" "dist/msentity-spectrum-viewer-${PLATFORM}.vsix"
+done
 ```
 
-Optionally install the versioned package locally for a smoke test:
+Optionally install the package matching this machine's OS locally for a smoke
+test — on Linux:
 
 ```bash
-code --install-extension "./dist/msentity-spectrum-viewer-${RELEASE_VERSION}.vsix" --force
-```
-or
-```bash
-code --install-extension "./dist/msentity-spectrum-viewer.vsix" --force
+code --install-extension "./dist/msentity-spectrum-viewer-${RELEASE_VERSION}-linux-x64.vsix" --force
 ```
 
-Open an MSDS, MSP, MGF, TSV, and CSV file and confirm that the viewer loads
-correctly. Confirm that dataset export and peak-table copy/save work for both
-TSV and CSV.
+or, after copying the `win32-x64` file to a Windows machine:
+
+```console
+code --install-extension .\msentity-spectrum-viewer-<version>-win32-x64.vsix --force
+```
+
+With `msentitySpectrumViewer.pythonPath` left unset and no system Python
+installed, open an MSDS, MSP, MGF, TSV, and CSV file and confirm that the
+viewer loads correctly using the bundled runtime (check "MS Entity: Show
+Spectrum Viewer Logs" for the `[python]` line). Confirm that dataset export
+and peak-table copy/save work for both TSV and CSV.
 
 ## 3. Commit the version update
 
@@ -117,12 +146,14 @@ git tag -a "$RELEASE_TAG" -m "msentity v${RELEASE_VERSION}"
 git push origin "$RELEASE_TAG"
 ```
 
-Create the GitHub Release from that tag and upload both assets:
+Create the GitHub Release from that tag and upload all four assets:
 
 ```bash
 gh release create "$RELEASE_TAG" \
-  "dist/msentity-spectrum-viewer-${RELEASE_VERSION}.vsix" \
-  dist/msentity-spectrum-viewer.vsix \
+  "dist/msentity-spectrum-viewer-${RELEASE_VERSION}-linux-x64.vsix" \
+  dist/msentity-spectrum-viewer-linux-x64.vsix \
+  "dist/msentity-spectrum-viewer-${RELEASE_VERSION}-win32-x64.vsix" \
+  dist/msentity-spectrum-viewer-win32-x64.vsix \
   --repo MotohiroOGAWA/msentity \
   --target main \
   --title "msentity v${RELEASE_VERSION}" \
@@ -136,25 +167,29 @@ the tag at `--target main`.
 
 ## 5. Verify the published release
 
-Inspect the release and confirm that both assets are listed:
+Inspect the release and confirm that all four assets are listed:
 
 ```bash
 gh release view "$RELEASE_TAG" --repo MotohiroOGAWA/msentity
 ```
 
-Verify the version-pinned download:
+Verify the version-pinned downloads:
 
 ```bash
-curl --fail --location --output /tmp/msentity-spectrum-viewer.vsix \
-  "https://github.com/MotohiroOGAWA/msentity/releases/download/${RELEASE_TAG}/msentity-spectrum-viewer-${RELEASE_VERSION}.vsix"
+for PLATFORM in linux-x64 win32-x64; do
+  curl --fail --location --output "/tmp/msentity-spectrum-viewer-${PLATFORM}.vsix" \
+    "https://github.com/MotohiroOGAWA/msentity/releases/download/${RELEASE_TAG}/msentity-spectrum-viewer-${RELEASE_VERSION}-${PLATFORM}.vsix"
+done
 ```
 
-Verify that the stable URL now resolves to the newly published release:
+Verify that both stable URLs now resolve to the newly published release:
 
 ```bash
-curl --fail --location --output /tmp/msentity-spectrum-viewer-latest.vsix \
-  https://github.com/MotohiroOGAWA/msentity/releases/latest/download/msentity-spectrum-viewer.vsix
+for PLATFORM in linux-x64 win32-x64; do
+  curl --fail --location --output "/tmp/msentity-spectrum-viewer-${PLATFORM}-latest.vsix" \
+    "https://github.com/MotohiroOGAWA/msentity/releases/latest/download/msentity-spectrum-viewer-${PLATFORM}.vsix"
+done
 ```
 
 Do not publish the release as a prerelease if it should become the target of
-the `releases/latest/download` URL.
+the `releases/latest/download` URLs.

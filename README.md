@@ -97,19 +97,28 @@ view.
 
 ## VS Code spectrum viewer
 
-Download the
-[latest `msentity-spectrum-viewer.vsix`](https://github.com/MotohiroOGAWA/msentity/releases/latest/download/msentity-spectrum-viewer.vsix),
-then install it from a terminal. This URL always points to the newest release,
-so no version needs to be specified:
+No separate Python installation is required — the Windows and Linux (x64)
+release builds each bundle their own private Python runtime with `msentity`
+preinstalled. Download the release VSIX matching your OS:
+
+- Windows (x64):
+  [latest `msentity-spectrum-viewer-win32-x64.vsix`](https://github.com/MotohiroOGAWA/msentity/releases/latest/download/msentity-spectrum-viewer-win32-x64.vsix)
+- Linux (x64):
+  [latest `msentity-spectrum-viewer-linux-x64.vsix`](https://github.com/MotohiroOGAWA/msentity/releases/latest/download/msentity-spectrum-viewer-linux-x64.vsix)
+
+These URLs always point to the newest release, so no version needs to be
+specified. Install from a terminal:
 
 ```console
-code --install-extension ./msentity-spectrum-viewer.vsix
+code --install-extension ./msentity-spectrum-viewer-<platform>.vsix
 ```
 
 Alternatively, open VS Code's Extensions view, choose **Views and More
 Actions (...) → Install from VSIX...**, and select the downloaded file. Run
-**Developer: Reload Window** after installation. The Python environment selected
-by `msentitySpectrumViewer.pythonPath` must have `msentity` installed.
+**Developer: Reload Window** after installation.
+`msentitySpectrumViewer.pythonPath` only needs to be set to use a different
+Python environment, for example inside a Dev Container. See
+[`vscode-extension/README.md`](vscode-extension/README.md) for details.
 
 Open an `.msds`, `.msp`, or `.mgf` file normally. Open a TSV or CSV spectrum
 table with the explicit **Open as TSV** or **Open as CSV** command, then click a
