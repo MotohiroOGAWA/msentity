@@ -23,16 +23,25 @@ Properties
      - Description
 
    * - :attr:`~msentity.SimilarityDataset.columns`
-     - 
+     -
+
+   * - :attr:`~msentity.SimilarityDataset.has_matched_data`
+     - Whether unique matched spectra and metadata are embedded.
+
+   * - :attr:`~msentity.SimilarityDataset.matched_datasets`
+     -
+
+   * - :attr:`~msentity.SimilarityDataset.matched_source_indices`
+     -
 
    * - :attr:`~msentity.SimilarityDataset.n_pairs`
-     - 
+     -
 
    * - :attr:`~msentity.SimilarityDataset.table`
-     - 
+     -
 
    * - :attr:`~msentity.SimilarityDataset.metadata`
-     - 
+     -
 
 
 
@@ -69,13 +78,19 @@ Methods
      - Return score frequencies and bin edges over the fixed range 0–1.
 
    * - :meth:`~msentity.SimilarityDataset.load`
-     - 
+     -
+
+   * - :meth:`~msentity.SimilarityDataset.match_records`
+     - Return query and reference records embedded for a result row.
 
    * - :meth:`~msentity.SimilarityDataset.save`
      - Atomically write a .mssim file; preserve an existing file on failure.
 
    * - :meth:`~msentity.SimilarityDataset.sort_values`
      - Return a stably sorted similarity result.
+
+   * - :meth:`~msentity.SimilarityDataset.with_matched_data`
+     - Attach each uniquely matched input spectrum once and index it from the table.
 
 
 
@@ -85,6 +100,15 @@ Property Details
 
 
 .. autoattribute:: SimilarityDataset.columns
+
+
+.. autoattribute:: SimilarityDataset.has_matched_data
+
+
+.. autoattribute:: SimilarityDataset.matched_datasets
+
+
+.. autoattribute:: SimilarityDataset.matched_source_indices
 
 
 .. autoattribute:: SimilarityDataset.n_pairs
@@ -127,9 +151,14 @@ Method Details
 .. automethod:: SimilarityDataset.load
 
 
+.. automethod:: SimilarityDataset.match_records
+
+
 .. automethod:: SimilarityDataset.save
 
 
 .. automethod:: SimilarityDataset.sort_values
 
+
+.. automethod:: SimilarityDataset.with_matched_data
 

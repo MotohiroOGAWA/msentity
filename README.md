@@ -60,10 +60,14 @@ msentity info sample.msp
 msentity head sample.msp --num-rows 5
 msentity convert sample.msp sample.msds
 msentity similarity-by-key first.msds second.msds --output result.mssim
+msentity library-search query.msds reference.msp --threshold 0.8 --output matches.mssim
 ```
 
 Run `msentity --help` to see all commands, including directory merging, MSDS
-metadata inspection, and similarity calculation by a shared metadata key.
+metadata inspection, similarity calculation by a shared metadata key, and
+exhaustive library search. Library-search results embed each unique matched
+spectrum and its metadata once by default; pass `--lightweight` to save only
+the match table and calculation metadata.
 
 ## Interactive shell
 
@@ -113,6 +117,13 @@ spectrum row to display its mass spectrum. The viewer supports peak selection an
 zoom-dependent readable axis ticks, and previewed transparent PNG/SVG export.
 The current filtered and sorted dataset view can also be saved as MSDS, MSP,
 MGF, TSV, or CSV directly from the viewer.
+
+**Calculate similarity...** runs either an exhaustive query/reference library
+search or metadata-key matching. Reference libraries may be chosen from Add
+Dataset entries or directly from a file. The dialog exposes cosine/reverse
+cosine, a default 0.8 library threshold, binning parameters, and compact versus
+self-contained `.mssim` storage.
+
 File extensions are used for automatic input detection. To specify the input
 format explicitly—including TSV and CSV—right-click a file in Explorer and choose **MS Entity: Open
 as MSDS**, **Open as MSP**, **Open as MGF**, **Open as TSV**, or **Open as CSV**; the same commands are available

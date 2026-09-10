@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Sequence
+from typing import Callable, Sequence
 
 import numpy as np
 import pandas as pd
@@ -19,7 +19,7 @@ def _as_numpy_index(index: Sequence[int] | np.ndarray) -> np.ndarray:
     return index
 
 
-def cosine_similarity_pair(
+def _binned_similarity_pair(
     ds1: MSDataset,
     index1: Sequence[int] | np.ndarray,
     ds2: MSDataset,
@@ -29,9 +29,10 @@ def cosine_similarity_pair(
     intensity_exponent: float = 1.0,
     max_cum_peaks: int = 200_000,
     show_progress: bool = False,
+    method: str = "cosine",
 ) -> np.ndarray:
     """
-    Compute paired binned cosine similarity.
+    Compute paired binned cosine or reverse-cosine similarity.
 
     This function computes cosine similarity for paired spectra:
 
@@ -56,12 +57,18 @@ def cosine_similarity_pair(
         Maximum cumulative number of peaks in each internal chunk.
     show_progress:
         If True, show progress bar.
+    method:
+        ``"cosine"`` uses both complete vector norms. ``"reverse_cosine"``
+        omits unmatched peaks from the first/query vector norm.
 
     Returns
     -------
     numpy.ndarray
         Cosine similarity scores with shape ``(K,)``.
     """
+    if method not in {"cosine", "reverse_cosine"}:
+        raise ValueError("method must be 'cosine' or 'reverse_cosine'")
+
     if not np.isfinite(bin_width) or bin_width <= 0:
         raise ValueError("bin_width must be positive")
 
@@ -111,6 +118,7 @@ def cosine_similarity_pair(
             index2=index2[start:end],
             bin_width=bin_width,
             intensity_exponent=intensity_exponent,
+            method=method,
         )
 
         if pbar is not None:
@@ -123,7 +131,33 @@ def cosine_similarity_pair(
 
     return scores
 
-def cosine_similarity_by_key(
+
+def cosine_similarity_pair(
+    ds1: MSDataset,
+    index1: Sequence[int] | np.ndarray,
+    ds2: MSDataset,
+    index2: Sequence[int] | np.ndarray,
+    *,
+    bin_width: float = 0.01,
+    intensity_exponent: float = 1.0,
+    max_cum_peaks: int = 200_000,
+    show_progress: bool = False,
+) -> np.ndarray:
+    """Compute paired cosine similarity from sparse, binned spectra."""
+    return _binned_similarity_pair(
+        ds1,
+        index1,
+        ds2,
+        index2,
+        bin_width=bin_width,
+        intensity_exponent=intensity_exponent,
+        max_cum_peaks=max_cum_peaks,
+        show_progress=show_progress,
+        method="cosine",
+    )
+
+
+def similarity_by_key(
     ds1: MSDataset,
     ds2: MSDataset,
     *,
@@ -133,9 +167,10 @@ def cosine_similarity_by_key(
     intensity_exponent: float = 1.0,
     max_cum_peaks: int = 200_000,
     show_progress: bool = False,
+    method: str = "cosine",
 ) -> pd.DataFrame:
     """
-    Compute paired cosine similarity by matching spectrum metadata keys.
+    Compute paired binned similarity by matching spectrum metadata keys.
 
     Rows in ``ds1`` and ``ds2`` are paired when ``ds1[key1] == ds2[key2]``.
     Non-missing values that occur in both datasets are compared. A key must be
@@ -160,7 +195,9 @@ def cosine_similarity_by_key(
     max_cum_peaks:
         Maximum cumulative number of peaks in each internal chunk.
     show_progress:
-        If True, show progress bar while computing cosine similarity.
+        If True, show a progress bar while calculating similarity.
+    method:
+        ``"cosine"`` or ``"reverse_cosine"``.
 
     Returns
     -------
@@ -176,6 +213,8 @@ def cosine_similarity_by_key(
         If either key contains duplicate non-missing values, or its name
         collides with the result columns index1, index2, or cosine_similarity.
     """
+    if method not in {"cosine", "reverse_cosine"}:
+        raise ValueError("method must be 'cosine' or 'reverse_cosine'")
     if key1 not in ds1.columns:
         raise KeyError(f"ds1 does not contain key column: {key1}")
     if key2 not in ds2.columns:
@@ -211,7 +250,7 @@ def cosine_similarity_by_key(
         validate="one_to_one",
     )
 
-    scores = cosine_similarity_pair(
+    scores = _binned_similarity_pair(
         ds1=ds1,
         index1=pairs["index1"].to_numpy(dtype=np.int64),
         ds2=ds2,
@@ -220,6 +259,7 @@ def cosine_similarity_by_key(
         intensity_exponent=intensity_exponent,
         max_cum_peaks=max_cum_peaks,
         show_progress=show_progress,
+        method=method,
     )
 
     pairs["cosine_similarity"] = scores
@@ -230,6 +270,31 @@ def cosine_similarity_by_key(
         columns = [key1, key2, "index1", "index2", "cosine_similarity"]
 
     return pairs[columns].reset_index(drop=True)
+
+
+def cosine_similarity_by_key(
+    ds1: MSDataset,
+    ds2: MSDataset,
+    *,
+    key1: str = "SpecID",
+    key2: str = "SpecID",
+    bin_width: float = 0.01,
+    intensity_exponent: float = 1.0,
+    max_cum_peaks: int = 200_000,
+    show_progress: bool = False,
+) -> pd.DataFrame:
+    """Compute binned cosine similarity for spectra with matching keys."""
+    return similarity_by_key(
+        ds1,
+        ds2,
+        key1=key1,
+        key2=key2,
+        bin_width=bin_width,
+        intensity_exponent=intensity_exponent,
+        max_cum_peaks=max_cum_peaks,
+        show_progress=show_progress,
+        method="cosine",
+    )
 
 def _aggregate_binned_peaks(
     *,
@@ -285,6 +350,7 @@ def _cosine_similarity_pair_core(
     index2: np.ndarray,
     bin_width: float,
     intensity_exponent: float,
+    method: str,
 ) -> np.ndarray:
     """
     Compute paired binned cosine similarity for one chunk.
@@ -371,6 +437,7 @@ def _cosine_similarity_pair_core(
         np.add.at(norm2, spectrum_ids2, values2 * values2)
 
     dot = np.zeros(k, dtype=np.float64)
+    matched_norm1 = np.zeros(k, dtype=np.float64)
 
     if keys1.size > 0 and keys2.size > 0:
         # keys are sorted because np.unique returns sorted values.
@@ -393,7 +460,14 @@ def _cosine_similarity_pair_core(
                 dot_values = values1[left_indices] * values2[right_indices]
                 np.add.at(dot, matched_spectrum_ids, dot_values)
 
-    denom = np.sqrt(norm1 * norm2)
+                if method == "reverse_cosine":
+                    np.add.at(
+                        matched_norm1,
+                        matched_spectrum_ids,
+                        values1[left_indices] * values1[left_indices],
+                    )
+
+    denom = np.sqrt((matched_norm1 if method == "reverse_cosine" else norm1) * norm2)
 
     score = np.zeros(k, dtype=np.float64)
     np.divide(dot, denom, out=score, where=denom > 0)
@@ -470,3 +544,85 @@ def cosine_similarity_all_pairs_matrix(
         pbar.close()
 
     return similarity
+
+
+def library_search(
+    query: MSDataset,
+    reference: MSDataset,
+    *,
+    threshold: float = 0.8,
+    method: str = "cosine",
+    bin_width: float = 0.01,
+    intensity_exponent: float = 1.0,
+    max_pairs_per_call: int = 2_000_000,
+    max_cum_peaks: int = 200_000,
+    show_progress: bool = False,
+    progress_callback: Callable[[int, int], None] | None = None,
+) -> pd.DataFrame:
+    """Search every query spectrum against every reference spectrum.
+
+    Spectra are converted to sparse NumPy bin vectors and evaluated in chunks.
+    Only pairs whose score is greater than or equal to ``threshold`` are
+    returned, so the full similarity matrix is never retained in memory.
+
+    ``reverse_cosine`` removes unmatched query peaks from the query norm while
+    retaining the complete reference norm. This makes the query the first,
+    noise-tolerant side of the comparison.
+    """
+    if not np.isfinite(threshold) or not 0 <= threshold <= 1:
+        raise ValueError("threshold must be a finite value between 0 and 1")
+    if method not in {"cosine", "reverse_cosine"}:
+        raise ValueError("method must be 'cosine' or 'reverse_cosine'")
+    if not isinstance(max_pairs_per_call, (int, np.integer)) or max_pairs_per_call <= 0:
+        raise ValueError("max_pairs_per_call must be positive")
+
+    n_query = int(query.n_rows)
+    n_reference = int(reference.n_rows)
+    total_pairs = n_query * n_reference
+    hit_query: list[np.ndarray] = []
+    hit_reference: list[np.ndarray] = []
+    hit_scores: list[np.ndarray] = []
+    progress = tqdm(total=total_pairs, desc="Searching spectrum library") if show_progress else None
+
+    if total_pairs == 0 and progress_callback is not None:
+        progress_callback(0, 0)
+
+    for start in range(0, total_pairs, int(max_pairs_per_call)):
+        end = min(total_pairs, start + int(max_pairs_per_call))
+        flat_indices = np.arange(start, end, dtype=np.int64)
+        query_indices = flat_indices // n_reference
+        reference_indices = flat_indices % n_reference
+        scores = _binned_similarity_pair(
+            query,
+            query_indices,
+            reference,
+            reference_indices,
+            bin_width=bin_width,
+            intensity_exponent=intensity_exponent,
+            max_cum_peaks=max_cum_peaks,
+            method=method,
+        )
+        selected = scores >= threshold
+        if selected.any():
+            hit_query.append(query_indices[selected])
+            hit_reference.append(reference_indices[selected])
+            hit_scores.append(scores[selected])
+        if progress is not None:
+            progress.update(end - start)
+        if progress_callback is not None:
+            progress_callback(end, total_pairs)
+
+    if progress is not None:
+        progress.close()
+
+    if not hit_scores:
+        return pd.DataFrame({
+            "index1": pd.Series(dtype=np.int64),
+            "index2": pd.Series(dtype=np.int64),
+            "cosine_similarity": pd.Series(dtype=np.float32),
+        })
+    return pd.DataFrame({
+        "index1": np.concatenate(hit_query),
+        "index2": np.concatenate(hit_reference),
+        "cosine_similarity": np.concatenate(hit_scores),
+    })

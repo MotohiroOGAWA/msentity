@@ -26,6 +26,49 @@ def run_backend(script, source, requests):
 
 
 class SimilarityProtocolTest(unittest.TestCase):
+    def test_library_search_with_loaded_and_file_reference(self):
+        with tempfile.TemporaryDirectory() as directory:
+            query = Path(directory) / "query.tsv"
+            reference = Path(directory) / "reference.tsv"
+            loaded_output = Path(directory) / "loaded.mssim"
+            file_output = Path(directory) / "file.mssim"
+            query.write_text("Name\tPeak\nq-noisy\t100,1;300,10\nq-exact\t200,1\n")
+            reference.write_text("Name\tPeak\nr-100\t100,1\nr-200\t200,1\nr-other\t400,1\n")
+            messages = run_backend("backend.py", query, [
+                {"type": "add-dataset", "path": str(reference)},
+                {"type": "calculate-similarity", "mode": "library_search",
+                 "dataset1": str(query), "dataset2": str(reference),
+                 "path": str(loaded_output),
+                 "parameters": {"threshold": 0.8, "max_pairs_per_call": 2}},
+                {"type": "calculate-similarity", "mode": "library_search",
+                 "dataset1": str(query), "reference_path": str(reference),
+                 "path": str(file_output),
+                 "parameters": {"threshold": 0.8, "method": "reverse_cosine",
+                                "include_matched_data": False, "max_pairs_per_call": 2}},
+            ])
+            self.assertEqual(sum(m["type"] == "similarity-complete" for m in messages), 2)
+            progress = [m for m in messages if m["type"] == "similarity-progress"]
+            self.assertEqual(progress[-1]["percent"], 100)
+            loaded = SimilarityDataset.load(loaded_output)
+            self.assertTrue(loaded.has_matched_data)
+            self.assertEqual(loaded.table[["index1", "index2"]].values.tolist(), [[1, 1]])
+            viewer_messages = run_backend("similarity_backend.py", loaded_output, [
+                {"type": "page"},
+                {"type": "match", "row": 0},
+            ])
+            page = next(message["value"] for message in viewer_messages
+                        if message["type"] == "similarity-page")
+            self.assertTrue(page["has_matched_data"])
+            self.assertEqual(page["matched_data_rows"], [1, 1])
+            match = next(message for message in viewer_messages
+                         if message["type"] == "similarity-match")
+            self.assertEqual(match["query"]["row"]["Name"], "q-exact")
+            self.assertEqual(match["reference"]["row"]["Name"], "r-200")
+            file_result = SimilarityDataset.load(file_output)
+            self.assertFalse(file_result.has_matched_data)
+            self.assertEqual(file_result.table[["index1", "index2"]].values.tolist(),
+                             [[0, 0], [1, 1]])
+
     def test_calculate_select_datasets_reload_filter_histogram_and_export(self):
         with tempfile.TemporaryDirectory() as directory:
             first, second, third, output, subset, tsv, parquet = [Path(directory) / name for name in

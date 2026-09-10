@@ -357,6 +357,15 @@
     renderSpectrum();
   }
 
+  function receiveComparison(top, bottom, method) {
+    comparison.top = top;
+    comparison.bottom = bottom;
+    comparison.topPinned = false;
+    comparison.bottomPinned = false;
+    similarityMethod = method === "reverse_cosine" ? "reverse" : "dot";
+    renderSpectrum();
+  }
+
   function renderSpectrum() {
     const payload = comparison.top;
     if (!payload) return;
@@ -645,6 +654,9 @@
 
   window.addEventListener("message", (event) => {
     if (event.data?.type === "spectrum") receiveSpectrum(event.data.payload);
+    else if (event.data?.type === "spectrum-comparison") {
+      receiveComparison(event.data.top, event.data.bottom, event.data.method);
+    }
   });
 
   vscode.postMessage({ type: "ready" });

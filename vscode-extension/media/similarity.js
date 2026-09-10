@@ -36,9 +36,15 @@
   function render() {
     observer?.disconnect();
     const disabled = busy ? "disabled" : "";
+    const mode = value?.metadata?.mode;
+    const method = value?.metadata?.parameters?.method === "reverse_cosine"
+      ? "Reverse cosine similarity" : "Cosine similarity";
+    const subtitle = mode === "library_search"
+      ? `${method} library search · all query/reference pairs · threshold ${number(value?.metadata?.parameters?.threshold)}`
+      : `${method} for unique metadata keys shared by both datasets`;
     app.innerHTML = `
       <header><div><span class="eyebrow">MSENTITY · SIMILARITY</span><h1>${esc(app.dataset.filename)}</h1>
-        <p>Cosine similarity for unique keys shared by both datasets</p></div>
+        <p>${esc(subtitle)}</p></div>
         <nav aria-label="Result actions"><button id="filter" ${disabled}>Filter${filters.length ? ` (${filters.length})` : ""}</button>
         <button id="export" ${disabled || !value ? "disabled" : ""}>Export…</button>
         <button id="reload" ${disabled}>Reload</button></nav></header>
@@ -56,6 +62,7 @@
       ${value ? `
         <section class="stats" aria-label="Filtered result statistics">
           <div><span>Matched rows</span><strong>${number(value.total_rows)} <small>/ ${number(value.unfiltered_rows)}</small></strong></div>
+          <div><span>Stored data</span><strong>${value.has_matched_data ? `${number(value.matched_data_rows[0])} + ${number(value.matched_data_rows[1])}` : "Lightweight"}</strong></div>
           ${Object.entries(value.statistics).map(([key, n]) => `<div><span>${esc(key)}</span><strong>${number(n)}</strong></div>`).join("")}
         </section>
         <section class="distribution"><div class="section-title"><div><h2>Similarity distribution</h2>
@@ -64,14 +71,14 @@
           <label>Count <select id="count-scale" ${disabled || chartType !== "histogram" ? "disabled" : ""}><option value="linear" ${countScale === "linear" ? "selected" : ""}>Linear</option><option value="log" ${countScale === "log" ? "selected" : ""}>Log₁₀</option></select></label>
           <label>Bins <input id="bins" type="number" min="1" max="200" step="1" value="${bins}" ${disabled || chartType !== "histogram" ? "disabled" : ""} /></label>
           <button id="save-chart" ${disabled}>Save PNG…</button></div></div>
-          <canvas id="histogram" role="img" aria-label="${chartType === "histogram" ? "Cosine similarity histogram" : "Cosine similarity box plot"}"></canvas>
+          <canvas id="histogram" role="img" aria-label="${chartType === "histogram" ? "Similarity score histogram" : "Similarity score box plot"}"></canvas>
           <div id="chart-hint" class="hint" aria-live="polite">${imageSaving ? "Waiting for the PNG save location…" : chartType === "histogram" ? `Range: 0–1 · vertical axis: ${countScale === "log" ? "log₁₀(count + 1)" : "count"}` : "Whiskers show the observed minimum and maximum"}</div>
           <details><summary>Frequency table</summary><div class="frequency-table"><table><thead><tr><th>Similarity range</th><th>Count</th><th>Filter</th></tr></thead>
           <tbody>${value.histogram.counts.map((count, i) => `<tr><td>${rangeLabel(i)}</td><td>${number(count)}</td><td><button data-bin="${i}" ${disabled}>Show rows</button></td></tr>`).join("")}</tbody></table></div></details>
         </section>
         <section><div class="section-title"><h2>Comparison results</h2><span>Indices are zero-based input positions</span></div>
-        <div class="table-scroll"><table><thead><tr>${value.columns.map((column) => `<th aria-sort="${sort?.column === column ? (sort.direction === "asc" ? "ascending" : "descending") : "none"}"><button data-sort="${esc(column)}" ${disabled}>${esc(column)} ${sort?.column === column ? (sort.direction === "asc" ? "↑" : "↓") : "↕"}</button></th>`).join("")}</tr></thead>
-        <tbody>${value.rows.length ? value.rows.map((row) => `<tr>${value.columns.map((column) => `<td>${column === "cosine_similarity" ? number(row[column]) : esc(typeof row[column] === "object" && row[column] !== null ? JSON.stringify(row[column]) : row[column])}</td>`).join("")}</tr>`).join("") : `<tr><td colspan="${value.columns.length}" class="empty">No matching rows</td></tr>`}</tbody></table></div>
+        <div class="table-scroll"><table><thead><tr>${value.has_matched_data ? "<th>Match</th>" : ""}${value.columns.map((column) => `<th aria-sort="${sort?.column === column ? (sort.direction === "asc" ? "ascending" : "descending") : "none"}"><button data-sort="${esc(column)}" ${disabled}>${esc(column)} ${sort?.column === column ? (sort.direction === "asc" ? "↑" : "↓") : "↕"}</button></th>`).join("")}</tr></thead>
+        <tbody>${value.rows.length ? value.rows.map((row, index) => `<tr>${value.has_matched_data ? `<td><button data-open-match="${Number(value.result_indices[index])}" ${disabled}>Open spectra</button></td>` : ""}${value.columns.map((column) => `<td>${column === "cosine_similarity" ? number(row[column]) : esc(typeof row[column] === "object" && row[column] !== null ? JSON.stringify(row[column]) : row[column])}</td>`).join("")}</tr>`).join("") : `<tr><td colspan="${value.columns.length + (value.has_matched_data ? 1 : 0)}" class="empty">No matching rows</td></tr>`}</tbody></table></div>
         <footer><button id="previous" ${busy || value.page === 0 ? "disabled" : ""}>Previous</button><span>Page ${value.page + 1} / ${value.total_pages}</span><button id="next" ${busy || value.page + 1 >= value.total_pages ? "disabled" : ""}>Next</button></footer></section>
         <details class="metadata"><summary>Calculation metadata</summary><p>Reload reads the saved result. Recalculate from the dataset viewer to use changed spectra.</p><pre>${esc(JSON.stringify(value.metadata, null, 2))}</pre></details>
       ` : "<p>Opening similarity results…</p>"}
@@ -120,6 +127,9 @@
       const column = button.dataset.sort;
       sort = { column, direction: sort?.column === column && sort.direction === "asc" ? "desc" : "asc" };
       request();
+    }));
+    document.querySelectorAll("[data-open-match]").forEach((button) => button.addEventListener("click", () => {
+      vscode.postMessage({ type: "open-similarity-match", resultIndex: Number(button.dataset.openMatch) });
     }));
     document.getElementById("previous")?.addEventListener("click", () => request("page-request", value.page - 1));
     document.getElementById("next")?.addEventListener("click", () => request("page-request", value.page + 1));
@@ -200,7 +210,7 @@
     });
     ctx.fillStyle = foreground; ctx.textAlign = "center";
     for (let i = 0; i <= 5; i++) ctx.fillText((i / 5).toFixed(1), left + plotWidth * i / 5, top + plotHeight + 20);
-    ctx.fillText("Cosine similarity", left + plotWidth / 2, height - 4);
+    ctx.fillText("Similarity score", left + plotWidth / 2, height - 4);
     ctx.textAlign = "left"; ctx.fillText("Count", 0, 12);
   }
 
@@ -222,7 +232,7 @@
     }
     ctx.fillStyle = foreground; ctx.textAlign = "center";
     for (let i = 0; i <= 5; i++) ctx.fillText((i / 5).toFixed(1), left + plotWidth * i / 5, top + plotHeight + 20);
-    ctx.fillText("Cosine similarity", left + plotWidth / 2, top + plotHeight + 40);
+    ctx.fillText("Similarity score", left + plotWidth / 2, top + plotHeight + 40);
   }
 
   function exportOptions() {

@@ -68,6 +68,8 @@ The Python API can reproduce the main CLI operations.
      - ``dataset[pd.to_numeric(dataset["PrecursorMZ"], errors="coerce") > 300]``
    * - ``msentity similarity-by-key first.msds second.msds --output result.mssim``
      - ``SimilarityDataset.from_datasets(first, second).save("result.mssim")``
+   * - ``msentity library-search query.msds reference.msds --output matches.mssim``
+     - ``calculate_library_search(query, reference).save("matches.mssim")``
 
 Recommended reading order
 -------------------------

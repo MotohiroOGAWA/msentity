@@ -17,6 +17,7 @@
   let loadingProgress = null;
   let exporting = false;
   let calculatingSimilarity = false;
+  let similarityProgress = null;
   let assigningSpecId = false;
   let datasetOptions = [];
   let activeDatasetId = "";
@@ -144,7 +145,7 @@
             <button class="secondary-button" id="assign-spec-id-button" ${assigningSpecId || loadingPage || exporting ? "disabled" : ""}>${assigningSpecId ? "Assigning SpecID…" : "Assign SpecID…"}</button>
             <button class="secondary-button" id="export-button" ${exporting ? "disabled" : ""}>${exporting ? "Exporting…" : "Export…"}</button>
             <button class="secondary-button" id="reload-button" title="Reload dataset from disk">Reload</button>
-            <button class="secondary-button" id="similarity-button" ${calculatingSimilarity || datasetOptions.length < 2 ? "disabled" : ""} title="Compare two loaded datasets by matching keys">${calculatingSimilarity ? "Calculating…" : "Calculate similarity…"}</button>
+            <button class="secondary-button" id="similarity-button" ${calculatingSimilarity || datasetOptions.length < 1 ? "disabled" : ""} title="Run a library search or compare matching metadata keys">${calculatingSimilarity ? `Calculating…${similarityProgress == null ? "" : ` ${similarityProgress.toFixed(1)}%`}` : "Calculate similarity…"}</button>
           </div>
         </div>
         <div class="table-wrap"><table class="dataset-table"><thead><tr><th class="row-column">Row</th><th class="spectrum-column">Spectrum</th>${selectedColumns.map((c) => { const item = sortFor(c); return `<th><button class="table-sort" data-sort-column="${esc(c)}" title="Click: ascending → descending → remove sort">${esc(c)}<span>${item ? `${item.priority}${item.direction === "asc" ? "▲" : "▼"}` : ""}</span></button></th>`; }).join("")}</tr></thead><tbody>
@@ -190,7 +191,8 @@
       vscode.postMessage(viewRequest(savedPage));
     });
     document.getElementById("similarity-button")?.addEventListener("click", () => {
-      calculatingSimilarity = true; render(); vscode.postMessage({ type: "calculate-similarity" });
+      calculatingSimilarity = true; render();
+      vscode.postMessage({ type: "calculate-similarity", datasetId: activeDatasetId });
     });
     document.getElementById("add-dataset")?.addEventListener("click", () => vscode.postMessage({ type: "add-dataset" }));
     document.getElementById("assign-spec-id-button")?.addEventListener("click", () => {
@@ -292,8 +294,13 @@
       exporting = false;
       render();
       vscode.postMessage({ type: "export-error-notification", message: message.message });
+    } else if (message?.type === "similarity-progress") {
+      calculatingSimilarity = true;
+      similarityProgress = Number.isFinite(Number(message.percent)) ? Number(message.percent) : null;
+      render();
     } else if (["similarity-complete", "similarity-cancelled", "similarity-error"].includes(message?.type)) {
       calculatingSimilarity = false;
+      similarityProgress = null;
       render();
       if (message.type === "similarity-error") vscode.postMessage({ type: "similarity-error-notification", message: message.message });
     } else if (message?.type === "error") {

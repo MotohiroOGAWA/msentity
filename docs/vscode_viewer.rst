@@ -70,6 +70,35 @@ complete filtered result across all pages, in the displayed sort order and
 with the selected columns in their displayed order. Clear filters to export
 every spectrum.
 
+Calculate similarity and search a library
+-----------------------------------------
+
+Choose **Calculate similarity...** to select either **Library search** or
+**Match by metadata key**. Library search treats the active or selected dataset
+as queries and compares every query spectrum with every reference spectrum.
+Select the reference from datasets loaded through **Add dataset...**, or choose
+an MSDS, MSP, MGF, TSV, or CSV reference file without adding it to the viewer.
+
+Choose cosine or reverse-cosine similarity, an m/z bin width, intensity
+exponent, and chunk size. Library search also asks for a score threshold, which
+defaults to 0.8; only matches at or above it are retained. Computation uses
+sparse NumPy binned vectors in bounded chunks and does not retain the full
+all-pairs matrix. Reverse cosine treats the query as the noise-tolerant side by
+omitting unmatched query peaks from its norm.
+
+The output is an ``.mssim`` file and opens in the dedicated Similarity Viewer.
+Choose **Include matched data** to save each unique matched query/reference
+record once, with table rows referring to those shared records. Choose
+**Lightweight result** to save the mapping, scores, and calculation metadata
+only. An embedded result provides **Open spectra** for each row, which opens
+the saved query and reference as a mirrored comparison. Filtering and
+exporting to another ``.mssim`` removes embedded records that are no longer
+referenced. TSV, CSV, and Parquet exports contain the table only.
+
+Metadata-key mode compares only records whose chosen keys are equal. Keys must
+be non-missing and unique on each side. Both modes use the complete in-memory
+datasets, including unsaved edits, regardless of current table filters.
+
 .. figure:: _static/images/gui_screenshot_1.png
    :alt: VS Code custom editor showing the paged msentity dataset table
    :align: center

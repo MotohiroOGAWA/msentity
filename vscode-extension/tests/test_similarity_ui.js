@@ -6,11 +6,13 @@ const path = require("node:path");
 const vm = require("node:vm");
 const http = require("node:http");
 const { spawn, spawnSync } = require("node:child_process");
-const { chromium } = require("playwright");
+const chromium = process.env.WIZARD_ONLY ? null : require("playwright").chromium;
 const root = path.resolve(__dirname, "../..");
 
 async function wizardTests() {
   let choices = [], inputs = [], requests = [], messages = [];
+  let selectedMode = "library_search";
+  let browseReference = false;
   let writtenImage = null;
   const vscode = {
     Uri: {
@@ -21,14 +23,21 @@ async function wizardTests() {
     window: {
       showQuickPick: async (items, options) => {
         choices.push(options);
-        return options.canPickMany ? [items[1], items[2]] : items[0];
+        if (options.title === "Calculate similarity") {
+          return items.find((item) => item.mode === selectedMode);
+        }
+        if (options.title === "Library search: reference library" && browseReference) {
+          return items.at(-1);
+        }
+        return items[0];
       },
       showInputBox: async (options) => {
         assert.ok(options.validateInput("NaN"));
-        assert.ok(options.validateInput("0"));
+        if (!options.title.includes("threshold")) assert.ok(options.validateInput("0"));
         assert.equal(options.validateInput(options.value), undefined);
         inputs.push(options); return options.value;
       },
+      showOpenDialog: async () => [{ fsPath: "/tmp/reference.msp" }],
       showSaveDialog: async (options) => options.defaultUri,
       showInformationMessage: () => {},
     },
@@ -38,25 +47,39 @@ async function wizardTests() {
     "\nmodule.exports.Provider = MSEntityViewerProvider;", context);
   const provider = new context.module.exports.Provider({ extensionUri: "/extension" });
   const datasets = [0, 1, 2].map((i) => ({ id: `dataset${i}`, name: `dataset${i}`, columns: ["Name", "SpecID"] }));
-  const run = (items) => provider.configureSimilarity(items, "/tmp/source.msds", (m) => requests.push(m),
-    (m) => messages.push(m), () => false);
+  const run = (items, active = "dataset0") => provider.configureSimilarity(
+    items, active, { fsPath: "/tmp/source.msds" },
+    (m) => requests.push(m), (m) => messages.push(m), () => false
+  );
   await run(datasets.slice(0, 2));
-  assert.equal(choices.length, 2);  // keys only: pair chosen automatically
-  assert.equal(inputs.length, 3);
+  assert.equal(choices.length, 5);
+  assert.equal(inputs.length, 4);
+  assert.equal(requests[0].mode, "library_search");
   assert.equal(requests[0].dataset1, "dataset0");
-  assert.equal(requests[0].parameters.key1, "SpecID");
-  choices = []; requests = [];
-  await run(datasets);
-  assert.equal(choices[0].canPickMany, true);
+  assert.equal(requests[0].dataset2, "dataset1");
+  assert.equal(requests[0].parameters.threshold, 0.8);
+  assert.equal(requests[0].parameters.include_matched_data, true);
+
+  choices = []; inputs = []; requests = [];
+  selectedMode = "by_key";
+  await run(datasets, "dataset1");
+  assert.equal(requests[0].mode, "by_key");
   assert.equal(requests[0].dataset1, "dataset1");
-  assert.equal(requests[0].dataset2, "dataset2");
+  assert.equal(requests[0].dataset2, "dataset0");
+  assert.equal(requests[0].parameters.key1, "SpecID");
+  assert.equal(requests[0].parameters.key2, "SpecID");
+
+  selectedMode = "library_search";
+  browseReference = true;
+  requests = [];
+  await run(datasets.slice(0, 1));
+  assert.equal(requests[0].reference_path, "/tmp/reference.msp");
+
   vscode.window.showQuickPick = async () => undefined;
   requests = []; messages = [];
   await run(datasets);
   assert.equal(requests.length, 0);
   assert.equal(messages[0].type, "similarity-cancelled");
-  vscode.window.showQuickPick = async (items) => [items[0]];
-  await assert.rejects(run(datasets), /exactly two/);
   const savedPath = await provider.saveImage(
     { fsPath: "/tmp/data/result.mssim" },
     { filename: "similarity-box.png", bytes: [137, 80, 78, 71] }
@@ -140,7 +163,7 @@ SimilarityDataset(pd.DataFrame({'SpecID': ['<script>bad</script>', 'B', 'C'],
     await page.locator(".distribution summary").click();
     const counts = await page.locator(".frequency-table tbody tr td:nth-child(2)").allTextContents();
     assert.deepEqual(counts, ["1", "2"]);
-    assert.equal(await page.locator(".stats div").count(), 7);
+    assert.equal(await page.locator(".stats div").count(), 8);
     assert.ok((await page.locator(".stats").innerText()).includes("Q1"));
     assert.ok((await page.locator(".stats").innerText()).includes("Q3"));
     await page.locator("#count-scale").selectOption("log");
@@ -182,5 +205,11 @@ SimilarityDataset(pd.DataFrame({'SpecID': ['<script>bad</script>', 'B', 'C'],
   }
 }
 
-(async () => { await wizardTests(); await browserTests(); console.log("Similarity wizard and browser interaction tests passed."); })()
+(async () => {
+  await wizardTests();
+  if (!process.env.WIZARD_ONLY) await browserTests();
+  console.log(process.env.WIZARD_ONLY
+    ? "Similarity wizard tests passed."
+    : "Similarity wizard and browser interaction tests passed.");
+})()
   .catch((error) => { console.error(error); process.exitCode = 1; });

@@ -71,9 +71,10 @@ Similarity
 ==========
 
 :class:`msentity.SimilarityDataset` stores a similarity table together with
-calculation and source metadata. It supports filtering, stable sorting,
-summary statistics, histogram data, table export, and the native ``.mssim``
-format. See :doc:`api/similarity` for the Python workflow.
+calculation/source metadata and optional deduplicated matched spectra. It
+supports filtering, stable sorting, summaries, table export, metadata-key
+matching, exhaustive thresholded library search, and native ``.mssim``
+persistence. See :doc:`api/similarity` for the Python workflow.
 
 
 .. toctree::

@@ -27,22 +27,34 @@ MSDS, MSP, MGF, TSV, and CSV datasets without Gradio.
 - Custom-sized transparent PNG/SVG export and clipboard copy
 - VS Code light, dark, and high-contrast theme support
 
-## Calculate similarity by key
+## Calculate similarity and run a library search
 
-Use **Add dataset…** to load at least two datasets into the same viewer. Click
-**Calculate similarity…** next to **Reload**. With two datasets the pair is
-selected automatically; with three or more, select exactly two. Choose the key
-column for each dataset, m/z bin width, intensity exponent, and maximum cumulative
-peaks per chunk, then save the result as **`.mssim`**.
+Click **Calculate similarity…** next to **Reload**, then choose **Library
+search** or **Match by metadata key**. A library search compares every spectrum
+in the query dataset with every spectrum in a reference library. The reference
+can be an entry already loaded with **Add dataset…**, or an MSDS, MSP, MGF, TSV,
+or CSV file selected for that calculation. Choose cosine or reverse cosine,
+set the score threshold (default `0.8`), and configure the NumPy binning and
+chunk parameters before saving the result as **`.mssim`**.
 
-Non-missing keys must be unique within each dataset. Duplicate values produce
-an error because they create one-to-many or many-to-many pairings. Missing keys
-and keys present on only one side are skipped. Calculation uses the entire loaded datasets, including
-unsaved SpecID edits; table filters do not restrict the calculation. Results
-follow the first dataset's row order and contain zero-based input positions.
+Metadata-key matching preserves the previous workflow. Select two loaded
+datasets and a key for each side. Non-missing keys must be unique within each
+dataset. Duplicate values produce an error because they create one-to-many or
+many-to-many pairings. Missing keys and keys present on only one side are
+skipped.
+
+Both modes use the entire loaded datasets, including unsaved SpecID edits;
+table filters do not restrict calculation. Choose **Include matched data** to
+make the result self-contained, or **Lightweight result** to save only indices,
+scores, and calculation metadata. Embedded results store each unique matched
+record once and refer to it by number from every result row, so one spectrum
+matching many candidates does not duplicate its pandas metadata or NumPy peak
+arrays.
 
 The `.mssim` file opens in a dedicated **Similarity Viewer**:
 
+- Embedded results show **Open spectra** on each row to open the saved query
+  and reference records as a mirrored spectrum comparison.
 - **Filter**: combine numeric comparisons and key/text conditions.
 - Click a column heading to sort; use Previous/Next for paging.
 - The histogram and count/mean/Q1/median/Q3/min/max summarize all filtered rows,
@@ -53,7 +65,8 @@ The `.mssim` file opens in a dedicated **Similarity Viewer**:
 - **Save PNG…** opens an image preview where width, height, grid visibility,
   histogram color, box color, and count scale can be changed before saving.
 - **Export…**: save the filtered/sorted results as `.mssim`, TSV, CSV, or Parquet.
-  Only `.mssim` preserves calculation metadata and the export filter definition.
+  Only `.mssim` preserves calculation metadata, embedded matched data, and the
+  export filter definition. Unreferenced embedded records are removed.
 - **Reload**: reread the result from disk, retaining active filters. It does not
   recalculate spectra. Start another calculation from the dataset viewer to do so.
 - Expand **Calculation metadata** to inspect parameters, creation time, input
@@ -64,18 +77,22 @@ environment must contain the version of `msentity` from this checkout, including
 `msentity.similarity` (for development: `python -m pip install -e .`
 from the repository root).
 
-### Similarity file format (version 1)
+### Similarity file format (version 2)
 
 `.mssim` is an HDF5 container with root attributes `format = msentity.similarity`
-and `schema_version = 1`. `table.parquet` is a uint8 dataset containing the bytes
+and `schema_version = 2`. `table.parquet` is a uint8 dataset containing the bytes
 produced by pandas `DataFrame.to_parquet(index=False)`; `metadata.json` is a UTF-8
-JSON scalar containing calculation/source metadata. Writes replace the target
-atomically after the entire container has been written.
+JSON scalar containing calculation/source metadata. Self-contained files store
+the two compact match datasets and original source-index arrays under
+`matched_data/1` and `matched_data/2`. Version 1 table-only files remain
+readable. Writes replace the target atomically after the entire container has
+been written.
 
 The same calculation is available from the CLI:
 
 ```console
 msentity similarity-by-key first.msds second.msds --key1 SpecID --key2 SpecID --output result.mssim
+msentity library-search query.msds reference.msp --threshold 0.8 --output matches.mssim
 ```
 
 ## Assign SpecID
@@ -222,3 +239,5 @@ Chromium browser, and run `node --test vscode-extension/tests/test_similarity_ui
 `MSENTITY_PYTHON` selects the Python executable; `CHROMIUM_PATH` optionally selects
 an existing Chromium executable. The test uses the actual Python result backend
 and a mocked VS Code host, and writes a screenshot to the system temporary directory.
+Run `WIZARD_ONLY=1 node vscode-extension/tests/test_similarity_ui.js` to check
+the VS Code parameter flow without Playwright or Chromium.

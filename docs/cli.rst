@@ -50,8 +50,25 @@ and writes an ``.mssim`` result. The default key on both sides is ``SpecID``::
    msentity similarity-by-key first.msds second.msds \
        --key1 SpecID --key2 SpecID --output result.mssim
 
-Use ``--bin-width``, ``--intensity-exponent``, and ``--max-cum-peaks`` to
-control calculation. Duplicate keys are rejected; unmatched keys are skipped.
+Use ``--method cosine`` or ``--method reverse_cosine`` together with
+``--bin-width``, ``--intensity-exponent``, and ``--max-cum-peaks`` to control
+calculation. Duplicate keys are rejected; unmatched keys are skipped. Add
+``--include-matched-data`` to embed each uniquely matched record once.
+
+Library search
+--------------
+
+``library-search`` exhaustively compares a query dataset with a reference
+dataset and saves matches at or above the threshold, which defaults to 0.8::
+
+   msentity library-search query.msds reference.msp \
+       --method cosine --threshold 0.8 --output matches.mssim
+
+Matched spectra and metadata are embedded by default without duplicating a
+record that occurs in multiple matches. Pass ``--lightweight`` to save only
+indices, scores, and calculation metadata. ``--max-pairs-per-call`` bounds the
+outer all-pairs chunk size; the full score matrix is not retained.
+
 See :doc:`api/similarity` for the equivalent Python API.
 
 Interactive shell

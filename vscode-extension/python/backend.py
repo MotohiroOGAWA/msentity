@@ -357,27 +357,73 @@ def main() -> int:
                     {"id": identifier, "name": item["path"].name,
                      "columns": item["dataset"].columns}
                     for identifier, item in datasets.items()
-                ]})
+                ], "active_dataset_id": dataset_id})
             elif request_type == "calculate-similarity":
                 try:
-                    from msentity.similarity import SimilarityDataset
-
-                    id1, id2 = request["dataset1"], request["dataset2"]
-                    if id1 == id2 or id1 not in datasets or id2 not in datasets:
-                        raise ValueError("Select two different loaded datasets")
-                    first, second = datasets[id1], datasets[id2]
-                    target = Path(request["path"]).expanduser().resolve()
-                    if target in {item["path"] for item in datasets.values()}:
-                        raise ValueError("Output must not overwrite an input dataset")
-                    result = SimilarityDataset.from_datasets(
-                        first["dataset"], second["dataset"],
-                        source1=str(first["path"]), source2=str(second["path"]),
-                        **request.get("parameters", {}),
+                    from msentity.similarity import (
+                        calculate_library_search,
+                        calculate_similarity,
                     )
+
+                    mode = str(request.get("mode", "by_key"))
+                    id1 = str(request["dataset1"])
+                    if id1 not in datasets:
+                        raise ValueError("Select a loaded query dataset")
+                    first = datasets[id1]
+                    reference_path = request.get("reference_path")
+                    if reference_path:
+                        second_path = Path(str(reference_path)).expanduser().resolve()
+                        if not second_path.is_file():
+                            raise FileNotFoundError(str(second_path))
+                        second = {
+                            "dataset": load_dataset(second_path),
+                            "path": second_path,
+                            "file_type": None,
+                        }
+                    else:
+                        id2 = str(request.get("dataset2", ""))
+                        if id2 not in datasets:
+                            raise ValueError("Select a loaded reference dataset or a reference file")
+                        second = datasets[id2]
+                    target = Path(request["path"]).expanduser().resolve()
+                    input_paths = {item["path"] for item in datasets.values()} | {second["path"]}
+                    if target in input_paths:
+                        raise ValueError("Output must not overwrite an input dataset")
+                    parameters = request.get("parameters", {})
+                    if not isinstance(parameters, dict):
+                        raise ValueError("Similarity parameters must be an object")
+                    if mode == "library_search":
+                        def similarity_progress(processed: int, total: int) -> None:
+                            emit({
+                                "type": "similarity-progress",
+                                "processed": processed,
+                                "total": total,
+                                "percent": processed / total * 100.0 if total else 100.0,
+                            })
+
+                        result = calculate_library_search(
+                            first["dataset"], second["dataset"],
+                            query_source=str(first["path"]),
+                            reference_source=str(second["path"]),
+                            progress_callback=similarity_progress,
+                            **parameters,
+                        )
+                    elif mode == "by_key":
+                        if first["path"] == second["path"]:
+                            raise ValueError("Select two different datasets for metadata-key matching")
+                        result = calculate_similarity(
+                            first["dataset"], second["dataset"],
+                            source1=str(first["path"]), source2=str(second["path"]),
+                            **parameters,
+                        )
+                    else:
+                        raise ValueError(f"Unknown similarity mode: {mode}")
                     result.save(target)
                     emit({"type": "similarity-complete", "path": str(target),
-                          "total_rows": len(result.table)})
+                          "total_rows": len(result.table),
+                          "candidate_pairs": result.metadata.get("candidate_pair_count")})
                 except Exception as exc:
+                    traceback.print_exc(file=sys.stderr)
                     emit({"type": "similarity-error", "message": str(exc)})
             elif request_type == "assign-spec-id":
                 try:

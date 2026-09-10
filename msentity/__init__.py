@@ -7,7 +7,13 @@ from .io.mgf import read_mgf, read_mgf_text, write_mgf
 from .io.csv import read_csv, read_csv_text, write_csv
 from .io.tsv import read_tsv, read_tsv_text, write_tsv
 from .io.prepare_ms_data import load_ms_dataset
-from .similarity import SimilarityDataset
+from .similarity import (
+    SimilarityDataset,
+    calculate_library_search,
+    calculate_similarity,
+    library_search,
+    similarity_by_key,
+)
 
 __all__ = [
     "MSDataset",
@@ -30,4 +36,8 @@ __all__ = [
     "write_tsv",
     "load_ms_dataset",
     "SimilarityDataset",
+    "calculate_library_search",
+    "calculate_similarity",
+    "library_search",
+    "similarity_by_key",
 ]
