@@ -137,7 +137,9 @@ slot. Both plots use the same m/z positions. The upper and lower slots can be
 pinned independently: a new selection replaces the unpinned slot, and no slot
 changes while both are pinned. Use the trash button immediately to the left of
 the lower pin to remove the lower spectrum. The upper and lower pins remain
-vertically aligned.
+vertically aligned. During comparison, the metadata area below the plot shows
+separate **Upper Metadata** and **Lower Metadata** panels. Each panel uses the
+metadata columns from that spectrum's source dataset.
 
 When both slots are populated, the viewer reports a score from 0 to 1 and the
 number of one-to-one matched peaks. The tolerance is editable in Da and

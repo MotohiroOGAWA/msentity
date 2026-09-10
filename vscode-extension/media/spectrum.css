@@ -92,7 +92,9 @@ h2 { font-size: 15px; margin: 0 0 10px; color: var(--text); }
 .peak-row button { width: 100%; text-align: right; border: 0; background: transparent; color: var(--vscode-textLink-foreground, var(--peak)); padding: 3px; }
 .peak-row:hover, .peak-row.selected { background: var(--row-hover); }
 .peak-row.selected button { color: var(--peak-selected); font-weight: 700; }
-.metadata-panel { margin-top: 14px; padding: 14px; }
+.metadata-panels { display: grid; gap: 14px; margin-top: 14px; }
+.metadata-panels.compared { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.metadata-panel { padding: 14px; min-width: 0; }
 .metadata-panel dl { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 11px; margin: 0; }
 .metadata-panel dt { color: var(--muted); font-size: 11px; }
 .metadata-panel dd { margin: 0; overflow-wrap: anywhere; color: var(--text); }
@@ -117,6 +119,7 @@ h2 { font-size: 15px; margin: 0 0 10px; color: var(--text); }
 .export-actions { justify-content: flex-end; margin-top: 12px; }
 @media (max-width: 850px) {
   .spectrum-workspace { grid-template-columns: 1fr; }
+  .metadata-panels.compared { grid-template-columns: 1fr; }
   .peak-scroll { max-height: 260px; }
   .spectrum-header { align-items: start; flex-direction: column; }
   #plot-root > svg { min-height: 300px; }

@@ -14,6 +14,15 @@
     .replaceAll("'", "&#039;");
   const display = (v) => v == null ? "—" : typeof v === "object" ? JSON.stringify(v) : String(v);
 
+  const metadataPanel = (payload, heading = "Metadata") => {
+    const row = payload?.row ?? {};
+    const columns = Array.isArray(payload?.columns) ? payload.columns.map(String) : Object.keys(row);
+    const entries = columns
+      .map((column) => `<div><dt>${esc(column)}</dt><dd>${esc(display(row[column]))}</dd></div>`)
+      .join("");
+    return `<section class="metadata-panel"><h2>${esc(heading)}</h2><dl>${entries}</dl></section>`;
+  };
+
   // Return human-friendly tick intervals from the 1, 2, 2.5, 5, 10 series.
   const niceStep = (span, targetTicks = 6) => {
     const raw = Math.max(Number.EPSILON, span / targetTicks);
@@ -391,7 +400,9 @@
       yDomain: null
     };
 
-    const metadata = columns.map((c) => `<div><dt>${esc(c)}</dt><dd>${esc(display(row[c]))}</dd></div>`).join("");
+    const metadata = comparison.bottom
+      ? `<div class="metadata-panels compared">${metadataPanel(payload, "Upper Metadata")}${metadataPanel(comparison.bottom, "Lower Metadata")}</div>`
+      : `<div class="metadata-panels">${metadataPanel(payload)}</div>`;
     app.className = "";
     app.innerHTML = `
       <main class="spectrum-viewer">
@@ -420,7 +431,7 @@
             </div>
           </aside>
         </div>
-        <section class="metadata-panel"><h2>Metadata</h2><dl>${metadata}</dl></section>
+        ${metadata}
         <dialog id="export-dialog" class="export-dialog">
           <form method="dialog" class="export-header"><h2>Export spectrum image</h2><button aria-label="Close">×</button></form>
           <fieldset class="export-options">

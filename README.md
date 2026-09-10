@@ -123,6 +123,8 @@ search or metadata-key matching. Reference libraries may be chosen from Add
 Dataset entries or directly from a file. The dialog exposes cosine/reverse
 cosine, a default 0.8 library threshold, binning parameters, and compact versus
 self-contained `.mssim` storage.
+During a two-spectrum comparison, separate **Upper Metadata** and **Lower
+Metadata** panels show the metadata from both source records below the plot.
 
 File extensions are used for automatic input detection. To specify the input
 format explicitly—including TSV and CSV—right-click a file in Explorer and choose **MS Entity: Open

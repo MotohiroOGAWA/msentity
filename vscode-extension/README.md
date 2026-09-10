@@ -184,6 +184,9 @@ product, reverse dot product, modified dot product, or BONANZA score. Fragment
 matching tolerance is editable in Da and defaults to ±0.05 Da. Modified dot
 product and BONANZA also consider precursor-mass-shifted neutral-loss matches.
 The score and matched-peak count update when the method or tolerance changes.
+The metadata area below the plot shows separate **Upper Metadata** and **Lower
+Metadata** panels during comparison, using the columns from each spectrum's
+source dataset.
 Drag horizontally to zoom m/z only, vertically to zoom intensity
 only, or diagonally to zoom both axes. Choose **Export image...**, select the
 elements to include, set any output width and height in pixels, and save the
