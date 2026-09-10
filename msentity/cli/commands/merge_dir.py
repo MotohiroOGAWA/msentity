@@ -11,6 +11,7 @@ SUPPORTED_SUFFIXES = {
     ".mgf",
     ".msds",
     ".tsv",
+    ".csv",
     ".hdf5",
     ".h5",
 }
@@ -37,7 +38,7 @@ def setup_parser(
     parser.add_argument(
         "--file-type",
         default=None,
-        choices=["msp", "mgf", "msds", "tsv"],
+        choices=["msp", "mgf", "msds", "tsv", "csv"],
         help="Input file type. If omitted, files are inferred from their extensions.",
     )
 
@@ -50,8 +51,9 @@ def setup_parser(
     parser.add_argument(
         "--recursive",
         nargs="?",
+        const=None,
         type=_positive_int,
-        default=None,
+        default=1,
         metavar="DEPTH",
         help=(
             "Search input files recursively. If DEPTH is omitted, all "

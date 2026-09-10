@@ -2,7 +2,7 @@
 
 This extension is the graphical viewer included in the
 [`msentity`](https://github.com/MotohiroOGAWA/msentity) repository. It opens
-`.msds`, `.msp`, and `.mgf` datasets without Gradio, with explicit TSV import/export.
+MSDS, MSP, MGF, TSV, and CSV datasets without Gradio.
 
 ## Features
 
@@ -10,12 +10,12 @@ This extension is the graphical viewer included in the
 - Full-dataset, multi-condition filtering (separate text/number `=`, text `!=`, `contains`, `>`, `>=`, `<`, `<=`) and prioritized multi-column row sorting
 - Assign sequential SpecID values from the toolbar with an optional prefix
 - MSP/MGF loading progress with bytes, percentage, and spectrum count
-- Export to MSDS, MSP, MGF, or TSV using the visible column order and current row filters/sort order
+- Export to MSDS, MSP, MGF, TSV, or CSV using the visible column order and current row filters/sort order
 - msentity file-type icon for `.msds`, `.msp`, and `.mgf` tabs
 - one transparent PNG for the extension listing, file type, and editor tabs
 - Optional VS Code floating plot window
 - Peak table, m/z/intensity sorting, and peak selection
-- Copy or save the current upper spectrum's complete peak list as TSV
+- Copy or save the complete peak table as TSV or CSV
 - Independent horizontal, vertical, and two-dimensional drag-to-zoom
 - m/z range starting at zero and adaptive 1, 2, 2.5, 5, 10 tick spacing
 - Adaptive zero-based intensity ticks
@@ -27,22 +27,34 @@ This extension is the graphical viewer included in the
 - Custom-sized transparent PNG/SVG export and clipboard copy
 - VS Code light, dark, and high-contrast theme support
 
-## Calculate similarity by key
+## Calculate similarity and run a library search
 
-Use **Add dataset…** to load at least two datasets into the same viewer. Click
-**Calculate similarity…** next to **Reload**. With two datasets the pair is
-selected automatically; with three or more, select exactly two. Choose the key
-column for each dataset, m/z bin width, intensity exponent, and maximum cumulative
-peaks per chunk, then save the result as **`.mssim`**.
+Click **Calculate similarity…** next to **Reload**, then choose **Library
+search** or **Match by metadata key**. A library search compares every spectrum
+in the query dataset with every spectrum in a reference library. The reference
+can be an entry already loaded with **Add dataset…**, or an MSDS, MSP, MGF, TSV,
+or CSV file selected for that calculation. Choose cosine or reverse cosine,
+set the score threshold (default `0.8`), and configure the NumPy binning and
+chunk parameters before saving the result as **`.mssim`**.
 
-Non-missing keys must be unique within each dataset. Duplicate values produce
-an error because they create one-to-many or many-to-many pairings. Missing keys
-and keys present on only one side are skipped. Calculation uses the entire loaded datasets, including
-unsaved SpecID edits; table filters do not restrict the calculation. Results
-follow the first dataset's row order and contain zero-based input positions.
+Metadata-key matching preserves the previous workflow. Select two loaded
+datasets and a key for each side. Non-missing keys must be unique within each
+dataset. Duplicate values produce an error because they create one-to-many or
+many-to-many pairings. Missing keys and keys present on only one side are
+skipped.
+
+Both modes use the entire loaded datasets, including unsaved SpecID edits;
+table filters do not restrict calculation. Choose **Include matched data** to
+make the result self-contained, or **Lightweight result** to save only indices,
+scores, and calculation metadata. Embedded results store each unique matched
+record once and refer to it by number from every result row, so one spectrum
+matching many candidates does not duplicate its pandas metadata or NumPy peak
+arrays.
 
 The `.mssim` file opens in a dedicated **Similarity Viewer**:
 
+- Embedded results show **Open spectra** on each row to open the saved query
+  and reference records as a mirrored spectrum comparison.
 - **Filter**: combine numeric comparisons and key/text conditions.
 - Click a column heading to sort; use Previous/Next for paging.
 - The histogram and count/mean/Q1/median/Q3/min/max summarize all filtered rows,
@@ -53,7 +65,8 @@ The `.mssim` file opens in a dedicated **Similarity Viewer**:
 - **Save PNG…** opens an image preview where width, height, grid visibility,
   histogram color, box color, and count scale can be changed before saving.
 - **Export…**: save the filtered/sorted results as `.mssim`, TSV, CSV, or Parquet.
-  Only `.mssim` preserves calculation metadata and the export filter definition.
+  Only `.mssim` preserves calculation metadata, embedded matched data, and the
+  export filter definition. Unreferenced embedded records are removed.
 - **Reload**: reread the result from disk, retaining active filters. It does not
   recalculate spectra. Start another calculation from the dataset viewer to do so.
 - Expand **Calculation metadata** to inspect parameters, creation time, input
@@ -64,18 +77,22 @@ environment must contain the version of `msentity` from this checkout, including
 `msentity.similarity` (for development: `python -m pip install -e .`
 from the repository root).
 
-### Similarity file format (version 1)
+### Similarity file format (version 2)
 
 `.mssim` is an HDF5 container with root attributes `format = msentity.similarity`
-and `schema_version = 1`. `table.parquet` is a uint8 dataset containing the bytes
+and `schema_version = 2`. `table.parquet` is a uint8 dataset containing the bytes
 produced by pandas `DataFrame.to_parquet(index=False)`; `metadata.json` is a UTF-8
-JSON scalar containing calculation/source metadata. Writes replace the target
-atomically after the entire container has been written.
+JSON scalar containing calculation/source metadata. Self-contained files store
+the two compact match datasets and original source-index arrays under
+`matched_data/1` and `matched_data/2`. Version 1 table-only files remain
+readable. Writes replace the target atomically after the entire container has
+been written.
 
 The same calculation is available from the CLI:
 
 ```console
 msentity similarity-by-key first.msds second.msds --key1 SpecID --key2 SpecID --output result.mssim
+msentity library-search query.msds reference.msp --threshold 0.8 --output matches.mssim
 ```
 
 ## Assign SpecID
@@ -148,8 +165,9 @@ URL, while the versioned filename supports pinned downloads.
 
 ## Usage
 
-Open an `.msds`, `.msp`, or `.mgf` file. For TSV, use **MS Entity: Open as TSV**
-so ordinary TSV files remain associated with VS Code's normal text editor. Click a spectrum button in the table;
+Open an `.msds`, `.msp`, or `.mgf` file normally. For TSV or CSV, use **MS
+Entity: Open as TSV** or **MS Entity: Open as CSV** so ordinary tabular files
+remain associated with VS Code's normal text editor. Click a spectrum button in the table;
 the reusable **Mass Spectrum** panel opens and updates when another record is
 selected. Use **Add dataset…** to load more files into the same dataset viewer,
 then switch between them with the dataset dropdown. Spectra opened from those
@@ -166,6 +184,9 @@ product, reverse dot product, modified dot product, or BONANZA score. Fragment
 matching tolerance is editable in Da and defaults to ±0.05 Da. Modified dot
 product and BONANZA also consider precursor-mass-shifted neutral-loss matches.
 The score and matched-peak count update when the method or tolerance changes.
+The metadata area below the plot shows separate **Upper Metadata** and **Lower
+Metadata** panels during comparison, using the columns from each spectrum's
+source dataset.
 Drag horizontally to zoom m/z only, vertically to zoom intensity
 only, or diagonally to zoom both axes. Choose **Export image...**, select the
 elements to include, set any output width and height in pixels, and save the
@@ -180,17 +201,19 @@ When both kinds of tick numbers are disabled, export compacts the axis-title
 spacing and unused margins. Click empty plot space to clear peak selection; double-click
 the plot to reset both zoom axes.
 
-Use **Copy TSV** above the peak table to copy all peaks from the current upper
-spectrum with `m/z` and `Intensity` columns. **Save TSV** writes the same
-unrounded values to a tab-separated file. These actions include the complete
-spectrum, independent of the current plot zoom, in the peak table's current
-m/z or Intensity sort order.
+Use **Copy TSV** or **Copy CSV** above the peak table to copy its complete,
+unrounded values. **Save…** first asks for TSV or CSV and then opens the file
+save dialog. A single spectrum has `m/z` and `Intensity` columns. A comparison
+has separate Upper and Lower columns; peaks within the current tolerance share
+a row, while an unmatched peak leaves the other side empty. Ascending or
+descending m/z order is preserved independently on both sides. Export always
+includes the complete spectra, independent of the current plot zoom.
 
-Opening normally detects MSDS, MSP, or MGF from the extension. TSV is intentionally
-not registered as a custom-editor file extension. To open one as a spectrum table,
+Opening normally detects MSDS, MSP, or MGF from the extension. TSV and CSV are
+intentionally not registered as custom-editor file extensions. To open one as a spectrum table,
 right-click a file in Explorer and choose **MS Entity: Open as MSDS**, **Open as
-MSP**, **Open as MGF**, or **Open as TSV**. The same commands are available in the Command
-Palette. Dataset **Export...** first asks for MSDS, MSP, MGF, or TSV and then for the
+MSP**, **Open as MGF**, **Open as TSV**, or **Open as CSV**. The same commands are available in the Command
+Palette. Dataset **Export...** first asks for MSDS, MSP, MGF, TSV, or CSV and then for the
 save location; the chosen format takes precedence and its extension is applied
 automatically. The exported dataset contains the currently selected columns in
 their displayed order and the rows in their current filtered and sorted order.
@@ -217,7 +240,9 @@ python -m unittest discover -s vscode-extension/tests -p 'test_*.py'
 
 For the parameter wizard and browser interaction test, install Playwright in a
 separate test environment (or make it available through `NODE_PATH`), install its
-Chromium browser, and run `node vscode-extension/tests/test_similarity_ui.js`.
+Chromium browser, and run `node --test vscode-extension/tests/test_similarity_ui.js`.
 `MSENTITY_PYTHON` selects the Python executable; `CHROMIUM_PATH` optionally selects
 an existing Chromium executable. The test uses the actual Python result backend
 and a mocked VS Code host, and writes a screenshot to the system temporary directory.
+Run `WIZARD_ONLY=1 node vscode-extension/tests/test_similarity_ui.js` to check
+the VS Code parameter flow without Playwright or Chromium.

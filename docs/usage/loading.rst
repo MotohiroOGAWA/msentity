@@ -1,8 +1,8 @@
 Loading datasets
 ================
 
-This page explains file and in-memory loading with :mod:`msentity`.  MSP and
-MGF are text exchange formats; MSDS is the native HDF5-backed format that also
+This page explains file and in-memory loading with :mod:`msentity`. MSP, MGF,
+TSV, and CSV are text formats; MSDS is the native HDF5-backed format that also
 preserves dataset-level and peak-level metadata.
 
 Importing msentity
@@ -48,6 +48,19 @@ spectrum, and the required ``Peak`` column stores peaks as
 
    dataset = load_ms_dataset("example.tsv")
 
+Loading CSV files
+-----------------
+
+CSV spectrum tables have the same columns and ``Peak`` representation as TSV,
+but use commas between columns. Standard CSV quoting allows metadata fields to
+contain commas, double quotes, and line breaks::
+
+   dataset = load_ms_dataset("example.csv")
+
+Both formats infer wholly numeric metadata columns. Empty fields remain
+missing values, and an empty ``Peak`` field represents a spectrum with no
+peaks.
+
 Loading MSDS files
 ------------------
 
@@ -73,8 +86,8 @@ Pass ``file_type`` when the extension is missing or non-standard:
 
    dataset = load_ms_dataset("example.txt", file_type="msp")
 
-Valid values are ``"msp"``, ``"mgf"``, ``"msds"``, and ``"tsv"``. An unknown extension
-without ``file_type`` raises :class:`ValueError`.
+Valid values are ``"msp"``, ``"mgf"``, ``"msds"``, ``"tsv"``, and ``"csv"``.
+An unknown extension without ``file_type`` raises :class:`ValueError`.
 
 Generating SpecID values
 ------------------------
@@ -92,5 +105,6 @@ Generating SpecID values
 For an already loaded dataset, use
 :func:`msentity.processing.id.set_spec_id`. MSP and MGF content can also be
 parsed directly from strings with :func:`msentity.read_msp_text` and
-:func:`msentity.read_mgf_text`. TSV text can similarly be parsed with
-:func:`msentity.read_tsv_text`, which is useful for uploads and web APIs.
+:func:`msentity.read_mgf_text`. Delimited spectrum tables can similarly be
+parsed with :func:`msentity.read_tsv_text` and
+:func:`msentity.read_csv_text`, which are useful for uploads and web APIs.

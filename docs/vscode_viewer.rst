@@ -2,9 +2,9 @@ VS Code Spectrum Viewer
 =======================
 
 ``msentity-spectrum-viewer`` is the graphical viewer shipped in the
-``vscode-extension`` directory of this repository. It opens MSDS, MSP, and MGF
-files as a paged metadata table and displays the selected mass spectrum in one
-reusable VS Code panel. It does not use or require Gradio.
+``vscode-extension`` directory of this repository. It opens MSDS, MSP, MGF,
+TSV, and CSV datasets as a paged metadata table and displays the selected mass
+spectrum in one reusable VS Code panel. It does not use or require Gradio.
 
 Install a release VSIX
 ----------------------
@@ -40,12 +40,13 @@ Use the viewer
 --------------
 
 Open an ``.msds``, ``.msp``, or ``.mgf`` file normally, or right-click it in
-Explorer and choose **MS Entity: Open Spectrum Viewer**. TSV is intentionally
-not associated with the custom editor; use **MS Entity: Open as TSV** for an
-msentity spectrum table. Click the spectrum
-button in a table row to update the spectrum panel.
+Explorer and choose **MS Entity: Open Spectrum Viewer**. TSV and CSV are
+intentionally not associated with the custom editor, so ordinary tabular files
+keep VS Code's normal editor. Use **MS Entity: Open as TSV** or **MS Entity:
+Open as CSV** for an msentity spectrum table. Click the spectrum button in a
+table row to update the spectrum panel.
 
-Use **Add dataset...** to load another MSDS, MSP, MGF, or TSV file into the current
+Use **Add dataset...** to load another MSDS, MSP, MGF, TSV, or CSV file into the current
 dataset editor. Select the active file from the dataset dropdown. Each file
 remembers its last metadata page, so switching away and back restores that
 page. Files added this way share one spectrum panel, which makes comparisons
@@ -54,18 +55,49 @@ creates a separate reusable spectrum panel.
 
 Normal opening detects the input format from the filename extension. To select
 it explicitly, right-click any file in Explorer and choose **MS Entity: Open as
-MSDS**, **MS Entity: Open as MSP**, or **MS Entity: Open as MGF**. These commands
-are also available in the Command Palette and take precedence over the filename
-extension.
+MSDS**, **Open as MSP**, **Open as MGF**, **Open as TSV**, or **Open as CSV**.
+These commands are also available in the Command Palette and take precedence
+over the filename extension.
 
 While an MSP or MGF file is being parsed, the editor displays a progress bar
 with the percentage, processed bytes, and successfully loaded spectrum count.
 The same progress display is used when **Reload** rereads the file.
 
-Choose **Export...** to save the current dataset view as MSDS, MSP, MGF, or TSV.
+Choose **Export...** to save the current dataset view as MSDS, MSP, MGF, TSV, or CSV.
 First select the output format explicitly, then select the save location. The
 matching filename extension is applied automatically. Export always writes the
-full dataset, not only the current page or filtered table rows.
+complete filtered result across all pages, in the displayed sort order and
+with the selected columns in their displayed order. Clear filters to export
+every spectrum.
+
+Calculate similarity and search a library
+-----------------------------------------
+
+Choose **Calculate similarity...** to select either **Library search** or
+**Match by metadata key**. Library search treats the active or selected dataset
+as queries and compares every query spectrum with every reference spectrum.
+Select the reference from datasets loaded through **Add dataset...**, or choose
+an MSDS, MSP, MGF, TSV, or CSV reference file without adding it to the viewer.
+
+Choose cosine or reverse-cosine similarity, an m/z bin width, intensity
+exponent, and chunk size. Library search also asks for a score threshold, which
+defaults to 0.8; only matches at or above it are retained. Computation uses
+sparse NumPy binned vectors in bounded chunks and does not retain the full
+all-pairs matrix. Reverse cosine treats the query as the noise-tolerant side by
+omitting unmatched query peaks from its norm.
+
+The output is an ``.mssim`` file and opens in the dedicated Similarity Viewer.
+Choose **Include matched data** to save each unique matched query/reference
+record once, with table rows referring to those shared records. Choose
+**Lightweight result** to save the mapping, scores, and calculation metadata
+only. An embedded result provides **Open spectra** for each row, which opens
+the saved query and reference as a mirrored comparison. Filtering and
+exporting to another ``.mssim`` removes embedded records that are no longer
+referenced. TSV, CSV, and Parquet exports contain the table only.
+
+Metadata-key mode compares only records whose chosen keys are equal. Keys must
+be non-missing and unique on each side. Both modes use the complete in-memory
+datasets, including unsaved edits, regardless of current table filters.
 
 .. figure:: _static/images/gui_screenshot_1.png
    :alt: VS Code custom editor showing the paged msentity dataset table
@@ -89,12 +121,12 @@ full range. Clicking empty plot space clears the selected peak. The
 intensity axis always begins at zero, leaves 10% headroom above the highest
 peak, and uses the same adaptive tick scheme.
 
-The peak-table header provides **Copy TSV** and **Save TSV**. Both export the
-complete upper spectrum as two tab-separated columns named ``m/z`` and
-``Intensity``. Values are not rounded to the table's display precision, and
-the current plot zoom does not limit the exported peaks. Rows follow the peak
-table's current m/z or intensity sort key and direction. **Copy TSV** writes the
-text to the clipboard; **Save TSV** opens the VS Code save dialog.
+The peak-table header provides **Copy TSV**, **Copy CSV**, and **Save...**.
+Save first asks whether to use TSV or CSV, then opens the VS Code save dialog.
+A single spectrum is exported as ``m/z`` and ``Intensity``. A comparison uses
+separate Upper and Lower m/z and intensity columns. Values are not rounded to
+the table's display precision, and the current plot zoom does not limit the
+exported peaks.
 
 Compare spectra
 ---------------
@@ -105,7 +137,15 @@ slot. Both plots use the same m/z positions. The upper and lower slots can be
 pinned independently: a new selection replaces the unpinned slot, and no slot
 changes while both are pinned. Use the trash button immediately to the left of
 the lower pin to remove the lower spectrum. The upper and lower pins remain
-vertically aligned.
+vertically aligned. During comparison, the metadata area below the plot shows
+separate **Upper Metadata** and **Lower Metadata** panels. Each panel uses the
+metadata columns from that spectrum's source dataset.
+
+The Peaks table also shows both spectra in four columns. Direct m/z matches
+within the current tolerance occupy the same row. For every unmatched peak,
+the opposite side remains empty. The shared m/z sort control reverses the
+whole alignment so that both Upper and Lower values always retain their own
+ascending or descending order.
 
 When both slots are populated, the viewer reports a score from 0 to 1 and the
 number of one-to-one matched peaks. The tolerance is editable in Da and
@@ -183,6 +223,6 @@ an existing copy by substituting the generated version in this command:
 
 For a release, run ``npm run package:release`` instead. It creates both the
 versioned VSIX and ``msentity-spectrum-viewer.vsix`` under ``dist/``; attach
-both files to the matching GitHub release. The fixed asset name keeps the recommended
-``latest/download`` URL valid while the versioned asset remains available for
-pinned downloads.
+both files to the matching GitHub release. The fixed asset name keeps the
+recommended ``latest/download`` URL valid while the versioned asset remains
+available for pinned downloads.

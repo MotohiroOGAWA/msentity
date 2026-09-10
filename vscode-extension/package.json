@@ -2,7 +2,7 @@
   "name": "msentity-spectrum-viewer",
   "displayName": "msentity Spectrum Viewer",
   "description": "View msentity datasets in VS Code with a separate reusable mass-spectrum panel, without Gradio.",
-  "version": "1.4.1",
+  "version": "1.5.0",
   "publisher": "motohiroogawa",
   "icon": "media/editor-icon.png",
   "license": "MIT",
@@ -37,6 +37,7 @@
     "onCommand:msentitySpectrumViewer.openAsMSP",
     "onCommand:msentitySpectrumViewer.openAsMGF",
     "onCommand:msentitySpectrumViewer.openAsTSV",
+    "onCommand:msentitySpectrumViewer.openAsCSV",
     "onCustomEditor:msentity.similarityViewer"
   ],
   "contributes": {
@@ -118,6 +119,10 @@
       {
         "command": "msentitySpectrumViewer.openAsTSV",
         "title": "MS Entity: Open as TSV"
+      },
+      {
+        "command": "msentitySpectrumViewer.openAsCSV",
+        "title": "MS Entity: Open as CSV"
       }
     ],
     "menus": {
@@ -142,6 +147,10 @@
         {
           "command": "msentitySpectrumViewer.openAsTSV",
           "group": "msentity@24"
+        },
+        {
+          "command": "msentitySpectrumViewer.openAsCSV",
+          "group": "msentity@25"
         }
       ]
     },

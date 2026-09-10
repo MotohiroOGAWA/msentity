@@ -63,8 +63,10 @@ def _add_command_module(
 from msentity.cli.commands.convert import setup_parser as add_convert_command
 from msentity.cli.commands.head import setup_parser as add_head_command
 from msentity.cli.commands.info import setup_parser as add_info_command
+from msentity.cli.commands.library_search import setup_parser as add_library_search_command
 from msentity.cli.commands.merge_dir import setup_parser as add_merge_dir_command
 from msentity.cli.commands.meta import setup_parser as add_meta_command
+from msentity.cli.commands.similarity_by_key import setup_parser as add_similarity_by_key_command
 from msentity.cli.shell import setup_parser as add_shell_command
 
 __all__ = [
@@ -72,7 +74,9 @@ __all__ = [
     "add_convert_command",
     "add_head_command",
     "add_info_command",
+    "add_library_search_command",
     "add_merge_dir_command",
     "add_meta_command",
+    "add_similarity_by_key_command",
     "add_shell_command",
 ]

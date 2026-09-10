@@ -10,6 +10,7 @@ from msentity.processing.spectrum_similarity import (
     cosine_similarity_pair,
     cosine_similarity_by_key,
 )
+from msentity.similarity import library_search
 
 
 class TestSpectrumSimilarityFunctions(unittest.TestCase):
@@ -402,7 +403,8 @@ class TestSpectrumSimilarityEdgeCases(unittest.TestCase):
                              [[(300, 1)], [(100, 2)]])
         actual = cosine_similarity_by_key(left, right)
         expected = pd.DataFrame({
-            "SpecID": ["b", "a"], "index1": np.array([0, 1], dtype=np.int64),
+            "SpecID": pd.Series(["b", "a"], dtype=object),
+            "index1": np.array([0, 1], dtype=np.int64),
             "index2": np.array([1, 0], dtype=np.int64),
             "cosine_similarity": np.array([1, 0], dtype=np.float32),
         })
@@ -548,6 +550,46 @@ class TestSpectrumSimilarityEdgeCases(unittest.TestCase):
                     max_pairs_per_call=limit, max_cum_peaks=1)
                 self.assertEqual(result.dtype, np.float32)
                 np.testing.assert_allclose(result, expected, rtol=1e-6)
+
+    def test_library_search_is_exhaustive_thresholded_and_chunked(self):
+        query = self.dataset(
+            ["q0", "q1"],
+            [[(100, 1), (300, 10)], [(200, 1)]],
+        )
+        reference = self.dataset(
+            ["r0", "r1", "r2"],
+            [[(100, 1)], [(200, 1)], [(400, 1)]],
+        )
+        progress = []
+        result = library_search(
+            query,
+            reference,
+            threshold=0.8,
+            max_pairs_per_call=2,
+            progress_callback=lambda processed, total: progress.append((processed, total)),
+        )
+        self.assertEqual(result[["index1", "index2"]].values.tolist(), [[1, 1]])
+        np.testing.assert_allclose(result["cosine_similarity"], [1])
+        self.assertEqual(progress, [(2, 6), (4, 6), (6, 6)])
+
+    def test_reverse_cosine_ignores_unmatched_query_peaks(self):
+        query = self.dataset(["q"], [[(100, 1), (300, 10)]])
+        reference = self.dataset(["r"], [[(100, 1)]])
+        cosine = library_search(query, reference, threshold=0, method="cosine")
+        reverse = library_search(query, reference, threshold=0, method="reverse_cosine")
+        self.assertAlmostEqual(float(cosine.loc[0, "cosine_similarity"]), 1 / np.sqrt(101))
+        self.assertEqual(float(reverse.loc[0, "cosine_similarity"]), 1)
+
+    def test_library_search_validates_options_even_for_empty_input(self):
+        empty = self.dataset([])
+        for kwargs, message in [
+            ({"threshold": 1.1}, "threshold"),
+            ({"method": "unknown"}, "method"),
+            ({"max_pairs_per_call": 0}, "max_pairs_per_call"),
+        ]:
+            with self.subTest(kwargs=kwargs):
+                with self.assertRaisesRegex(ValueError, message):
+                    library_search(empty, empty, **kwargs)
 
 
 if __name__ == "__main__":

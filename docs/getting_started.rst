@@ -8,10 +8,11 @@ lists compactly in a :class:`msentity.PeakSeries`.
 
 It is designed for workflows that need:
 
-- MSP, MGF, and native MSDS (HDF5) input
+- MSP, MGF, TSV, CSV, and native MSDS (HDF5) input
 - spectrum- and peak-level metadata
 - zero-copy dataset views for slicing, filtering, and sorting
-- normalization, ID assignment, metadata joins, concatenation, and export
+- normalization, ID assignment, metadata joins, concatenation, metadata-key
+  comparison, exhaustive library search, and export
 - a command-line interface, interactive shell, and VS Code spectrum viewer
 
 Requirements
@@ -41,6 +42,7 @@ For development, clone the repository and install it in editable mode:
 
 The VS Code viewer is installed separately from a release VSIX. See
 :doc:`vscode_viewer` for download, installation, and build instructions.
+See :doc:`cli` for command-line workflows.
 
 Testing
 -------

@@ -56,7 +56,7 @@ class TestLoadMSData(unittest.TestCase):
         with self.assertRaises(ValueError) as context:
             load_ms_dataset(
                 str(SAMPLE_MSP_FILE),
-                file_type="csv",
+                file_type="unsupported",
             )
 
         self.assertIn("Unsupported file type", str(context.exception))

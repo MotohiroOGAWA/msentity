@@ -5,7 +5,7 @@ import unittest
 from pathlib import Path
 from shutil import copyfile
 
-from msentity import MSDataset
+from msentity import MSDataset, read_msp, write_csv
 from msentity.cli.main import main
 from tests.common import SAMPLE_MSP_FILE
 
@@ -36,6 +36,16 @@ class TestCLI(unittest.TestCase):
             ])
 
             self.assertTrue(output_file.exists())
+
+    def test_convert_accepts_csv_input(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            csv_file = Path(tmpdir) / "dataset.csv"
+            output_file = Path(tmpdir) / "dataset.msds"
+            write_csv(read_msp(SAMPLE_MSP_FILE, show_progress=False), csv_file)
+
+            main(["convert", str(csv_file), str(output_file)])
+
+            self.assertEqual(len(MSDataset.load(output_file)), 5)
 
     def test_merge_dir_command(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -90,6 +100,27 @@ class TestCLI(unittest.TestCase):
             grouped = dataset.metadata.groupby("path")["source_index"].apply(list).to_dict()
             self.assertEqual(grouped["root.msp"], list(range(5)))
             self.assertEqual(grouped["child/child.msp"], list(range(5)))
+
+    def test_merge_dir_recursion_flag_controls_nested_files(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            input_dir = Path(tmpdir) / "input"
+            child_dir = input_dir / "child"
+            child_dir.mkdir(parents=True)
+            copyfile(SAMPLE_MSP_FILE, input_dir / "root.msp")
+            copyfile(SAMPLE_MSP_FILE, child_dir / "child.msp")
+
+            direct_output = Path(tmpdir) / "direct.msds"
+            main(["merge-dir", str(input_dir), str(direct_output)])
+            self.assertEqual(len(MSDataset.load(direct_output)), 5)
+
+            recursive_output = Path(tmpdir) / "recursive.msds"
+            main([
+                "merge-dir",
+                str(input_dir),
+                str(recursive_output),
+                "--recursive",
+            ])
+            self.assertEqual(len(MSDataset.load(recursive_output)), 10)
 
 
 if __name__ == "__main__":

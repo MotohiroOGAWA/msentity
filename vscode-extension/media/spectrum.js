@@ -14,6 +14,15 @@
     .replaceAll("'", "&#039;");
   const display = (v) => v == null ? "—" : typeof v === "object" ? JSON.stringify(v) : String(v);
 
+  const metadataPanel = (payload, heading = "Metadata") => {
+    const row = payload?.row ?? {};
+    const columns = Array.isArray(payload?.columns) ? payload.columns.map(String) : Object.keys(row);
+    const entries = columns
+      .map((column) => `<div><dt>${esc(column)}</dt><dd>${esc(display(row[column]))}</dd></div>`)
+      .join("");
+    return `<section class="metadata-panel"><h2>${esc(heading)}</h2><dl>${entries}</dl></section>`;
+  };
+
   // Return human-friendly tick intervals from the 1, 2, 2.5, 5, 10 series.
   const niceStep = (span, targetTicks = 6) => {
     const raw = Math.max(Number.EPSILON, span / targetTicks);
@@ -61,14 +70,58 @@
       .filter((peak) => Number.isFinite(peak.mz) && peak.intensity > 0);
   };
 
-  const peaksAsTsv = (mz, intensity) => {
-    const lines = ["m/z\tIntensity"];
-    const peaks = mz.map((value, index) => ({ mz: Number(value), intensity: Number(intensity[index] ?? 0) }))
-      .filter((peak) => Number.isFinite(peak.mz) && Number.isFinite(peak.intensity));
+  const tablePeaks = (mz, intensity) => mz
+    .map((value, index) => ({ x: Number(value), y: Number(intensity[index] ?? 0), index }))
+    .filter((peak) => Number.isFinite(peak.x) && Number.isFinite(peak.y));
+
+  const alignPeakRows = (upperPeaks, lowerPeaks, tolerance, ascending = true) => {
+    const upper = [...upperPeaks].sort((a, b) => a.x - b.x || a.index - b.index);
+    const lower = [...lowerPeaks].sort((a, b) => a.x - b.x || a.index - b.index);
+    const maximumError = Math.max(0, Number(tolerance) || 0);
+    const rows = [];
+    let upperIndex = 0;
+    let lowerIndex = 0;
+
+    while (upperIndex < upper.length && lowerIndex < lower.length) {
+      const upperPeak = upper[upperIndex];
+      const lowerPeak = lower[lowerIndex];
+      const error = Math.abs(upperPeak.x - lowerPeak.x);
+      const roundingAllowance = Number.EPSILON * Math.max(1, Math.abs(upperPeak.x), Math.abs(lowerPeak.x)) * 8;
+      if (error <= maximumError + roundingAllowance) {
+        rows.push({ upper: upperPeak, lower: lowerPeak });
+        upperIndex += 1;
+        lowerIndex += 1;
+      } else if (upperPeak.x < lowerPeak.x) {
+        rows.push({ upper: upperPeak, lower: null });
+        upperIndex += 1;
+      } else {
+        rows.push({ upper: null, lower: lowerPeak });
+        lowerIndex += 1;
+      }
+    }
+    while (upperIndex < upper.length) rows.push({ upper: upper[upperIndex++], lower: null });
+    while (lowerIndex < lower.length) rows.push({ upper: null, lower: lower[lowerIndex++] });
+    return ascending ? rows : rows.reverse();
+  };
+
+  const peaksAsDelimited = (mz, intensity, format, lowerMz = null, lowerIntensity = null, tolerance = 0) => {
+    const delimiter = format === "csv" ? "," : "\t";
+    const peaks = tablePeaks(mz, intensity);
+    if (Array.isArray(lowerMz)) {
+      const lowerPeaks = tablePeaks(lowerMz, Array.isArray(lowerIntensity) ? lowerIntensity : []);
+      const lines = [["Upper m/z", "Upper Intensity", "Lower m/z", "Lower Intensity"].join(delimiter)];
+      const rows = alignPeakRows(peaks, lowerPeaks, tolerance, state?.sortAscending !== false);
+      rows.forEach(({ upper, lower }) => lines.push([
+        upper?.x ?? "", upper?.y ?? "", lower?.x ?? "", lower?.y ?? ""
+      ].join(delimiter)));
+      return `${lines.join("\n")}\n`;
+    }
+
+    const lines = [`m/z${delimiter}Intensity`];
     const key = state?.sortKey === "intensity" ? "intensity" : "mz";
     const direction = state?.sortAscending === false ? -1 : 1;
-    peaks.sort((a, b) => (a[key] - b[key]) * direction);
-    peaks.forEach((peak) => lines.push(`${peak.mz}\t${peak.intensity}`));
+    peaks.sort((a, b) => ((key === "mz" ? a.x - b.x : a.y - b.y) || a.index - b.index) * direction);
+    peaks.forEach((peak) => lines.push(`${peak.x}${delimiter}${peak.y}`));
     return `${lines.join("\n")}\n`;
   };
 
@@ -356,6 +409,15 @@
     renderSpectrum();
   }
 
+  function receiveComparison(top, bottom, method) {
+    comparison.top = top;
+    comparison.bottom = bottom;
+    comparison.topPinned = false;
+    comparison.bottomPinned = false;
+    similarityMethod = method === "reverse_cosine" ? "reverse" : "dot";
+    renderSpectrum();
+  }
+
   function renderSpectrum() {
     const payload = comparison.top;
     if (!payload) return;
@@ -366,6 +428,9 @@
     const title = String(payload?.title || `Spectrum ${globalIndex + 1}`);
     const mz = Array.isArray(spectrum.mz) ? spectrum.mz.map(Number) : [];
     const intensity = Array.isArray(spectrum.intensity) ? spectrum.intensity.map(Number) : [];
+    const lowerSpectrum = comparison.bottom?.spectrum;
+    const lowerMz = comparison.bottom && Array.isArray(lowerSpectrum?.mz) ? lowerSpectrum.mz.map(Number) : null;
+    const lowerIntensity = comparison.bottom && Array.isArray(lowerSpectrum?.intensity) ? lowerSpectrum.intensity.map(Number) : null;
     const similarity = calculateSimilarity();
 
     state = {
@@ -381,7 +446,9 @@
       yDomain: null
     };
 
-    const metadata = columns.map((c) => `<div><dt>${esc(c)}</dt><dd>${esc(display(row[c]))}</dd></div>`).join("");
+    const metadata = comparison.bottom
+      ? `<div class="metadata-panels compared">${metadataPanel(payload, "Upper Metadata")}${metadataPanel(comparison.bottom, "Lower Metadata")}</div>`
+      : `<div class="metadata-panels">${metadataPanel(payload)}</div>`;
     app.className = "";
     app.innerHTML = `
       <main class="spectrum-viewer">
@@ -392,7 +459,7 @@
           </div>
           <div class="actions"><span>${mz.length} peaks</span><button id="export-image">Export image…</button><button id="reset-zoom">Reset zoom</button></div>
         </header>
-        <div class="spectrum-workspace">
+        <div class="spectrum-workspace ${comparison.bottom ? "compared" : ""}">
           <section class="plot-panel">
             <div class="comparison-slots">
               <div class="comparison-slot"><span class="slot-action-spacer" aria-hidden="true"></span><button id="pin-top" class="pin-button ${comparison.topPinned ? "pinned" : ""}" title="${comparison.topPinned ? "Unpin" : "Pin"} upper spectrum" aria-pressed="${comparison.topPinned}">📌</button><span><strong>Upper</strong> · ${esc(payload.datasetName || "Dataset")} · ${esc(title)}</span></div>
@@ -400,17 +467,19 @@
             </div>
             <div id="plot-root"></div>
           </section>
-          <aside class="peaks-panel">
-            <div class="peaks-header"><h2>Peaks</h2><div><button id="copy-peaks-tsv" type="button">Copy TSV</button><button id="save-peaks-tsv" type="button">Save TSV</button></div></div>
+          <aside class="peaks-panel ${comparison.bottom ? "compared" : ""}">
+            <div class="peaks-header"><h2>Peaks</h2><div>${["tsv", "csv"].map((format) => `<button id="copy-peaks-${format}" type="button">Copy ${format.toUpperCase()}</button>`).join("")}<button id="save-peaks" type="button">Save…</button></div></div>
             <div class="peak-scroll">
               <table class="peak-table">
-                <thead><tr><th><button class="sort-button" id="sort-mz">m/z ↑</button></th><th><button class="sort-button" id="sort-intensity">Intensity</button></th></tr></thead>
+                ${comparison.bottom
+                  ? `<thead><tr class="spectrum-labels"><th colspan="2">Upper</th><th colspan="2">Lower</th></tr><tr><th><button class="sort-button" data-sort-mz>m/z ↑</button></th><th>Intensity</th><th><button class="sort-button" data-sort-mz>m/z ↑</button></th><th>Intensity</th></tr></thead>`
+                  : `<thead><tr><th><button class="sort-button" data-sort-mz>m/z ↑</button></th><th><button class="sort-button" id="sort-intensity">Intensity</button></th></tr></thead>`}
                 <tbody id="peak-body"></tbody>
               </table>
             </div>
           </aside>
         </div>
-        <section class="metadata-panel"><h2>Metadata</h2><dl>${metadata}</dl></section>
+        ${metadata}
         <dialog id="export-dialog" class="export-dialog">
           <form method="dialog" class="export-header"><h2>Export spectrum image</h2><button aria-label="Close">×</button></form>
           <fieldset class="export-options">
@@ -450,19 +519,26 @@
       similarityMethod = methodSelect.value;
       renderSpectrum();
     };
-    document.getElementById("copy-peaks-tsv").onclick = async () => {
-      try {
-        await navigator.clipboard.writeText(peaksAsTsv(mz, intensity));
-        vscode.postMessage({ type: "copy-notification", message: `Copied ${mz.length} peaks as TSV.` });
-      } catch (error) {
-        vscode.postMessage({ type: "clipboard-error", message: error?.message || "Could not copy peak TSV." });
-      }
-    };
-    document.getElementById("save-peaks-tsv").onclick = () => {
-      const text = peaksAsTsv(mz, intensity);
-      const bytes = Array.from(new TextEncoder().encode(text));
-      const basename = String(title || "spectrum").replace(/[^\w.-]+/g, "_");
-      vscode.postMessage({ type: "save-peaks", filename: `${basename}.tsv`, bytes, sourcePath: payload.datasetPath });
+    for (const format of ["tsv", "csv"]) {
+      document.getElementById(`copy-peaks-${format}`).onclick = async () => {
+        try {
+          const text = peaksAsDelimited(mz, intensity, format, lowerMz, lowerIntensity, similarityTolerance);
+          await navigator.clipboard.writeText(text);
+          vscode.postMessage({ type: "copy-notification", message: `Copied peak table as ${format.toUpperCase()}.` });
+        } catch (error) {
+          vscode.postMessage({ type: "clipboard-error", message: error?.message || `Could not copy peak ${format.toUpperCase()}.` });
+        }
+      };
+    }
+    document.getElementById("save-peaks").onclick = () => {
+      const comparedTitle = comparison.bottom ? `${title}-vs-${comparison.bottom.title || "spectrum"}` : title;
+      const basename = String(comparedTitle || "spectrum").replace(/[^\w.-]+/g, "_");
+      vscode.postMessage({
+        type: "save-peaks", basename, sourcePath: payload.datasetPath,
+        contents: Object.fromEntries(["tsv", "csv"].map((format) => [
+          format, peaksAsDelimited(mz, intensity, format, lowerMz, lowerIntensity, similarityTolerance)
+        ]))
+      });
     };
     const toleranceInput = document.getElementById("similarity-tolerance");
     if (toleranceInput) toleranceInput.onchange = () => {
@@ -470,13 +546,11 @@
       if (Number.isFinite(value) && value > 0) similarityTolerance = Math.min(10, value);
       renderSpectrum();
     };
-    const lowerSpectrum = comparison.bottom?.spectrum;
     setupSpectrumPlot(mz, intensity,
-      Array.isArray(lowerSpectrum?.mz) ? lowerSpectrum.mz.map(Number) : [],
-      Array.isArray(lowerSpectrum?.intensity) ? lowerSpectrum.intensity.map(Number) : []);
+      lowerMz ?? [], lowerIntensity ?? [], Boolean(comparison.bottom));
   }
 
-  function setupSpectrumPlot(mz, intensities, lowerMz = [], lowerIntensities = []) {
+  function setupSpectrumPlot(mz, intensities, lowerMz = [], lowerIntensities = [], comparing = false) {
     if (!state) return;
     const peaks = mz.map((x, index) => ({ x, y: intensities[index] ?? 0, index }))
       .filter((p) => Number.isFinite(p.x) && Number.isFinite(p.y));
@@ -486,9 +560,9 @@
     const tbody = document.getElementById("peak-body");
     const reset = document.getElementById("reset-zoom");
     const exportImage = document.getElementById("export-image");
-    const mzSort = document.getElementById("sort-mz");
+    const mzSorts = [...document.querySelectorAll("[data-sort-mz]")];
     const intensitySort = document.getElementById("sort-intensity");
-    if (!root || !tbody || !reset || !exportImage || !mzSort || !intensitySort) return;
+    if (!root || !tbody || !reset || !exportImage || !mzSorts.length || (!comparing && !intensitySort)) return;
 
     const W = 900, H = 540, L = 72, R = 32, T = 30, B = 62;
     const allPeaks = [...peaks, ...lowerPeaks];
@@ -549,10 +623,26 @@
       const lowerLabels = lowerShown.map((p) => `<text x="${sx(p.x)}" y="${Math.min(H - B - 4, lowerSy(p.y) + 14)}" text-anchor="middle" class="peak-label lower-label">${p.x.toFixed(4)}</text>`).join("");
       root.innerHTML = `<svg id="spectrum-svg" viewBox="0 0 ${W} ${H}" role="img" aria-label="${hasLower ? "Compared mass spectra" : "Mass spectrum"}"><defs><clipPath id="plot-clip"><rect x="${L}" y="${T}" width="${W - L - R}" height="${H - T - B}"/></clipPath></defs><g class="spectrum-grid">${grid}</g><line x1="${L}" y1="${baseline}" x2="${W - R}" y2="${baseline}" class="axis"/><line x1="${L}" y1="${T}" x2="${L}" y2="${H - B}" class="axis"/><g clip-path="url(#plot-clip)">${sticks}${lowerSticks}<g class="peak-labels">${peakLabels}${lowerLabels}</g></g><rect id="drag-box" x="${L}" y="${T}" width="0" height="${baseline - T}" class="selection"/><text x="${(L + W - R) / 2}" y="${H - 12}" text-anchor="middle" class="axis-title mz-title">m/z</text><text transform="translate(17 ${(T + baseline) / 2}) rotate(-90)" text-anchor="middle" class="axis-title">Intensity</text>${hasLower ? `<text transform="translate(17 ${(baseline + H - B) / 2}) rotate(-90)" text-anchor="middle" class="axis-title lower-axis-title">Intensity</text>` : ""}</svg>`;
 
-      const ordered = [...peaks].sort((a, b) => (state.sortKey === "mz" ? a.x - b.x : a.y - b.y) * (state.sortAscending ? 1 : -1));
-      tbody.innerHTML = ordered.map((p) => `<tr data-peak-row="${p.index}" class="peak-row ${state.selectedPeak === p.index ? "selected" : ""}"><td><button data-peak-button="${p.index}">${p.x.toFixed(5)}</button></td><td><button data-peak-button="${p.index}">${p.y.toLocaleString()}</button></td></tr>`).join("");
-      mzSort.textContent = `m/z ${state.sortKey === "mz" ? (state.sortAscending ? "↑" : "↓") : ""}`;
-      intensitySort.textContent = `Intensity ${state.sortKey === "intensity" ? (state.sortAscending ? "↑" : "↓") : ""}`;
+      if (comparing) {
+        const aligned = alignPeakRows(peaks, lowerPeaks, similarityTolerance, state.sortAscending);
+        tbody.innerHTML = aligned.map(({ upper, lower }) => {
+          const upperCells = upper
+            ? `<td><button data-peak-button="${upper.index}">${upper.x.toFixed(5)}</button></td><td><button data-peak-button="${upper.index}">${upper.y.toLocaleString()}</button></td>`
+            : `<td class="missing-peak"></td><td class="missing-peak"></td>`;
+          const lowerCells = lower
+            ? `<td class="lower-value">${lower.x.toFixed(5)}</td><td class="lower-value">${lower.y.toLocaleString()}</td>`
+            : `<td class="missing-peak"></td><td class="missing-peak"></td>`;
+          return `<tr ${upper ? `data-peak-row="${upper.index}"` : ""} class="peak-row ${upper && state.selectedPeak === upper.index ? "selected" : ""}">${upperCells}${lowerCells}</tr>`;
+        }).join("");
+      } else {
+        const ordered = [...peaks].sort((a, b) => {
+          const difference = state.sortKey === "mz" ? a.x - b.x : a.y - b.y;
+          return (difference || a.index - b.index) * (state.sortAscending ? 1 : -1);
+        });
+        tbody.innerHTML = ordered.map((peak) => `<tr data-peak-row="${peak.index}" class="peak-row ${state.selectedPeak === peak.index ? "selected" : ""}"><td><button data-peak-button="${peak.index}">${peak.x.toFixed(5)}</button></td><td><button data-peak-button="${peak.index}">${peak.y.toLocaleString()}</button></td></tr>`).join("");
+      }
+      mzSorts.forEach((sort) => { sort.textContent = `m/z ${state.sortAscending ? "↑" : "↓"}`; });
+      if (intensitySort) intensitySort.textContent = `Intensity ${state.sortKey === "intensity" ? (state.sortAscending ? "↑" : "↓") : ""}`;
 
       root.querySelectorAll("[data-peak]").forEach((el) => el.addEventListener("click", (e) => {
         e.stopPropagation();
@@ -623,8 +713,8 @@
       }
       draw();
     };
-    mzSort.onclick = () => changeSort("mz");
-    intensitySort.onclick = () => changeSort("intensity");
+    mzSorts.forEach((sort) => { sort.onclick = () => changeSort("mz"); });
+    if (intensitySort) intensitySort.onclick = () => changeSort("intensity");
     const resetZoom = () => {
       state.domain = [...full];
       state.yDomain = [0, fullYMax];
@@ -642,6 +732,9 @@
 
   window.addEventListener("message", (event) => {
     if (event.data?.type === "spectrum") receiveSpectrum(event.data.payload);
+    else if (event.data?.type === "spectrum-comparison") {
+      receiveComparison(event.data.top, event.data.bottom, event.data.method);
+    }
   });
 
   vscode.postMessage({ type: "ready" });

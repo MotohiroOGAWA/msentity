@@ -21,7 +21,7 @@ def setup_parser(
     parser.add_argument(
         "--file-type",
         default=None,
-        choices=["msp", "mgf", "msds", "tsv"],
+        choices=["msp", "mgf", "msds", "tsv", "csv"],
         help="Input file type. If omitted, it is inferred from the file extension.",
     )
 

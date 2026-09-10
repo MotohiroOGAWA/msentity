@@ -13,9 +13,17 @@ Functions
    msentity.read_tsv
    msentity.read_tsv_text
    msentity.write_tsv
+   msentity.read_csv
+   msentity.read_csv_text
+   msentity.write_csv
    msentity.load_ms_dataset
    msentity.processing.id.set_spec_id
    msentity.processing.id.set_peak_id
    msentity.processing.spectrum_similarity.cosine_similarity_pair
+   msentity.processing.spectrum_similarity.cosine_similarity_by_key
    msentity.processing.spectrum_similarity.cosine_similarity_all_pairs_matrix
+   msentity.similarity.library_search
+   msentity.similarity.similarity_by_key
+   msentity.similarity.calculate_library_search
+   msentity.similarity.calculate_similarity
    msentity.processing.inspect.print_hdf5_structure

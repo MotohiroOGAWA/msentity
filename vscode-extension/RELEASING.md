@@ -90,7 +90,9 @@ or
 code --install-extension "./dist/msentity-spectrum-viewer.vsix" --force
 ```
 
-Open an MSDS, MSP, MGF, or TSV file and confirm that the viewer loads correctly.
+Open an MSDS, MSP, MGF, TSV, and CSV file and confirm that the viewer loads
+correctly. Confirm that dataset export and peak-table copy/save work for both
+TSV and CSV.
 
 ## 3. Commit the version update
 

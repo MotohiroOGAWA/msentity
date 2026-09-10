@@ -3,6 +3,11 @@ const path = require("path");
 const { spawn } = require("child_process");
 const crypto = require("crypto");
 
+const DATASET_FORMATS = {
+  msds: "msentity dataset", msp: "NIST MSP", mgf: "Mascot Generic Format",
+  tsv: "Tab-separated spectrum table", csv: "Comma-separated spectrum table"
+};
+
 const VIEW_TYPE = "msentity.spectrumViewer";
 const SIMILARITY_VIEW_TYPE = "msentity.similarityViewer";
 let outputChannel;
@@ -80,11 +85,16 @@ class MSEntityViewerProvider {
         try {
           const message = JSON.parse(line.slice("MSENTITY_JSON:".length));
           if (message.type === "similarity-options") {
-            this.configureSimilarity(message.datasets, document.uri, writeRequest, send, () => disposed)
+            this.configureSimilarity(
+              message.datasets, message.active_dataset_id, document.uri,
+              writeRequest, send, () => disposed
+            )
               .catch((error) => send({ type: "similarity-error", message: error.message || String(error) }));
           } else if (message.type === "similarity-complete") {
             vscode.commands.executeCommand("vscode.openWith", vscode.Uri.file(message.path), SIMILARITY_VIEW_TYPE)
               .catch((error) => vscode.window.showErrorMessage(String(error)));
+          } else if (message.type === "similarity-match") {
+            this.showSpectrum(document.uri, message.query, message.reference, message.method);
           }
           send(message);
         } catch (error) {
@@ -180,7 +190,7 @@ class MSEntityViewerProvider {
           writeRequest({ type: "reload", dataset_id: message.datasetId, filters: message.filters, sort: message.sort, bins: message.bins });
           break;
         case "calculate-similarity":
-          writeRequest({ type: "similarity-options" });
+          writeRequest({ type: "similarity-options", dataset_id: message.datasetId });
           break;
         case "similarity-error-notification":
           vscode.window.showErrorMessage(String(message.message || "Could not calculate similarity."));
@@ -205,17 +215,20 @@ class MSEntityViewerProvider {
           } catch (error) { send({ type: "error", message: error.message || String(error) }); }
           break;
         }
+        case "open-similarity-match":
+          writeRequest({ type: "match", row: Number(message.resultIndex) });
+          break;
         case "add-dataset": {
           const selected = await vscode.window.showOpenDialog({
             title: "Add dataset to this viewer",
             canSelectMany: false,
-            filters: { "Mass spectrum datasets": ["msds", "msp", "mgf", "tsv"] }
+            filters: { "Mass spectrum datasets": Object.keys(DATASET_FORMATS) }
           });
           if (selected?.[0]) writeRequest({ type: "add-dataset", path: selected[0].fsPath });
           break;
         }
         case "export-dataset": {
-          const format = await vscode.window.showQuickPick(["msds", "msp", "mgf", "tsv"], {
+          const format = await vscode.window.showQuickPick(Object.keys(DATASET_FORMATS), {
             title: "Export msentity dataset",
             placeHolder: "Choose the output format"
           });
@@ -227,7 +240,7 @@ class MSEntityViewerProvider {
           const sourceName = path.basename(sourcePath, path.extname(sourcePath));
           const target = await vscode.window.showSaveDialog({
             defaultUri: vscode.Uri.joinPath(document.uri, "..", `${sourceName}.${format}`),
-            filters: format === "msds" ? { "msentity dataset": ["msds"] } : format === "msp" ? { "NIST MSP": ["msp"] } : format === "mgf" ? { "Mascot Generic Format": ["mgf"] } : { "Tab-separated spectrum table": ["tsv"] }
+            filters: { [DATASET_FORMATS[format]]: [format] }
           });
           if (target) {
             const selectedExtension = path.extname(target.fsPath);
@@ -276,30 +289,103 @@ class MSEntityViewerProvider {
     });
   }
 
-  async configureSimilarity(datasets, documentUri, writeRequest, send, isDisposed) {
+  async configureSimilarity(datasets, activeDatasetId, documentUri, writeRequest, send, isDisposed) {
     const cancel = () => send({ type: "similarity-cancelled" });
-    if (datasets.length < 2) throw new Error("Use Add dataset to load at least two datasets.");
-    let selected = datasets;
-    if (datasets.length > 2) {
-      const choices = await vscode.window.showQuickPick(
-        datasets.map((dataset) => ({ label: dataset.name, description: dataset.id, dataset })),
-        { title: "Calculate similarity: select exactly two datasets", canPickMany: true, ignoreFocusOut: true }
-      );
-      if (!choices || isDisposed()) return cancel();
-      if (choices.length !== 2) throw new Error("Select exactly two datasets.");
-      selected = choices.map((choice) => choice.dataset);
-    }
-    const parameters = {};
-    for (let i = 0; i < 2; i++) {
-      const dataset = selected[i];
-      const columns = [...dataset.columns].sort((a, b) => (a === "SpecID" ? -1 : b === "SpecID" ? 1 : a.localeCompare(b)));
-      const key = await vscode.window.showQuickPick(columns, {
-        title: `Similarity: key${i + 1} — ${dataset.name}`,
-        placeHolder: "Non-missing keys must be unique; values found on only one side are skipped", ignoreFocusOut: true
+    if (!datasets.length) throw new Error("No dataset is loaded.");
+    const modeChoice = await vscode.window.showQuickPick([
+      {
+        label: "Library search",
+        description: "Compare every query spectrum with every reference spectrum",
+        mode: "library_search"
+      },
+      {
+        label: "Match by metadata key",
+        description: "Compare records that share the same unique ID or other key",
+        mode: "by_key"
+      }
+    ], { title: "Calculate similarity", placeHolder: "Choose how spectra are paired", ignoreFocusOut: true });
+    if (!modeChoice || isDisposed()) return cancel();
+
+    const orderedDatasets = [...datasets].sort((left, right) =>
+      Number(right.id === activeDatasetId) - Number(left.id === activeDatasetId));
+    const datasetItems = (items) => items.map((dataset) => ({
+      label: dataset.name, description: dataset.id, dataset
+    }));
+    let first = orderedDatasets[0];
+    if (orderedDatasets.length > 1) {
+      const choice = await vscode.window.showQuickPick(datasetItems(orderedDatasets), {
+        title: modeChoice.mode === "library_search" ? "Library search: query dataset" : "Key matching: first dataset",
+        placeHolder: "The currently active dataset is listed first", ignoreFocusOut: true
       });
-      if (key === undefined || isDisposed()) return cancel();
-      parameters[`key${i + 1}`] = key;
+      if (!choice || isDisposed()) return cancel();
+      first = choice.dataset;
     }
+
+    let second;
+    let referencePath;
+    if (modeChoice.mode === "library_search") {
+      const referenceItems = [
+        ...datasetItems(datasets.filter((dataset) => dataset.id !== first.id)),
+        { label: "$(folder-opened) Choose a dataset file…", description: "MSDS, MSP, MGF, TSV, or CSV", browse: true }
+      ];
+      const referenceChoice = await vscode.window.showQuickPick(referenceItems, {
+        title: "Library search: reference library",
+        placeHolder: "Choose an Add Dataset entry or load a reference file for this search", ignoreFocusOut: true
+      });
+      if (!referenceChoice || isDisposed()) return cancel();
+      if (referenceChoice.browse) {
+        const files = await vscode.window.showOpenDialog({
+          title: "Choose reference dataset",
+          canSelectMany: false,
+          filters: { "Mass spectrum datasets": Object.keys(DATASET_FORMATS) }
+        });
+        if (!files?.[0] || isDisposed()) return cancel();
+        referencePath = files[0].fsPath;
+      } else {
+        second = referenceChoice.dataset;
+      }
+    } else {
+      const candidates = datasets.filter((dataset) => dataset.id !== first.id);
+      if (!candidates.length) throw new Error("Add a second dataset for metadata-key matching.");
+      const choice = candidates.length === 1 ? { dataset: candidates[0] } : await vscode.window.showQuickPick(
+        datasetItems(candidates),
+        { title: "Key matching: second dataset", placeHolder: "Choose the comparison dataset", ignoreFocusOut: true }
+      );
+      if (!choice || isDisposed()) return cancel();
+      second = choice.dataset;
+    }
+
+    const methodChoice = await vscode.window.showQuickPick([
+      { label: "Cosine similarity", description: "Normalize all peaks in both spectra", method: "cosine" },
+      { label: "Reverse cosine similarity", description: "Ignore unmatched query peaks in the query norm", method: "reverse_cosine" }
+    ], { title: "Similarity calculation method", ignoreFocusOut: true });
+    if (!methodChoice || isDisposed()) return cancel();
+    const parameters = { method: methodChoice.method };
+
+    if (modeChoice.mode === "by_key") {
+      for (const [index, dataset] of [first, second].entries()) {
+        const columns = [...dataset.columns].sort((a, b) => (a === "SpecID" ? -1 : b === "SpecID" ? 1 : a.localeCompare(b)));
+        const key = await vscode.window.showQuickPick(columns, {
+          title: `Key matching: key${index + 1} — ${dataset.name}`,
+          placeHolder: "Non-missing keys must be unique; values found on only one side are skipped", ignoreFocusOut: true
+        });
+        if (key === undefined || isDisposed()) return cancel();
+        parameters[`key${index + 1}`] = key;
+      }
+    } else {
+      const threshold = await vscode.window.showInputBox({
+        title: "Library search: score threshold", value: "0.8", ignoreFocusOut: true,
+        prompt: "Only matches at or above this score are saved.",
+        validateInput: (text) => {
+          const number = Number(text);
+          return !text.trim() || !Number.isFinite(number) || number < 0 || number > 1
+            ? "Enter a finite number from 0 to 1." : undefined;
+        }
+      });
+      if (threshold === undefined || isDisposed()) return cancel();
+      parameters.threshold = Number(threshold);
+    }
+
     for (const [name, title, value, integer] of [
       ["bin_width", "m/z bin width", "0.01", false],
       ["intensity_exponent", "Intensity exponent (0.5 = square root)", "1", false],
@@ -307,7 +393,7 @@ class MSEntityViewerProvider {
     ]) {
       const input = await vscode.window.showInputBox({
         title: `Similarity: ${title}`, value, ignoreFocusOut: true,
-        prompt: "Compare the entire loaded datasets, including unsaved edits. Table filters do not limit this calculation.",
+        prompt: "Compare the entire selected datasets, including unsaved edits. Table filters do not limit this calculation.",
         validateInput: (text) => {
           const number = Number(text);
           return !Number.isFinite(number) || number <= 0 || (integer && !Number.isSafeInteger(number))
@@ -317,6 +403,21 @@ class MSEntityViewerProvider {
       if (input === undefined || isDisposed()) return cancel();
       parameters[name] = Number(input);
     }
+    const storageChoice = await vscode.window.showQuickPick([
+      {
+        label: "Include matched data",
+        description: "Store each unique matched spectrum and its metadata once",
+        include: true
+      },
+      {
+        label: "Lightweight result",
+        description: "Store match indices and scores without spectrum data",
+        include: false
+      }
+    ], { title: "Similarity result contents", ignoreFocusOut: true });
+    if (!storageChoice || isDisposed()) return cancel();
+    parameters.include_matched_data = storageChoice.include;
+
     const target = await vscode.window.showSaveDialog({
       title: "Save similarity results",
       defaultUri: vscode.Uri.joinPath(documentUri, "..", "similarity.mssim"),
@@ -325,11 +426,14 @@ class MSEntityViewerProvider {
     if (!target || isDisposed()) return cancel();
     if (path.extname(target.fsPath).toLowerCase() !== ".mssim") throw new Error("Use the .mssim extension.");
     send({ type: "similarity-start" });
-    writeRequest({ type: "calculate-similarity", dataset1: selected[0].id, dataset2: selected[1].id,
-      parameters, path: target.fsPath });
+    writeRequest({
+      type: "calculate-similarity", mode: modeChoice.mode,
+      dataset1: first.id, dataset2: second?.id, reference_path: referencePath,
+      parameters, path: target.fsPath
+    });
   }
 
-  showSpectrum(documentUri, payload) {
+  showSpectrum(documentUri, payload, comparisonBottom = null, comparisonMethod = "cosine") {
     if (!payload || typeof payload !== "object") return;
     const key = documentUri.toString();
     let entry = this.spectrumPanels.get(key);
@@ -347,17 +451,27 @@ class MSEntityViewerProvider {
       );
       panel.iconPath = this.iconPath;
       panel.webview.html = getSpectrumWebviewHtml(panel.webview, this.context.extensionUri);
-      entry = { panel, ready: false, latest: payload };
+      entry = { panel, ready: false, latest: payload, comparisonBottom, comparisonMethod };
       this.spectrumPanels.set(key, entry);
 
       panel.webview.onDidReceiveMessage((message) => {
         if (message?.type === "ready") {
           entry.ready = true;
-          if (entry.latest) panel.webview.postMessage({ type: "spectrum", payload: entry.latest });
+          if (entry.latest && entry.comparisonBottom) {
+            panel.webview.postMessage({
+              type: "spectrum-comparison", top: entry.latest,
+              bottom: entry.comparisonBottom, method: entry.comparisonMethod
+            });
+          } else if (entry.latest) {
+            panel.webview.postMessage({ type: "spectrum", payload: entry.latest });
+          }
         } else if (message?.type === "save-image") {
           this.saveImage(documentUri, message);
         } else if (message?.type === "save-peaks") {
-          this.savePeaks(documentUri, message);
+          this.savePeaks(documentUri, message).catch((error) => {
+            outputChannel.appendLine(`[peak export] ${error?.stack || String(error)}`);
+            vscode.window.showErrorMessage(error?.message || String(error));
+          });
         } else if (message?.type === "copy-notification") {
           vscode.window.showInformationMessage(String(message.message || "Copied to clipboard."));
         } else if (message?.type === "clipboard-error") {
@@ -382,6 +496,8 @@ class MSEntityViewerProvider {
       }
     } else {
       entry.latest = payload;
+      entry.comparisonBottom = comparisonBottom;
+      entry.comparisonMethod = comparisonMethod;
       // Reveal in its current location. Omitting a view column is important when
       // the panel lives in a floating VS Code window because specifying a column
       // would move it back into the main window.
@@ -389,8 +505,16 @@ class MSEntityViewerProvider {
     }
 
     entry.latest = payload;
-    entry.panel.title = `${payload.title || `Spectrum ${(payload.globalIndex ?? 0) + 1}`} · Mass Spectrum`;
-    if (entry.ready) entry.panel.webview.postMessage({ type: "spectrum", payload });
+    entry.comparisonBottom = comparisonBottom;
+    entry.comparisonMethod = comparisonMethod;
+    entry.panel.title = comparisonBottom
+      ? `${payload.title || "Query"} ↔ ${comparisonBottom.title || "Reference"} · Mass Spectrum`
+      : `${payload.title || `Spectrum ${(payload.globalIndex ?? 0) + 1}`} · Mass Spectrum`;
+    if (entry.ready) {
+      entry.panel.webview.postMessage(comparisonBottom
+        ? { type: "spectrum-comparison", top: payload, bottom: comparisonBottom, method: comparisonMethod }
+        : { type: "spectrum", payload });
+    }
   }
 
   async saveImage(documentUri, message) {
@@ -409,18 +533,36 @@ class MSEntityViewerProvider {
   }
 
   async savePeaks(documentUri, message) {
-    const filename = String(message?.filename || "spectrum.tsv").replace(/[^\w.-]+/g, "_");
-    const bytes = Array.isArray(message?.bytes) ? Uint8Array.from(message.bytes) : null;
-    if (!bytes) return;
+    const formats = {
+      tsv: { label: "TSV", description: "Tab-separated values", filter: "Tab-separated values" },
+      csv: { label: "CSV", description: "Comma-separated values", filter: "Comma-separated values" }
+    };
+    const selected = await vscode.window.showQuickPick(
+      Object.entries(formats).map(([format, details]) => ({ ...details, format })),
+      { title: "Save spectrum peaks", placeHolder: "Choose the output format" }
+    );
+    if (!selected) return null;
+    const content = message?.contents?.[selected.format];
+    if (typeof content !== "string") throw new Error(`Peak ${selected.label} data is unavailable.`);
+    const basename = String(message?.basename || "spectrum").replace(/[^\w.-]+/g, "_");
+    const filename = `${basename.replace(/\.(?:tsv|csv)$/i, "")}.${selected.format}`;
     const sourcePath = String(message?.sourcePath || "");
     const sourceUri = sourcePath ? vscode.Uri.file(sourcePath) : documentUri;
     const target = await vscode.window.showSaveDialog({
       defaultUri: vscode.Uri.joinPath(sourceUri, "..", filename),
-      filters: { "Tab-separated values": ["tsv"] }
+      filters: { [selected.filter]: [selected.format] }
     });
-    if (!target) return;
-    await vscode.workspace.fs.writeFile(target, bytes);
-    vscode.window.showInformationMessage(`Saved ${path.basename(target.fsPath)}`);
+    if (!target) return null;
+    const chosenExtension = path.extname(target.fsPath);
+    const outputPath = chosenExtension.toLowerCase() === `.${selected.format}`
+      ? target.fsPath
+      : chosenExtension
+        ? `${target.fsPath.slice(0, -chosenExtension.length)}.${selected.format}`
+        : `${target.fsPath}.${selected.format}`;
+    const outputUri = outputPath === target.fsPath ? target : vscode.Uri.file(outputPath);
+    await vscode.workspace.fs.writeFile(outputUri, Buffer.from(content, "utf8"));
+    vscode.window.showInformationMessage(`Saved ${path.basename(outputPath)}`);
+    return outputPath;
   }
 
   dispose() {
@@ -501,7 +643,7 @@ function activate(context) {
     })
   );
 
-  for (const fileType of ["msds", "msp", "mgf", "tsv"]) {
+  for (const fileType of Object.keys(DATASET_FORMATS)) {
     context.subscriptions.push(
       vscode.commands.registerCommand(`msentitySpectrumViewer.openAs${fileType.toUpperCase()}`, (uri) => provider.openAs(uri, fileType))
     );
@@ -511,7 +653,7 @@ function activate(context) {
     vscode.commands.registerCommand("msentitySpectrumViewer.open", async (uri) => {
       const target = uri || vscode.window.activeTextEditor?.document?.uri;
       if (!target) {
-        vscode.window.showWarningMessage("Select an .msds, .msp, or .mgf file first, or use “MS Entity: Open as TSV”.");
+        vscode.window.showWarningMessage("Select an .msds, .msp, or .mgf file first, or use “MS Entity: Open as TSV” or “MS Entity: Open as CSV”.");
         return;
       }
       await vscode.commands.executeCommand("vscode.openWith", target,
