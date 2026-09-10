@@ -10,6 +10,7 @@ Loading a dataset
 
 .. jupyter-input::
 
+   import pandas as pd
    from msentity import load_ms_dataset
    dataset = load_ms_dataset("example.msp")
 
@@ -20,8 +21,13 @@ The interactive-shell expression ``filter PrecursorMZ > 300`` corresponds to:
 
 .. jupyter-input::
 
-   filtered = dataset[dataset["PrecursorMZ"] > 300]
+   precursor_mz = pd.to_numeric(dataset["PrecursorMZ"], errors="coerce")
+   filtered = dataset[precursor_mz > 300]
    filtered.metadata
+
+Text formats retain metadata values as strings unless the format-specific
+reader can infer a numeric column. ``pd.to_numeric(..., errors="coerce")``
+makes the comparison explicit and treats non-numeric values as missing.
 
 Filtering by ion mode
 ---------------------
@@ -74,7 +80,7 @@ Parenthesize each pandas condition and combine them with ``&``, ``|``, and
 
    selected = dataset[
        (dataset["IonMode"].astype(str).str.casefold() == "positive")
-       & dataset["PrecursorMZ"].between(200, 500)
+       & precursor_mz.between(200, 500)
    ]
    selected = selected.sort_by("PrecursorMZ", ascending=False)
    selected.metadata

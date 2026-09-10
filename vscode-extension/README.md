@@ -2,7 +2,7 @@
 
 This extension is the graphical viewer included in the
 [`msentity`](https://github.com/MotohiroOGAWA/msentity) repository. It opens
-`.msds`, `.msp`, and `.mgf` datasets without Gradio, with explicit TSV import/export.
+MSDS, MSP, MGF, TSV, and CSV datasets without Gradio.
 
 ## Features
 
@@ -10,12 +10,12 @@ This extension is the graphical viewer included in the
 - Full-dataset, multi-condition filtering (separate text/number `=`, text `!=`, `contains`, `>`, `>=`, `<`, `<=`) and prioritized multi-column row sorting
 - Assign sequential SpecID values from the toolbar with an optional prefix
 - MSP/MGF loading progress with bytes, percentage, and spectrum count
-- Export to MSDS, MSP, MGF, or TSV using the visible column order and current row filters/sort order
+- Export to MSDS, MSP, MGF, TSV, or CSV using the visible column order and current row filters/sort order
 - msentity file-type icon for `.msds`, `.msp`, and `.mgf` tabs
 - one transparent PNG for the extension listing, file type, and editor tabs
 - Optional VS Code floating plot window
 - Peak table, m/z/intensity sorting, and peak selection
-- Copy or save the current upper spectrum's complete peak list as TSV
+- Copy or save the current upper spectrum's complete peak list as TSV or CSV
 - Independent horizontal, vertical, and two-dimensional drag-to-zoom
 - m/z range starting at zero and adaptive 1, 2, 2.5, 5, 10 tick spacing
 - Adaptive zero-based intensity ticks
@@ -148,8 +148,9 @@ URL, while the versioned filename supports pinned downloads.
 
 ## Usage
 
-Open an `.msds`, `.msp`, or `.mgf` file. For TSV, use **MS Entity: Open as TSV**
-so ordinary TSV files remain associated with VS Code's normal text editor. Click a spectrum button in the table;
+Open an `.msds`, `.msp`, or `.mgf` file normally. For TSV or CSV, use **MS
+Entity: Open as TSV** or **MS Entity: Open as CSV** so ordinary tabular files
+remain associated with VS Code's normal text editor. Click a spectrum button in the table;
 the reusable **Mass Spectrum** panel opens and updates when another record is
 selected. Use **Add dataset…** to load more files into the same dataset viewer,
 then switch between them with the dataset dropdown. Spectra opened from those
@@ -180,17 +181,17 @@ When both kinds of tick numbers are disabled, export compacts the axis-title
 spacing and unused margins. Click empty plot space to clear peak selection; double-click
 the plot to reset both zoom axes.
 
-Use **Copy TSV** above the peak table to copy all peaks from the current upper
-spectrum with `m/z` and `Intensity` columns. **Save TSV** writes the same
-unrounded values to a tab-separated file. These actions include the complete
-spectrum, independent of the current plot zoom, in the peak table's current
-m/z or Intensity sort order.
+Use **Copy TSV** or **Copy CSV** above the peak table to copy all peaks from the
+current upper spectrum with `m/z` and `Intensity` columns. **Save TSV** and
+**Save CSV** write the same unrounded values to a file. These actions include
+the complete spectrum, independent of the current plot zoom, in the peak
+table's current m/z or Intensity sort order.
 
-Opening normally detects MSDS, MSP, or MGF from the extension. TSV is intentionally
-not registered as a custom-editor file extension. To open one as a spectrum table,
+Opening normally detects MSDS, MSP, or MGF from the extension. TSV and CSV are
+intentionally not registered as custom-editor file extensions. To open one as a spectrum table,
 right-click a file in Explorer and choose **MS Entity: Open as MSDS**, **Open as
-MSP**, **Open as MGF**, or **Open as TSV**. The same commands are available in the Command
-Palette. Dataset **Export...** first asks for MSDS, MSP, MGF, or TSV and then for the
+MSP**, **Open as MGF**, **Open as TSV**, or **Open as CSV**. The same commands are available in the Command
+Palette. Dataset **Export...** first asks for MSDS, MSP, MGF, TSV, or CSV and then for the
 save location; the chosen format takes precedence and its extension is applied
 automatically. The exported dataset contains the currently selected columns in
 their displayed order and the rows in their current filtered and sorted order.
@@ -217,7 +218,7 @@ python -m unittest discover -s vscode-extension/tests -p 'test_*.py'
 
 For the parameter wizard and browser interaction test, install Playwright in a
 separate test environment (or make it available through `NODE_PATH`), install its
-Chromium browser, and run `node vscode-extension/tests/test_similarity_ui.js`.
+Chromium browser, and run `node --test vscode-extension/tests/test_similarity_ui.js`.
 `MSENTITY_PYTHON` selects the Python executable; `CHROMIUM_PATH` optionally selects
 an existing Chromium executable. The test uses the actual Python result backend
 and a mocked VS Code host, and writes a screenshot to the system temporary directory.

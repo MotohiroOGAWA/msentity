@@ -18,12 +18,12 @@ Typical workflow
 
 A common workflow is:
 
-1. Load an MSP, MGF, or MSDS file.
+1. Load an MSP, MGF, MSDS, TSV, or CSV file.
 2. Inspect dataset-level information.
 3. Preview spectrum metadata.
 4. Inspect individual spectra and peaks.
 5. Filter spectra by metadata.
-6. Save the result as an ``.msds`` file.
+6. Save the result as MSDS, MSP, MGF, TSV, or CSV as appropriate.
 
 Because slicing and filtering create views, call ``copy()`` before destructive
 editing when the original dataset must remain unchanged.
@@ -65,7 +65,9 @@ The Python API can reproduce the main CLI operations.
    * - ``peaks 0 --top 10 --sort intensity``
      - ``dataset.peaks[0].sort_by_intensity().data[:10]``
    * - ``filter PrecursorMZ > 300``
-     - ``dataset[dataset["PrecursorMZ"] > 300]``
+     - ``dataset[pd.to_numeric(dataset["PrecursorMZ"], errors="coerce") > 300]``
+   * - ``msentity similarity-by-key first.msds second.msds --output result.mssim``
+     - ``SimilarityDataset.from_datasets(first, second).save("result.mssim")``
 
 Recommended reading order
 -------------------------

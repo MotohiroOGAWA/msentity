@@ -8,7 +8,8 @@
 
 **msentity** is a lightweight Python toolkit for reading, representing, and
 manipulating mass-spectrometry datasets. It combines pandas-based spectrum
-metadata with compact peak storage and provides MSP, MGF, and native MSDS I/O.
+metadata with compact peak storage and provides MSP, MGF, TSV, CSV, and native
+MSDS I/O.
 
 Use it from Python, the command line, an interactive dataset shell, or the
 included VS Code spectrum viewer.
@@ -34,6 +35,22 @@ python -m pip install "msentity @ git+https://github.com/MotohiroOGAWA/msentity.
 This installs the Python API, command-line tools, and interactive shell. The
 VS Code extension is distributed as a separate VSIX from this same repository.
 
+## Python API
+
+`load_ms_dataset` detects MSP, MGF, MSDS, TSV, and CSV from the filename. TSV
+and CSV spectrum tables store one spectrum per row and use a final `Peak`
+column containing `mz,intensity` pairs separated by semicolons.
+
+```python
+import pandas as pd
+from msentity import load_ms_dataset, write_csv
+
+dataset = load_ms_dataset("sample.msp")
+precursor_mz = pd.to_numeric(dataset["PrecursorMZ"], errors="coerce")
+selected = dataset[precursor_mz > 300]
+write_csv(selected, "selected.csv", headers=["Name", "PrecursorMZ"])
+```
+
 ## Command-line usage
 
 Inspect or convert a dataset without writing Python:
@@ -42,14 +59,15 @@ Inspect or convert a dataset without writing Python:
 msentity info sample.msp
 msentity head sample.msp --num-rows 5
 msentity convert sample.msp sample.msds
+msentity similarity-by-key first.msds second.msds --output result.mssim
 ```
 
-Run `msentity --help` to see all commands, including directory merging and
-MSDS metadata inspection.
+Run `msentity --help` to see all commands, including directory merging, MSDS
+metadata inspection, and similarity calculation by a shared metadata key.
 
 ## Interactive shell
 
-Open an MSP, MGF, or MSDS file in a dataset-oriented prompt:
+Open an MSP, MGF, MSDS, TSV, or CSV file in a dataset-oriented prompt:
 
 ```console
 msentity shell sample.msp
@@ -89,15 +107,16 @@ Actions (...) → Install from VSIX...**, and select the downloaded file. Run
 **Developer: Reload Window** after installation. The Python environment selected
 by `msentitySpectrumViewer.pythonPath` must have `msentity` installed.
 
-Open an `.msds`, `.msp`, or `.mgf` file and click a spectrum row to display its
-mass spectrum. The viewer supports peak selection and sorting, drag-to-zoom,
+Open an `.msds`, `.msp`, or `.mgf` file normally. Open a TSV or CSV spectrum
+table with the explicit **Open as TSV** or **Open as CSV** command, then click a
+spectrum row to display its mass spectrum. The viewer supports peak selection and sorting, drag-to-zoom,
 zoom-dependent readable axis ticks, and previewed transparent PNG/SVG export.
-The complete loaded dataset can also be converted and saved as MSDS, MSP, MGF,
-or TSV directly from the viewer.
+The current filtered and sorted dataset view can also be saved as MSDS, MSP,
+MGF, TSV, or CSV directly from the viewer.
 File extensions are used for automatic input detection. To specify the input
-format explicitly—including TSV—right-click a file in Explorer and choose **MS Entity: Open
-as MSDS**, **Open as MSP**, **Open as MGF**, or **Open as TSV**; the same commands are available
-from the Command Palette. **Export...** asks for MSDS, MSP, MGF, or TSV before the
+format explicitly—including TSV and CSV—right-click a file in Explorer and choose **MS Entity: Open
+as MSDS**, **Open as MSP**, **Open as MGF**, **Open as TSV**, or **Open as CSV**; the same commands are available
+from the Command Palette. **Export...** asks for MSDS, MSP, MGF, TSV, or CSV before the
 save location, so the output format is explicit and the matching extension is
 applied automatically.
 The export dialog can independently include tick grid lines, tick numbers, and

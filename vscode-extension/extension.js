@@ -3,6 +3,11 @@ const path = require("path");
 const { spawn } = require("child_process");
 const crypto = require("crypto");
 
+const DATASET_FORMATS = {
+  msds: "msentity dataset", msp: "NIST MSP", mgf: "Mascot Generic Format",
+  tsv: "Tab-separated spectrum table", csv: "Comma-separated spectrum table"
+};
+
 const VIEW_TYPE = "msentity.spectrumViewer";
 const SIMILARITY_VIEW_TYPE = "msentity.similarityViewer";
 let outputChannel;
@@ -209,13 +214,13 @@ class MSEntityViewerProvider {
           const selected = await vscode.window.showOpenDialog({
             title: "Add dataset to this viewer",
             canSelectMany: false,
-            filters: { "Mass spectrum datasets": ["msds", "msp", "mgf", "tsv"] }
+            filters: { "Mass spectrum datasets": Object.keys(DATASET_FORMATS) }
           });
           if (selected?.[0]) writeRequest({ type: "add-dataset", path: selected[0].fsPath });
           break;
         }
         case "export-dataset": {
-          const format = await vscode.window.showQuickPick(["msds", "msp", "mgf", "tsv"], {
+          const format = await vscode.window.showQuickPick(Object.keys(DATASET_FORMATS), {
             title: "Export msentity dataset",
             placeHolder: "Choose the output format"
           });
@@ -227,7 +232,7 @@ class MSEntityViewerProvider {
           const sourceName = path.basename(sourcePath, path.extname(sourcePath));
           const target = await vscode.window.showSaveDialog({
             defaultUri: vscode.Uri.joinPath(document.uri, "..", `${sourceName}.${format}`),
-            filters: format === "msds" ? { "msentity dataset": ["msds"] } : format === "msp" ? { "NIST MSP": ["msp"] } : format === "mgf" ? { "Mascot Generic Format": ["mgf"] } : { "Tab-separated spectrum table": ["tsv"] }
+            filters: { [DATASET_FORMATS[format]]: [format] }
           });
           if (target) {
             const selectedExtension = path.extname(target.fsPath);
@@ -416,7 +421,8 @@ class MSEntityViewerProvider {
     const sourceUri = sourcePath ? vscode.Uri.file(sourcePath) : documentUri;
     const target = await vscode.window.showSaveDialog({
       defaultUri: vscode.Uri.joinPath(sourceUri, "..", filename),
-      filters: { "Tab-separated values": ["tsv"] }
+      filters: path.extname(filename).toLowerCase() === ".csv"
+        ? { "Comma-separated values": ["csv"] } : { "Tab-separated values": ["tsv"] }
     });
     if (!target) return;
     await vscode.workspace.fs.writeFile(target, bytes);
@@ -501,7 +507,7 @@ function activate(context) {
     })
   );
 
-  for (const fileType of ["msds", "msp", "mgf", "tsv"]) {
+  for (const fileType of Object.keys(DATASET_FORMATS)) {
     context.subscriptions.push(
       vscode.commands.registerCommand(`msentitySpectrumViewer.openAs${fileType.toUpperCase()}`, (uri) => provider.openAs(uri, fileType))
     );
@@ -511,7 +517,7 @@ function activate(context) {
     vscode.commands.registerCommand("msentitySpectrumViewer.open", async (uri) => {
       const target = uri || vscode.window.activeTextEditor?.document?.uri;
       if (!target) {
-        vscode.window.showWarningMessage("Select an .msds, .msp, or .mgf file first, or use “MS Entity: Open as TSV”.");
+        vscode.window.showWarningMessage("Select an .msds, .msp, or .mgf file first, or use “MS Entity: Open as TSV” or “MS Entity: Open as CSV”.");
         return;
       }
       await vscode.commands.executeCommand("vscode.openWith", target,

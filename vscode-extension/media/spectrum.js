@@ -61,14 +61,15 @@
       .filter((peak) => Number.isFinite(peak.mz) && peak.intensity > 0);
   };
 
-  const peaksAsTsv = (mz, intensity) => {
-    const lines = ["m/z\tIntensity"];
+  const peaksAsDelimited = (mz, intensity, format) => {
+    const delimiter = format === "csv" ? "," : "\t";
+    const lines = [`m/z${delimiter}Intensity`];
     const peaks = mz.map((value, index) => ({ mz: Number(value), intensity: Number(intensity[index] ?? 0) }))
       .filter((peak) => Number.isFinite(peak.mz) && Number.isFinite(peak.intensity));
     const key = state?.sortKey === "intensity" ? "intensity" : "mz";
     const direction = state?.sortAscending === false ? -1 : 1;
     peaks.sort((a, b) => (a[key] - b[key]) * direction);
-    peaks.forEach((peak) => lines.push(`${peak.mz}\t${peak.intensity}`));
+    peaks.forEach((peak) => lines.push(`${peak.mz}${delimiter}${peak.intensity}`));
     return `${lines.join("\n")}\n`;
   };
 
@@ -401,7 +402,7 @@
             <div id="plot-root"></div>
           </section>
           <aside class="peaks-panel">
-            <div class="peaks-header"><h2>Peaks</h2><div><button id="copy-peaks-tsv" type="button">Copy TSV</button><button id="save-peaks-tsv" type="button">Save TSV</button></div></div>
+            <div class="peaks-header"><h2>Peaks</h2><div>${["tsv", "csv"].map((format) => `<button id="copy-peaks-${format}" type="button">Copy ${format.toUpperCase()}</button><button id="save-peaks-${format}" type="button">Save ${format.toUpperCase()}</button>`).join("")}</div></div>
             <div class="peak-scroll">
               <table class="peak-table">
                 <thead><tr><th><button class="sort-button" id="sort-mz">m/z ↑</button></th><th><button class="sort-button" id="sort-intensity">Intensity</button></th></tr></thead>
@@ -450,20 +451,22 @@
       similarityMethod = methodSelect.value;
       renderSpectrum();
     };
-    document.getElementById("copy-peaks-tsv").onclick = async () => {
-      try {
-        await navigator.clipboard.writeText(peaksAsTsv(mz, intensity));
-        vscode.postMessage({ type: "copy-notification", message: `Copied ${mz.length} peaks as TSV.` });
-      } catch (error) {
-        vscode.postMessage({ type: "clipboard-error", message: error?.message || "Could not copy peak TSV." });
-      }
-    };
-    document.getElementById("save-peaks-tsv").onclick = () => {
-      const text = peaksAsTsv(mz, intensity);
-      const bytes = Array.from(new TextEncoder().encode(text));
-      const basename = String(title || "spectrum").replace(/[^\w.-]+/g, "_");
-      vscode.postMessage({ type: "save-peaks", filename: `${basename}.tsv`, bytes, sourcePath: payload.datasetPath });
-    };
+    for (const format of ["tsv", "csv"]) {
+      document.getElementById(`copy-peaks-${format}`).onclick = async () => {
+        try {
+          await navigator.clipboard.writeText(peaksAsDelimited(mz, intensity, format));
+          vscode.postMessage({ type: "copy-notification", message: `Copied ${mz.length} peaks as ${format.toUpperCase()}.` });
+        } catch (error) {
+          vscode.postMessage({ type: "clipboard-error", message: error?.message || `Could not copy peak ${format.toUpperCase()}.` });
+        }
+      };
+      document.getElementById(`save-peaks-${format}`).onclick = () => {
+        const text = peaksAsDelimited(mz, intensity, format);
+        const bytes = Array.from(new TextEncoder().encode(text));
+        const basename = String(title || "spectrum").replace(/[^\w.-]+/g, "_");
+        vscode.postMessage({ type: "save-peaks", filename: `${basename}.${format}`, bytes, sourcePath: payload.datasetPath });
+      };
+    }
     const toleranceInput = document.getElementById("similarity-tolerance");
     if (toleranceInput) toleranceInput.onchange = () => {
       const value = Number(toleranceInput.value);

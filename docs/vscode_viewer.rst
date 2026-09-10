@@ -2,9 +2,9 @@ VS Code Spectrum Viewer
 =======================
 
 ``msentity-spectrum-viewer`` is the graphical viewer shipped in the
-``vscode-extension`` directory of this repository. It opens MSDS, MSP, and MGF
-files as a paged metadata table and displays the selected mass spectrum in one
-reusable VS Code panel. It does not use or require Gradio.
+``vscode-extension`` directory of this repository. It opens MSDS, MSP, MGF,
+TSV, and CSV datasets as a paged metadata table and displays the selected mass
+spectrum in one reusable VS Code panel. It does not use or require Gradio.
 
 Install a release VSIX
 ----------------------
@@ -40,12 +40,13 @@ Use the viewer
 --------------
 
 Open an ``.msds``, ``.msp``, or ``.mgf`` file normally, or right-click it in
-Explorer and choose **MS Entity: Open Spectrum Viewer**. TSV is intentionally
-not associated with the custom editor; use **MS Entity: Open as TSV** for an
-msentity spectrum table. Click the spectrum
-button in a table row to update the spectrum panel.
+Explorer and choose **MS Entity: Open Spectrum Viewer**. TSV and CSV are
+intentionally not associated with the custom editor, so ordinary tabular files
+keep VS Code's normal editor. Use **MS Entity: Open as TSV** or **MS Entity:
+Open as CSV** for an msentity spectrum table. Click the spectrum button in a
+table row to update the spectrum panel.
 
-Use **Add dataset...** to load another MSDS, MSP, MGF, or TSV file into the current
+Use **Add dataset...** to load another MSDS, MSP, MGF, TSV, or CSV file into the current
 dataset editor. Select the active file from the dataset dropdown. Each file
 remembers its last metadata page, so switching away and back restores that
 page. Files added this way share one spectrum panel, which makes comparisons
@@ -54,18 +55,20 @@ creates a separate reusable spectrum panel.
 
 Normal opening detects the input format from the filename extension. To select
 it explicitly, right-click any file in Explorer and choose **MS Entity: Open as
-MSDS**, **MS Entity: Open as MSP**, or **MS Entity: Open as MGF**. These commands
-are also available in the Command Palette and take precedence over the filename
-extension.
+MSDS**, **Open as MSP**, **Open as MGF**, **Open as TSV**, or **Open as CSV**.
+These commands are also available in the Command Palette and take precedence
+over the filename extension.
 
 While an MSP or MGF file is being parsed, the editor displays a progress bar
 with the percentage, processed bytes, and successfully loaded spectrum count.
 The same progress display is used when **Reload** rereads the file.
 
-Choose **Export...** to save the current dataset view as MSDS, MSP, MGF, or TSV.
+Choose **Export...** to save the current dataset view as MSDS, MSP, MGF, TSV, or CSV.
 First select the output format explicitly, then select the save location. The
 matching filename extension is applied automatically. Export always writes the
-full dataset, not only the current page or filtered table rows.
+complete filtered result across all pages, in the displayed sort order and
+with the selected columns in their displayed order. Clear filters to export
+every spectrum.
 
 .. figure:: _static/images/gui_screenshot_1.png
    :alt: VS Code custom editor showing the paged msentity dataset table
@@ -89,12 +92,12 @@ full range. Clicking empty plot space clears the selected peak. The
 intensity axis always begins at zero, leaves 10% headroom above the highest
 peak, and uses the same adaptive tick scheme.
 
-The peak-table header provides **Copy TSV** and **Save TSV**. Both export the
-complete upper spectrum as two tab-separated columns named ``m/z`` and
-``Intensity``. Values are not rounded to the table's display precision, and
-the current plot zoom does not limit the exported peaks. Rows follow the peak
-table's current m/z or intensity sort key and direction. **Copy TSV** writes the
-text to the clipboard; **Save TSV** opens the VS Code save dialog.
+The peak-table header provides **Copy TSV**, **Save TSV**, **Copy CSV**, and
+**Save CSV**. Each exports the complete upper spectrum as two columns named
+``m/z`` and ``Intensity``. Values are not rounded to the table's display
+precision, and the current plot zoom does not limit the exported peaks. Rows
+follow the peak table's current m/z or intensity sort key and direction. Copy
+writes text to the clipboard; Save opens the VS Code save dialog.
 
 Compare spectra
 ---------------
@@ -183,6 +186,6 @@ an existing copy by substituting the generated version in this command:
 
 For a release, run ``npm run package:release`` instead. It creates both the
 versioned VSIX and ``msentity-spectrum-viewer.vsix`` under ``dist/``; attach
-both files to the matching GitHub release. The fixed asset name keeps the recommended
-``latest/download`` URL valid while the versioned asset remains available for
-pinned downloads.
+both files to the matching GitHub release. The fixed asset name keeps the
+recommended ``latest/download`` URL valid while the versioned asset remains
+available for pinned downloads.

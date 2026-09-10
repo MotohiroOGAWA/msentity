@@ -402,7 +402,8 @@ class TestSpectrumSimilarityEdgeCases(unittest.TestCase):
                              [[(300, 1)], [(100, 2)]])
         actual = cosine_similarity_by_key(left, right)
         expected = pd.DataFrame({
-            "SpecID": ["b", "a"], "index1": np.array([0, 1], dtype=np.int64),
+            "SpecID": pd.Series(["b", "a"], dtype=object),
+            "index1": np.array([0, 1], dtype=np.int64),
             "index2": np.array([1, 0], dtype=np.int64),
             "cosine_similarity": np.array([1, 0], dtype=np.float32),
         })

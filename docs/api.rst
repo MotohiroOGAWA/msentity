@@ -11,8 +11,9 @@ This reference documents the core modules of the package:
 - ``PeakSeries``: storage and manipulation of peak-level data across multiple spectra
 - ``Spectrum``: view of a single spectrum with m/z–intensity pairs and operations
 - ``Peak``: access to an individual peak and its optional annotation
-- I/O helpers for file paths and in-memory MSP/MGF/TSV text
-- processing helpers for identifiers, cosine similarity, and HDF5 inspection
+- I/O helpers for file paths and in-memory MSP/MGF/TSV/CSV text
+- similarity result persistence and paired, keyed, and all-pairs calculations
+- processing helpers for identifiers and HDF5 inspection
 
 These classes are designed to support mass spectrometry workflows such as
 data processing, filtering, sorting, normalization, and dataset-level operations.
@@ -33,6 +34,8 @@ Classes
      - Represents peak-level data across multiple spectra using a compact array-based structure.
    * - :doc:`Spectrum <api/generated/msentity.Spectrum>`
      - Represents a single spectrum with m/z and intensity arrays and basic operations.
+   * - :doc:`SimilarityDataset <api/generated/msentity.SimilarityDataset>`
+     - Stores similarity scores, calculation metadata, summaries, and ``.mssim`` persistence.
 
 ``MSDatasetMeta`` and ``Peak`` are also exported from :mod:`msentity`; their
 member documentation is available through the linked class pages and source
@@ -57,10 +60,20 @@ Functions
      - Write an MSDataset to an MGF file.
    * - ``read_tsv`` / ``write_tsv``
      - Read or write a tab-separated spectrum table with a ``Peak`` column.
+   * - ``read_csv`` / ``write_csv``
+     - Read or write a comma-separated spectrum table with a ``Peak`` column.
    * - ``load_ms_dataset``
-     - Detect MSP, MGF, MSDS, or TSV input from its extension and load it.
-   * - ``read_msp_text`` / ``read_mgf_text`` / ``read_tsv_text``
+     - Detect MSP, MGF, MSDS, TSV, or CSV input from its extension and load it.
+   * - ``read_msp_text`` / ``read_mgf_text`` / ``read_tsv_text`` / ``read_csv_text``
      - Parse an in-memory text representation without a temporary file.
+
+Similarity
+==========
+
+:class:`msentity.SimilarityDataset` stores a similarity table together with
+calculation and source metadata. It supports filtering, stable sorting,
+summary statistics, histogram data, table export, and the native ``.mssim``
+format. See :doc:`api/similarity` for the Python workflow.
 
 
 .. toctree::
@@ -71,4 +84,5 @@ Functions
    api/spectrumrecord
    api/peakseries
    api/spectrum
+   api/similarity
    api/functions

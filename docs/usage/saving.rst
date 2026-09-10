@@ -1,8 +1,9 @@
 Saving datasets
 ===============
 
-MSDS is the lossless native format. MSP and MGF are interoperability formats,
-so only fields representable by those formats are exported.
+MSDS is the lossless native format. MSP, MGF, TSV, and CSV are interchange
+formats, so dataset-level metadata and peak annotations that those formats
+cannot represent are not preserved.
 
 Saving as MSDS
 --------------
@@ -46,7 +47,9 @@ and corresponding peaks are materialized consistently:
 
 .. jupyter-input::
 
-   filtered = dataset[dataset["PrecursorMZ"] > 300]
+   import pandas as pd
+   precursor_mz = pd.to_numeric(dataset["PrecursorMZ"], errors="coerce")
+   filtered = dataset[precursor_mz > 300]
    filtered.save("filtered.msds", save_view=True)
 
 Use ``save_view=False`` only when intentionally saving the complete underlying
@@ -62,17 +65,23 @@ Saving MSP and MGF files
    write_msp(dataset, "output.msp")
    write_mgf(dataset, "output.mgf")
 
-Saving TSV files
-----------------
+Saving TSV and CSV files
+------------------------
 
-Write one spectrum per row with metadata in ordinary tab-separated columns.
-The final ``Peak`` column uses ``mz1,intensity1;mz2,intensity2;...``::
+Both formats write one spectrum per row. The final ``Peak`` column uses
+``mz1,intensity1;mz2,intensity2;...``::
 
-   from msentity import write_tsv
+   from msentity import write_csv, write_tsv
 
    write_tsv(dataset, "output.tsv")
+   write_csv(dataset, "output.csv")
+   write_csv(dataset, "selected.csv", headers=["SpecID", "Name"])
 
-The writer call order is ``(dataset, output_path)``. For conversion on the
-command line, ``msentity convert`` selects the output from its extension.
-``msentity merge-dir`` can recursively combine a directory of MSP/MGF/MSDS/TSV
-files and optionally attach source paths and source spectrum indices.
+CSV fields containing commas, quotes, or newlines are quoted automatically.
+The writer call order is ``(dataset, output_path)``; ``headers`` selects and
+orders metadata columns. Read the results with ``load_ms_dataset``,
+``read_tsv``, or ``read_csv``.
+
+The ``msentity convert`` command currently writes MSDS only.
+``msentity merge-dir`` can recursively combine MSP, MGF, MSDS, TSV, and CSV
+inputs into an MSDS file and can attach source paths and spectrum indices.
