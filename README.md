@@ -125,6 +125,9 @@ cosine, a default 0.8 library threshold, binning parameters, and compact versus
 self-contained `.mssim` storage.
 During a two-spectrum comparison, separate **Upper Metadata** and **Lower
 Metadata** panels show the metadata from both source records below the plot.
+The Peaks table aligns Upper and Lower peaks within the selected tolerance and
+leaves the opposite cells empty for unmatched peaks while preserving m/z order
+on both sides. **Save...** asks for TSV or CSV before the save location.
 
 File extensions are used for automatic input detection. To specify the input
 format explicitly—including TSV and CSV—right-click a file in Explorer and choose **MS Entity: Open

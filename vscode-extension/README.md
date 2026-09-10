@@ -15,7 +15,7 @@ MSDS, MSP, MGF, TSV, and CSV datasets without Gradio.
 - one transparent PNG for the extension listing, file type, and editor tabs
 - Optional VS Code floating plot window
 - Peak table, m/z/intensity sorting, and peak selection
-- Copy or save the current upper spectrum's complete peak list as TSV or CSV
+- Copy or save the complete peak table as TSV or CSV
 - Independent horizontal, vertical, and two-dimensional drag-to-zoom
 - m/z range starting at zero and adaptive 1, 2, 2.5, 5, 10 tick spacing
 - Adaptive zero-based intensity ticks
@@ -201,11 +201,13 @@ When both kinds of tick numbers are disabled, export compacts the axis-title
 spacing and unused margins. Click empty plot space to clear peak selection; double-click
 the plot to reset both zoom axes.
 
-Use **Copy TSV** or **Copy CSV** above the peak table to copy all peaks from the
-current upper spectrum with `m/z` and `Intensity` columns. **Save TSV** and
-**Save CSV** write the same unrounded values to a file. These actions include
-the complete spectrum, independent of the current plot zoom, in the peak
-table's current m/z or Intensity sort order.
+Use **Copy TSV** or **Copy CSV** above the peak table to copy its complete,
+unrounded values. **Save…** first asks for TSV or CSV and then opens the file
+save dialog. A single spectrum has `m/z` and `Intensity` columns. A comparison
+has separate Upper and Lower columns; peaks within the current tolerance share
+a row, while an unmatched peak leaves the other side empty. Ascending or
+descending m/z order is preserved independently on both sides. Export always
+includes the complete spectra, independent of the current plot zoom.
 
 Opening normally detects MSDS, MSP, or MGF from the extension. TSV and CSV are
 intentionally not registered as custom-editor file extensions. To open one as a spectrum table,

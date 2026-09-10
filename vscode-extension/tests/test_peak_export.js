@@ -5,11 +5,11 @@ const vm = require("node:vm");
 const { test } = require("node:test");
 
 const source = fs.readFileSync(path.join(__dirname, "../media/spectrum.js"), "utf8");
-const start = source.indexOf("  const peaksAsDelimited =");
+const start = source.indexOf("  const tablePeaks =");
 const end = source.indexOf("  const matchSpectrumPeaks", start);
 assert.ok(start >= 0 && end > start);
 const context = vm.createContext({ state: { sortKey: "intensity", sortAscending: false } });
-vm.runInContext(source.slice(start, end) + "\nthis.exportPeaks = peaksAsDelimited;", context);
+vm.runInContext(source.slice(start, end) + "\nthis.exportPeaks = peaksAsDelimited; this.alignPeakRows = alignPeakRows; this.tablePeaks = tablePeaks;", context);
 
 for (const [format, separator] of [["csv", ","], ["tsv", "\t"]]) {
   test(`peak ${format} retains zero/negative peaks and follows table sorting`, () => {
@@ -19,3 +19,35 @@ for (const [format, separator] of [["csv", ","], ["tsv", "\t"]]) {
     ].map(row => row.join(separator)).join("\n") + "\n");
   });
 }
+
+test("comparison peaks align within tolerance and retain both ascending orders", () => {
+  const upper = context.tablePeaks([140, 100, 130, 110], [14, 10, 13, 11]);
+  const lower = context.tablePeaks([150, 130.04, 99.98, 120], [25, 23, 20, 22]);
+  const rows = context.alignPeakRows(upper, lower, 0.05, true);
+  assert.deepEqual(JSON.parse(JSON.stringify(rows.map((row) => [row.upper?.x ?? null, row.lower?.x ?? null]))), [
+    [100, 99.98], [110, null], [null, 120], [130, 130.04], [140, null], [null, 150]
+  ]);
+  assert.deepEqual(Array.from(rows.flatMap((row) => row.upper ? [row.upper.x] : [])), [100, 110, 130, 140]);
+  assert.deepEqual(Array.from(rows.flatMap((row) => row.lower ? [row.lower.x] : [])), [99.98, 120, 130.04, 150]);
+});
+
+test("comparison peak descending order reverses aligned rows without changing pairs", () => {
+  const upper = context.tablePeaks([100, 110, 130], [10, 11, 13]);
+  const lower = context.tablePeaks([99.98, 120, 130.05], [20, 22, 23]);
+  const rows = context.alignPeakRows(upper, lower, 0.05, false);
+  assert.deepEqual(JSON.parse(JSON.stringify(rows.map((row) => [row.upper?.x ?? null, row.lower?.x ?? null]))), [
+    [130, 130.05], [null, 120], [110, null], [100, 99.98]
+  ]);
+});
+
+test("comparison export includes both spectra and empty unmatched cells", () => {
+  context.state = { sortKey: "mz", sortAscending: true };
+  const actual = context.exportPeaks([100, 110], [10, 11], "tsv", [100.03, 120], [20, 22], 0.05);
+  assert.equal(actual, [
+    "Upper m/z\tUpper Intensity\tLower m/z\tLower Intensity",
+    "100\t10\t100.03\t20",
+    "110\t11\t\t",
+    "\t\t120\t22",
+    ""
+  ].join("\n"));
+});

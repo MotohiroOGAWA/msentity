@@ -121,12 +121,12 @@ full range. Clicking empty plot space clears the selected peak. The
 intensity axis always begins at zero, leaves 10% headroom above the highest
 peak, and uses the same adaptive tick scheme.
 
-The peak-table header provides **Copy TSV**, **Save TSV**, **Copy CSV**, and
-**Save CSV**. Each exports the complete upper spectrum as two columns named
-``m/z`` and ``Intensity``. Values are not rounded to the table's display
-precision, and the current plot zoom does not limit the exported peaks. Rows
-follow the peak table's current m/z or intensity sort key and direction. Copy
-writes text to the clipboard; Save opens the VS Code save dialog.
+The peak-table header provides **Copy TSV**, **Copy CSV**, and **Save...**.
+Save first asks whether to use TSV or CSV, then opens the VS Code save dialog.
+A single spectrum is exported as ``m/z`` and ``Intensity``. A comparison uses
+separate Upper and Lower m/z and intensity columns. Values are not rounded to
+the table's display precision, and the current plot zoom does not limit the
+exported peaks.
 
 Compare spectra
 ---------------
@@ -140,6 +140,12 @@ the lower pin to remove the lower spectrum. The upper and lower pins remain
 vertically aligned. During comparison, the metadata area below the plot shows
 separate **Upper Metadata** and **Lower Metadata** panels. Each panel uses the
 metadata columns from that spectrum's source dataset.
+
+The Peaks table also shows both spectra in four columns. Direct m/z matches
+within the current tolerance occupy the same row. For every unmatched peak,
+the opposite side remains empty. The shared m/z sort control reverses the
+whole alignment so that both Upper and Lower values always retain their own
+ascending or descending order.
 
 When both slots are populated, the viewer reports a score from 0 to 1 and the
 number of one-to-one matched peaks. The tolerance is editable in Da and

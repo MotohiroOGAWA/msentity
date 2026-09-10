@@ -42,7 +42,7 @@ async function wizardTests() {
       showInformationMessage: () => {},
     },
   };
-  const context = { require: (name) => name === "vscode" ? vscode : require(name), module: { exports: {} } };
+  const context = { Buffer, require: (name) => name === "vscode" ? vscode : require(name), module: { exports: {} } };
   vm.runInNewContext(fs.readFileSync(path.join(root, "vscode-extension/extension.js"), "utf8") +
     "\nmodule.exports.Provider = MSEntityViewerProvider;", context);
   const provider = new context.module.exports.Provider({ extensionUri: "/extension" });
@@ -86,6 +86,15 @@ async function wizardTests() {
   );
   assert.equal(savedPath, "/tmp/data/similarity-box.png");
   assert.deepEqual(Array.from(writtenImage.bytes), [137, 80, 78, 71]);
+  vscode.window.showQuickPick = async (items, options) => { choices.push(options); return items[0]; };
+  const savedPeaksPath = await provider.savePeaks(
+    { fsPath: "/tmp/data/source.msds" },
+    { basename: "upper-vs-lower", sourcePath: "/tmp/data/source.msds",
+      contents: { tsv: "Upper m/z\tLower m/z\n100\t100.01\n", csv: "Upper m/z,Lower m/z\n100,100.01\n" } }
+  );
+  assert.equal(savedPeaksPath, "/tmp/data/upper-vs-lower.tsv");
+  assert.equal(Buffer.from(writtenImage.bytes).toString("utf8"), "Upper m/z\tLower m/z\n100\t100.01\n");
+  assert.equal(choices.at(-1).title, "Save spectrum peaks");
 }
 
 async function browserTests() {

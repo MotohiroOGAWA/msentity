@@ -47,6 +47,7 @@ h1 { margin: 4px 0 0; font-size: 22px; color: var(--text); }
 h2 { font-size: 15px; margin: 0 0 10px; color: var(--text); }
 .actions { display: flex; align-items: center; gap: 10px; color: var(--muted); }
 .spectrum-workspace { display: grid; grid-template-columns: minmax(0, 1fr) 300px; gap: 14px; padding-top: 14px; }
+.spectrum-workspace.compared { grid-template-columns: minmax(0, 1fr) minmax(430px, .65fr); }
 .plot-panel, .peaks-panel, .metadata-panel { border: 1px solid var(--border); background: var(--panel); border-radius: 6px; }
 .plot-panel { padding: 8px; touch-action: none; min-width: 0; overflow: hidden; }
 .comparison-slots { display: grid; gap: 4px; padding: 2px 4px 8px; color: var(--muted); font-size: 12px; }
@@ -87,8 +88,15 @@ h2 { font-size: 15px; margin: 0 0 10px; color: var(--text); }
 .peak-scroll { max-height: 535px; overflow: auto; }
 .peak-table { width: 100%; border-collapse: collapse; font-size: 12px; }
 .peak-table th { position: sticky; top: 0; background: var(--panel); border-bottom: 1px solid var(--border); }
+.peaks-panel.compared .peak-table { min-width: 420px; }
+.peaks-panel.compared .spectrum-labels th { z-index: 2; height: 25px; font-size: 11px; letter-spacing: .04em; }
+.peaks-panel.compared .spectrum-labels th:first-child { color: var(--vscode-textLink-foreground, var(--peak)); }
+.peaks-panel.compared .spectrum-labels th:last-child { color: var(--lower-peak); }
+.peaks-panel.compared thead tr:nth-child(2) th { top: 25px; z-index: 2; }
 .sort-button { width: 100%; border-radius: 0; border: 0; text-align: right; font-weight: 650; }
 .peak-table td { text-align: right; padding: 3px 5px; border-bottom: 1px solid var(--border); }
+.peak-table .lower-value { color: var(--lower-peak); font-variant-numeric: tabular-nums; }
+.peak-table .missing-peak { background: var(--panel-alt); }
 .peak-row button { width: 100%; text-align: right; border: 0; background: transparent; color: var(--vscode-textLink-foreground, var(--peak)); padding: 3px; }
 .peak-row:hover, .peak-row.selected { background: var(--row-hover); }
 .peak-row.selected button { color: var(--peak-selected); font-weight: 700; }
@@ -119,6 +127,7 @@ h2 { font-size: 15px; margin: 0 0 10px; color: var(--text); }
 .export-actions { justify-content: flex-end; margin-top: 12px; }
 @media (max-width: 850px) {
   .spectrum-workspace { grid-template-columns: 1fr; }
+  .spectrum-workspace.compared { grid-template-columns: 1fr; }
   .metadata-panels.compared { grid-template-columns: 1fr; }
   .peak-scroll { max-height: 260px; }
   .spectrum-header { align-items: start; flex-direction: column; }

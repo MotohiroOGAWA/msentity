@@ -468,7 +468,10 @@ class MSEntityViewerProvider {
         } else if (message?.type === "save-image") {
           this.saveImage(documentUri, message);
         } else if (message?.type === "save-peaks") {
-          this.savePeaks(documentUri, message);
+          this.savePeaks(documentUri, message).catch((error) => {
+            outputChannel.appendLine(`[peak export] ${error?.stack || String(error)}`);
+            vscode.window.showErrorMessage(error?.message || String(error));
+          });
         } else if (message?.type === "copy-notification") {
           vscode.window.showInformationMessage(String(message.message || "Copied to clipboard."));
         } else if (message?.type === "clipboard-error") {
@@ -530,19 +533,36 @@ class MSEntityViewerProvider {
   }
 
   async savePeaks(documentUri, message) {
-    const filename = String(message?.filename || "spectrum.tsv").replace(/[^\w.-]+/g, "_");
-    const bytes = Array.isArray(message?.bytes) ? Uint8Array.from(message.bytes) : null;
-    if (!bytes) return;
+    const formats = {
+      tsv: { label: "TSV", description: "Tab-separated values", filter: "Tab-separated values" },
+      csv: { label: "CSV", description: "Comma-separated values", filter: "Comma-separated values" }
+    };
+    const selected = await vscode.window.showQuickPick(
+      Object.entries(formats).map(([format, details]) => ({ ...details, format })),
+      { title: "Save spectrum peaks", placeHolder: "Choose the output format" }
+    );
+    if (!selected) return null;
+    const content = message?.contents?.[selected.format];
+    if (typeof content !== "string") throw new Error(`Peak ${selected.label} data is unavailable.`);
+    const basename = String(message?.basename || "spectrum").replace(/[^\w.-]+/g, "_");
+    const filename = `${basename.replace(/\.(?:tsv|csv)$/i, "")}.${selected.format}`;
     const sourcePath = String(message?.sourcePath || "");
     const sourceUri = sourcePath ? vscode.Uri.file(sourcePath) : documentUri;
     const target = await vscode.window.showSaveDialog({
       defaultUri: vscode.Uri.joinPath(sourceUri, "..", filename),
-      filters: path.extname(filename).toLowerCase() === ".csv"
-        ? { "Comma-separated values": ["csv"] } : { "Tab-separated values": ["tsv"] }
+      filters: { [selected.filter]: [selected.format] }
     });
-    if (!target) return;
-    await vscode.workspace.fs.writeFile(target, bytes);
-    vscode.window.showInformationMessage(`Saved ${path.basename(target.fsPath)}`);
+    if (!target) return null;
+    const chosenExtension = path.extname(target.fsPath);
+    const outputPath = chosenExtension.toLowerCase() === `.${selected.format}`
+      ? target.fsPath
+      : chosenExtension
+        ? `${target.fsPath.slice(0, -chosenExtension.length)}.${selected.format}`
+        : `${target.fsPath}.${selected.format}`;
+    const outputUri = outputPath === target.fsPath ? target : vscode.Uri.file(outputPath);
+    await vscode.workspace.fs.writeFile(outputUri, Buffer.from(content, "utf8"));
+    vscode.window.showInformationMessage(`Saved ${path.basename(outputPath)}`);
+    return outputPath;
   }
 
   dispose() {
