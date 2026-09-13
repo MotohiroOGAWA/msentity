@@ -2,7 +2,7 @@
   "name": "msentity-spectrum-viewer",
   "displayName": "msentity Spectrum Viewer",
   "description": "View msentity datasets in VS Code with a separate reusable mass-spectrum panel, without Gradio.",
-  "version": "1.5.0",
+  "version": "1.5.1",
   "publisher": "motohiroogawa",
   "icon": "media/editor-icon.png",
   "license": "MIT",
@@ -159,8 +159,8 @@
       "properties": {
         "msentitySpectrumViewer.pythonPath": {
           "type": "string",
-          "default": "python",
-          "description": "Python executable used to load msentity datasets. In a Dev Container this is resolved inside the container."
+          "default": "",
+          "description": "Python executable used to load msentity datasets. When empty (the default), the extension's own bundled Python runtime is used if this build includes one (Windows and Linux x64 releases); otherwise it falls back to 'python' on PATH. Set this to override with a specific interpreter, e.g. one provided by a Dev Container."
         },
         "msentitySpectrumViewer.pageSize": {
           "type": "number",

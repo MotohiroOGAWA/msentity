@@ -2,6 +2,7 @@
 .vscode/**
 node_modules/**
 dist/**
+.runtime-cache/**
 *.zip
 media/icon.png
 

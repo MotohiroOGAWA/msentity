@@ -1,4 +1,5 @@
 const vscode = require("vscode");
+const fs = require("fs");
 const path = require("path");
 const { spawn } = require("child_process");
 const crypto = require("crypto");
@@ -11,6 +12,25 @@ const DATASET_FORMATS = {
 const VIEW_TYPE = "msentity.spectrumViewer";
 const SIMILARITY_VIEW_TYPE = "msentity.similarityViewer";
 let outputChannel;
+
+// Platform-specific release packages embed a private Python runtime under
+// runtime/python (see scripts/build-runtime.js and scripts/package-vsix.js);
+// a given package only ever contains its own platform's runtime. An
+// explicit msentitySpectrumViewer.pythonPath always wins, so Dev Containers
+// and other advanced setups keep pointing at their own interpreter.
+function resolvePythonExecutable(context) {
+  const config = vscode.workspace.getConfiguration("msentitySpectrumViewer");
+  const configuredPath = String(config.get("pythonPath", "") || "").trim();
+  if (configuredPath) return { pythonPath: configuredPath, bundled: false };
+
+  const bundledRelativePath = process.platform === "win32"
+    ? ["runtime", "python", "python.exe"]
+    : ["runtime", "python", "bin", "python3"];
+  const bundledPath = context.asAbsolutePath(path.join(...bundledRelativePath));
+  if (fs.existsSync(bundledPath)) return { pythonPath: bundledPath, bundled: true };
+
+  return { pythonPath: "python", bundled: false };
+}
 
 class MSEntityDocument {
   constructor(uri, fileType = null) {
@@ -46,12 +66,12 @@ class MSEntityViewerProvider {
     webview.html = getDatasetWebviewHtml(webview, this.context.extensionUri, document.uri, isSimilarity);
 
     const config = vscode.workspace.getConfiguration("msentitySpectrumViewer");
-    const pythonPath = String(config.get("pythonPath", "python"));
+    const { pythonPath, bundled } = resolvePythonExecutable(this.context);
     const pageSize = Math.max(1, Math.min(500, Number(config.get("pageSize", 20)) || 20));
     const backendPath = this.context.asAbsolutePath(path.join("python", isSimilarity ? "similarity_backend.py" : "backend.py"));
 
     outputChannel.appendLine(`[open] ${document.uri.fsPath}`);
-    outputChannel.appendLine(`[python] ${pythonPath}`);
+    outputChannel.appendLine(`[python] ${pythonPath}${bundled ? " (bundled runtime)" : ""}`);
 
     const backendArgs = ["-u", backendPath, document.uri.fsPath, "--page-size", String(pageSize)];
     if (document.fileType) backendArgs.push("--file-type", document.fileType);
@@ -112,10 +132,13 @@ class MSEntityViewerProvider {
 
     child.on("error", (error) => {
       outputChannel.appendLine(`[spawn error] ${String(error)}`);
+      const hint = bundled
+        ? "The extension's bundled Python runtime could not be started. Reinstall the extension, or set msentitySpectrumViewer.pythonPath to a Python environment with msentity installed."
+        : "Set msentitySpectrumViewer.pythonPath to a Python environment with msentity installed, or install this extension's Windows/Linux (x64) build, which bundles its own Python runtime.";
       send({
         type: "error",
         title: "Could not start Python",
-        message: `${error.message}\n\nSet msentitySpectrumViewer.pythonPath to the Python environment where msentity is installed.`
+        message: `${error.message}\n\n${hint}`
       });
     });
 
