@@ -1,10 +1,18 @@
 "use strict";
 
 // Assembles a self-contained CPython runtime (interpreter + msentity + its
-// dependencies) for each packaging target, under vscode-extension/runtime/.
-// vsce's `ignoreOtherTargetFolders` option (used by scripts/package-vsix.js)
-// strips every target folder except the one being packaged, so a single
-// `runtime/` tree built once here can back every platform-specific VSIX.
+// dependencies) for each packaging target.
+//
+// @vscode/vsce's `ignoreOtherTargetFolders` package option looks like it
+// would let every target's runtime live side-by-side and have vsce strip the
+// others per package, but as of @vscode/vsce@3.9.2 that option is only wired
+// into the CLI flag parsing, not into the actual file-collection logic (see
+// out/package.js) — so it silently packages every folder regardless of its
+// name. To keep each platform's VSIX containing only its own runtime, this
+// module builds each target into a cache directory, and
+// scripts/package-vsix.js copies exactly one target's build into the single
+// `runtime/` folder that actually gets shipped, immediately before packaging
+// that target.
 //
 // Everything under `runtime/` and `.runtime-cache/` is generated; both are
 // git-ignored and .vscodeignore-exempted (the ignore file only needs to keep
@@ -60,7 +68,14 @@ const TARGETS = {
 const extensionRoot = path.resolve(__dirname, "..");
 const repoRoot = path.resolve(extensionRoot, "..");
 const cacheDir = path.join(extensionRoot, ".runtime-cache");
+// The folder actually included in a package (see extension.js's
+// resolvePythonExecutable and scripts/package-vsix.js). Only ever holds one
+// target's runtime at a time.
 const runtimeDir = path.join(extensionRoot, "runtime");
+// Per-target build cache, so repeated release builds don't redo the pip
+// install work (pip's own cache still applies, but this also skips the
+// tarball re-extraction and pruning).
+const targetCacheRoot = (targetName) => path.join(cacheDir, "runtime", targetName);
 
 function run(command, args, options = {}) {
   console.log(`+ ${command} ${args.join(" ")}`);
@@ -112,7 +127,7 @@ function buildTarget(targetName, msentityWheel) {
   const target = TARGETS[targetName];
   if (!target) throw new Error(`Unknown runtime target: ${targetName}`);
 
-  const targetRoot = path.join(runtimeDir, targetName);
+  const targetRoot = targetCacheRoot(targetName);
   removeRecursive(targetRoot);
   fs.mkdirSync(targetRoot, { recursive: true });
 
@@ -152,7 +167,17 @@ function buildRuntime(targetNames = Object.keys(TARGETS)) {
   for (const targetName of targetNames) buildTarget(targetName, msentityWheel);
 }
 
-module.exports = { buildRuntime, TARGETS };
+// Copies one target's cached build into runtime/, the folder actually
+// shipped in a package. Must be called (and the result packaged) one target
+// at a time — see the module comment above for why.
+function stageTarget(targetName) {
+  const targetRoot = targetCacheRoot(targetName);
+  if (!fs.existsSync(targetRoot)) throw new Error(`Runtime for ${targetName} was not built yet; call buildRuntime() first.`);
+  removeRecursive(runtimeDir);
+  fs.cpSync(targetRoot, runtimeDir, { recursive: true });
+}
+
+module.exports = { buildRuntime, stageTarget, TARGETS };
 
 if (require.main === module) {
   const requested = process.argv.slice(2);

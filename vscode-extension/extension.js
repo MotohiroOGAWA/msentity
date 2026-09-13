@@ -14,19 +14,18 @@ const SIMILARITY_VIEW_TYPE = "msentity.similarityViewer";
 let outputChannel;
 
 // Platform-specific release packages embed a private Python runtime under
-// runtime/<target>/python (see scripts/build-runtime.js and
-// scripts/package-vsix.js); only the current platform's folder survives
-// packaging. An explicit msentitySpectrumViewer.pythonPath always wins, so
-// Dev Containers and other advanced setups keep pointing at their own
-// interpreter.
+// runtime/python (see scripts/build-runtime.js and scripts/package-vsix.js);
+// a given package only ever contains its own platform's runtime. An
+// explicit msentitySpectrumViewer.pythonPath always wins, so Dev Containers
+// and other advanced setups keep pointing at their own interpreter.
 function resolvePythonExecutable(context) {
   const config = vscode.workspace.getConfiguration("msentitySpectrumViewer");
   const configuredPath = String(config.get("pythonPath", "") || "").trim();
   if (configuredPath) return { pythonPath: configuredPath, bundled: false };
 
   const bundledRelativePath = process.platform === "win32"
-    ? ["runtime", "win32-x64", "python", "python.exe"]
-    : ["runtime", "linux-x64", "python", "bin", "python3"];
+    ? ["runtime", "python", "python.exe"]
+    : ["runtime", "python", "bin", "python3"];
   const bundledPath = context.asAbsolutePath(path.join(...bundledRelativePath));
   if (fs.existsSync(bundledPath)) return { pythonPath: bundledPath, bundled: true };
 

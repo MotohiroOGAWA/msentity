@@ -79,11 +79,14 @@ npm run package:release
 
 This first runs `scripts/build-runtime.js`, which downloads a pinned CPython
 3.11 build for each platform from `astral-sh/python-build-standalone` and
-installs `msentity`'s pinned dependency versions into
-`runtime/linux-x64/` and `runtime/win32-x64/` (both git-ignored; this step
-needs network access and takes a few minutes). It then packages each
-platform, using `@vscode/vsce`'s `ignoreOtherTargetFolders` option so a given
-platform's VSIX only contains that platform's `runtime/<platform>/` folder.
+installs `msentity`'s pinned dependency versions into a git-ignored build
+cache (`.runtime-cache/runtime/<platform>/`; this step needs network access
+and takes a few minutes). It then packages each platform one at a time,
+copying only that platform's cached runtime into the git-ignored `runtime/`
+folder immediately before packaging so a given platform's VSIX contains only
+its own runtime (`@vscode/vsce`'s `ignoreOtherTargetFolders` package option
+looks built for this, but as of `@vscode/vsce@3.9.2` it is unimplemented —
+see the comment at the top of `scripts/build-runtime.js`).
 
 For the selected version, this produces the following files under the ignored
 `dist/` directory:
