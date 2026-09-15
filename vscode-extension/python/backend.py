@@ -144,6 +144,7 @@ def serialize_page(dataset: Any, page: int, page_size: int, dataset_id: str, inp
         "dataset_path": str(input_file),
         "columns": [str(column) for column in metadata.columns],
         "rows": rows,
+        "row_ids": [int(i) for i in page_view.peaks._index],
         "spectra": spectra,
         "page": page,
         "page_size": page_size,
@@ -332,6 +333,67 @@ def main() -> int:
                 payload = serialize_page(view, page, page_size, dataset_id, entry["path"])
                 payload["all_columns"] = entry["dataset"].columns
                 emit({"type": "dataset-page", "value": payload})
+            elif request_type in {"update-metadata", "update-cell", "remove-dataset"}:
+                try:
+                    if entry is None:
+                        raise ValueError(f"Unknown dataset: {dataset_id}")
+                    current = entry["dataset"]
+                    if request_type == "remove-dataset":
+                        if dataset_id == initial_id:
+                            raise ValueError("The original dataset cannot be removed. Close its tab instead.")
+                        del datasets[dataset_id]
+                        emit({"type": "dataset-removed", "dataset_id": dataset_id})
+                        continue
+                    if request_type == "update-metadata":
+                        description = request.get("description")
+                        attributes = request.get("attributes")
+                        tags = request.get("tags")
+                        if not isinstance(description, str):
+                            raise ValueError("Description must be text")
+                        if not isinstance(attributes, dict) or any(
+                            not isinstance(k, str) or not isinstance(v, str) for k, v in attributes.items()
+                        ):
+                            raise ValueError("Attribute names and values must be text")
+                        if not isinstance(tags, list) or any(not isinstance(tag, str) for tag in tags):
+                            raise ValueError("Tags must be a list of text values")
+                        current.description = description
+                        current.attributes = attributes
+                        current.tags = tags
+                    else:
+                        column = request.get("column")
+                        row_id = request.get("row_id")
+                        if column not in current.columns:
+                            raise ValueError("Unknown metadata column")
+                        indices = current.peaks._index.tolist()
+                        if type(row_id) is not int or row_id not in indices:
+                            raise ValueError("Unknown spectrum")
+                        new_value = request.get("value")
+                        old_value = json_value(current[indices.index(row_id)][column])
+                        if isinstance(old_value, bool):
+                            if new_value not in ("true", "false"):
+                                raise ValueError("Enter true or false")
+                            new_value = new_value == "true"
+                        elif isinstance(old_value, (int, float)):
+                            new_value = int(new_value) if isinstance(old_value, int) and str(new_value).lstrip("+-").isdigit() else float(new_value)
+                            if not math.isfinite(new_value):
+                                raise ValueError("Enter a finite number")
+                        elif old_value is not None and not isinstance(old_value, str):
+                            raise ValueError("Only text, numeric and boolean cells can be edited")
+                        # Replace the backing column to allow integer-to-float edits
+                        # under pandas versions that reject incompatible .loc writes.
+                        values = current._spectrum_metadata_ref[column].astype(object).copy()
+                        values.iloc[row_id] = new_value
+                        current._spectrum_metadata_ref[column] = values.infer_objects()
+                    response = {"type": "metadata-updated", "dataset_id": dataset_id}
+                    if request_type == "update-metadata":
+                        response["metadata"] = {
+                            "description": current.description,
+                            "attributes": json_value(current.attributes),
+                            "tags": json_value(current.tags),
+                        }
+                    emit(response)
+                except Exception as exc:
+                    emit({"type": "edit-error", "dataset_id": dataset_id, "message": str(exc)})
             elif request_type == "add-dataset":
                 added_path = Path(str(request.get("path", ""))).expanduser().resolve()
                 if not added_path.is_file():
@@ -348,6 +410,7 @@ def main() -> int:
                 if entry is None:
                     raise ValueError(f"Unknown dataset: {dataset_id}")
                 entry["dataset"] = load_dataset(entry["path"], entry["file_type"])
+                emit({"type": "dataset-reloaded", "dataset_id": dataset_id})
                 view = apply_view(entry["dataset"], request.get("filters"), request.get("sort"))
                 payload = serialize_page(view, 0, page_size, dataset_id, entry["path"])
                 payload["all_columns"] = entry["dataset"].columns

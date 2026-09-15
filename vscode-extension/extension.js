@@ -169,6 +169,37 @@ class MSEntityViewerProvider {
             filters: message.filters, sort: message.sort, columns: message.columns, bins: message.bins
           });
           break;
+        case "update-metadata":
+          writeRequest({ type: "update-metadata", dataset_id: message.datasetId,
+            description: message.description, attributes: message.attributes, tags: message.tags });
+          break;
+        case "edit-cell": {
+          const result = await vscode.window.showInputBox({
+            title: `Edit ${message.column}`,
+            value: String(message.value ?? ""),
+            prompt: "Edit spectrum metadata. Export to save the change.",
+            ignoreFocusOut: true
+          });
+          if (result !== undefined && !disposed) writeRequest({
+            type: "update-cell", dataset_id: message.datasetId,
+            row_id: message.rowId, column: message.column, value: result
+          });
+          break;
+        }
+        case "remove-dataset": {
+          const choice = await vscode.window.showWarningMessage(
+            "Remove this dataset from the viewer? Changes that have not been exported will be discarded. The file remains on disk.",
+            { modal: true }, "Remove dataset"
+          );
+          if (choice === "Remove dataset" && !disposed) {
+            writeRequest({ type: "remove-dataset", dataset_id: message.datasetId });
+            this.spectrumPanels.get(document.uri.toString())?.panel.dispose();
+          }
+          break;
+        }
+        case "edit-error-notification":
+          vscode.window.showErrorMessage(String(message.message));
+          break;
         case "assign-spec-id": {
           try {
             const prefix = await vscode.window.showInputBox({

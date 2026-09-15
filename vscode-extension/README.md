@@ -98,6 +98,30 @@ msentity similarity-by-key first.msds second.msds --key1 SpecID --key2 SpecID --
 msentity library-search query.msds reference.msp --threshold 0.8 --output matches.mssim
 ```
 
+## Edit metadata and remove added datasets
+
+Click **Metadata…** to view and edit the active dataset's description,
+attributes (name/value pairs), and tags (one per line). **Apply** updates the
+loaded dataset; **Cancel** discards the form draft. Attribute names must be
+nonempty and unique.
+
+Double-click a spectrum metadata cell, or focus it and press **Enter**, to
+edit its value. Numeric cells require finite numbers; boolean cells accept
+true or false. Editing targets the original spectrum even after filtering,
+sorting, or paging.
+
+Use **Export…** to save applied changes. Choose **MSDS** to preserve dataset
+description, attributes, and tags. Export still respects filters and visible
+columns; clear filters and select all columns to save the entire dataset.
+The Modified indicator records changes since loading and stays visible after
+export because an export may contain only a subset. Reload or closing the
+viewer discards changes that have not been exported.
+
+Select a dataset added with **Add dataset…**, then click **Remove dataset**.
+After confirmation it is removed from this viewer and from similarity choices;
+its file stays on disk. The viewer returns to the original dataset and clears
+the spectrum panel. The original dataset is removed by closing its editor tab.
+
 ## Assign SpecID
 
 Click **Assign SpecID…** and enter a prefix (or leave it empty). IDs start at 1
