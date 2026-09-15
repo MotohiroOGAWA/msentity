@@ -14,6 +14,82 @@
     .replaceAll("'", "&#039;");
   const display = (v) => v == null ? "—" : typeof v === "object" ? JSON.stringify(v) : String(v);
 
+  const peakColumns = payload => payload?.spectrum?.metadata_columns || [];
+  const peakColumnViews = new Map();
+  let peakMenuOpen = false;
+  let peakMenuSide = "top";
+  const peakColumnKey = payload => payload?.datasetId || payload?.datasetPath || payload?.datasetName || "spectrum";
+  const allPeakColumns = payload => peakColumns(payload).map(c => "meta:" + c);
+  const tablePeakColumns = payload => ["mz", "intensity", ...visiblePeakColumns(payload)];
+  const columnLabel = id => id === "mz" ? "m/z" : id === "intensity" ? "Intensity" : id.slice(5);
+  function visiblePeakColumns(payload) {
+    const key = peakColumnKey(payload);
+    const available = allPeakColumns(payload);
+    let view = peakColumnViews.get(key);
+    if (!view) view = { known: [], selected: [] };
+    view.selected = view.selected.filter(id => available.includes(id));
+    view.selected.push(...available.filter(id => !view.known.includes(id)));
+    view.known = available;
+    peakColumnViews.set(key, view);
+    return view.selected;
+  }
+  function togglePeakColumn(payload, id) {
+    if (!allPeakColumns(payload).includes(id)) return;
+    const selected = visiblePeakColumns(payload);
+    const view = peakColumnViews.get(peakColumnKey(payload));
+    view.selected = selected.includes(id) ? selected.filter(c => c !== id) : [...selected, id];
+  }
+  function movePeakColumn(payload, id, offset) {
+    const selected = visiblePeakColumns(payload);
+    const index = selected.indexOf(id), target = index + offset;
+    if (index >= 0 && target >= 0 && target < selected.length) {
+      [selected[index], selected[target]] = [selected[target], selected[index]];
+    }
+  }
+  const peakAnnotationCells = (payload, index, side) => peakColumns(payload).map((column, columnIndex) => {
+    const value = index == null ? "" : payload?.spectrum?.metadata?.[index]?.[column] ?? "";
+    const editable = index != null && payload?.datasetId && Number.isInteger(payload?.rowId);
+    return `<td ${editable ? `tabindex="0" data-annotation-side="${side}" data-annotation-peak="${index}" data-annotation-column="${columnIndex}" title="Double-click or press Enter to edit"` : ""}>${esc(display(value))}</td>`;
+  }).join("");
+  const peakTableHeaders = (payload, side, comparing) => tablePeakColumns(payload).map(id => {
+    if (id === "mz") return '<th><button class="sort-button" data-sort-mz>m/z ↑</button></th>';
+    if (id === "intensity") return comparing ? "<th>Intensity</th>" : '<th><button class="sort-button" id="sort-intensity">Intensity</button></th>';
+    return `<th>${esc(columnLabel(id))}</th>`;
+  }).join("");
+  const peakTableCells = (payload, peak, side) => tablePeakColumns(payload).map(id => {
+    if (!peak) return '<td class="missing-peak"></td>';
+    if (id === "mz" || id === "intensity") {
+      const text = id === "mz" ? peak.x.toFixed(5) : peak.y.toLocaleString();
+      return side === "top" ? `<td><button data-peak-button="${peak.index}">${text}</button></td>` : `<td class="lower-value">${text}</td>`;
+    }
+    const column = id.slice(5), columnIndex = peakColumns(payload).indexOf(column);
+    const value = payload?.spectrum?.metadata?.[peak.index]?.[column] ?? "";
+    const editable = payload?.datasetId && Number.isInteger(payload?.rowId);
+    return `<td ${editable ? `tabindex="0" data-annotation-side="${side}" data-annotation-peak="${peak.index}" data-annotation-column="${columnIndex}" title="Double-click or press Enter to edit"` : ""}>${esc(display(value))}</td>`;
+  }).join("");
+  function peakColumnMenu() {
+    const source = comparison[peakMenuSide] || comparison.top;
+    const selected = visiblePeakColumns(source);
+    const available = allPeakColumns(source);
+    return `<div id="peak-column-menu" class="peak-column-menu" ${peakMenuOpen ? "" : "hidden"}>
+      <div class="column-menu-heading">
+        ${comparison.bottom ? `<select id="peak-column-side" aria-label="Dataset columns"><option value="top" ${peakMenuSide === "top" ? "selected" : ""}>Upper</option><option value="bottom" ${peakMenuSide === "bottom" ? "selected" : ""}>Lower</option></select>` : "<strong>Columns</strong>"}
+        <button id="add-peak-column-toggle" title="Add column" aria-label="Add peak annotation column" aria-expanded="false" ${source?.datasetId ? "" : "disabled"}>+</button>
+      </div>
+      <form id="add-peak-column-form" class="add-column-form" hidden>
+        <label>Column name<input id="new-peak-column-name" required></label>
+        <label>Initial value<input id="new-peak-column-value" placeholder="Blank by default" value=""></label>
+        <button type="submit">Add</button>
+        <small>Applies to all peaks in this dataset.</small>
+      </form>
+      <button id="all-peak-columns" class="column-toggle" aria-pressed="${selected.length === available.length}">${selected.length === available.length ? "☑" : "☐"} All columns</button>
+      ${[...selected, ...available.filter(id => !selected.includes(id))].map(id => `<div class="peak-column-option">
+        <button class="column-toggle" data-toggle-peak-column="${esc(id)}" aria-pressed="${selected.includes(id)}">${selected.includes(id) ? "☑" : "☐"} ${esc(columnLabel(id))}</button>
+        ${selected.includes(id) ? `<button data-move-peak-column="${esc(id)}" data-offset="-1" title="Move left" ${selected.indexOf(id) === 0 ? "disabled" : ""}>↑</button><button data-move-peak-column="${esc(id)}" data-offset="1" title="Move right" ${selected.indexOf(id) === selected.length - 1 ? "disabled" : ""}>↓</button>` : ""}
+      </div>`).join("")}
+    </div>`;
+  }
+
   const metadataPanel = (payload, heading = "Metadata") => {
     const row = payload?.row ?? {};
     const columns = Array.isArray(payload?.columns) ? payload.columns.map(String) : Object.keys(row);
@@ -104,24 +180,38 @@
     return ascending ? rows : rows.reverse();
   };
 
-  const peaksAsDelimited = (mz, intensity, format, lowerMz = null, lowerIntensity = null, tolerance = 0) => {
+  const peaksAsDelimited = (mz, intensity, format, lowerMz = null, lowerIntensity = null, tolerance = 0, upperAnnotations = null, lowerAnnotations = null, upperSelection = null, lowerSelection = null) => {
     const delimiter = format === "csv" ? "," : "\t";
     const peaks = tablePeaks(mz, intensity);
+    const annotationColumns = data => data?.metadata_columns || [];
+    const selected = (data, selection) => ["mz", "intensity", ...(selection ?? annotationColumns(data).map(c => "meta:" + c)).filter(id => id.startsWith("meta:"))];
+    const label = id => id === "mz" ? "m/z" : id === "intensity" ? "Intensity" : id.slice(5);
+    const values = (data, selection, peak) => selected(data, selection).map(id => {
+      if (!peak) return "";
+      return id === "mz" ? peak.x : id === "intensity" ? peak.y : data?.metadata?.[peak.index]?.[id.slice(5)] ?? "";
+    });
+    const encode = value => {
+      const text = String(value ?? "");
+      return /["\r\n\t,]/.test(text) ? '"' + text.replaceAll('"', '""') + '"' : text;
+    };
+    const line = values => values.map(encode).join(delimiter);
     if (Array.isArray(lowerMz)) {
       const lowerPeaks = tablePeaks(lowerMz, Array.isArray(lowerIntensity) ? lowerIntensity : []);
-      const lines = [["Upper m/z", "Upper Intensity", "Lower m/z", "Lower Intensity"].join(delimiter)];
+      const lines = [line([...selected(upperAnnotations, upperSelection).map(c => "Upper " + label(c)),
+        ...selected(lowerAnnotations, lowerSelection).map(c => "Lower " + label(c))])];
       const rows = alignPeakRows(peaks, lowerPeaks, tolerance, state?.sortAscending !== false);
-      rows.forEach(({ upper, lower }) => lines.push([
-        upper?.x ?? "", upper?.y ?? "", lower?.x ?? "", lower?.y ?? ""
-      ].join(delimiter)));
+      rows.forEach(({ upper, lower }) => lines.push(line([
+        ...values(upperAnnotations, upperSelection, upper),
+        ...values(lowerAnnotations, lowerSelection, lower)
+      ])));
       return `${lines.join("\n")}\n`;
     }
 
-    const lines = [`m/z${delimiter}Intensity`];
+    const lines = [line(selected(upperAnnotations, upperSelection).map(label))];
     const key = state?.sortKey === "intensity" ? "intensity" : "mz";
     const direction = state?.sortAscending === false ? -1 : 1;
     peaks.sort((a, b) => ((key === "mz" ? a.x - b.x : a.y - b.y) || a.index - b.index) * direction);
-    peaks.forEach((peak) => lines.push(`${peak.x}${delimiter}${peak.y}`));
+    peaks.forEach((peak) => lines.push(line(values(upperAnnotations, upperSelection, peak))));
     return `${lines.join("\n")}\n`;
   };
 
@@ -418,7 +508,7 @@
     renderSpectrum();
   }
 
-  function renderSpectrum() {
+  function renderSpectrum(preserveState = false) {
     const payload = comparison.top;
     if (!payload) return;
     const spectrum = payload?.spectrum ?? { mz: [], intensity: [] };
@@ -433,6 +523,7 @@
     const lowerIntensity = comparison.bottom && Array.isArray(lowerSpectrum?.intensity) ? lowerSpectrum.intensity.map(Number) : null;
     const similarity = calculateSimilarity();
 
+    const previousState = preserveState ? state : null;
     state = {
       spectrum,
       row,
@@ -443,7 +534,9 @@
       sortKey: "mz",
       sortAscending: true,
       domain: null,
-      yDomain: null
+      yDomain: null,
+      ...(previousState ? { selectedPeak: previousState.selectedPeak, sortKey: previousState.sortKey,
+        sortAscending: previousState.sortAscending, domain: previousState.domain, yDomain: previousState.yDomain } : {})
     };
 
     const metadata = comparison.bottom
@@ -457,7 +550,7 @@
             <div class="eyebrow">MSENTITY · SPECTRUM ${globalIndex + 1}</div>
             <h1>${esc(title)}</h1>
           </div>
-          <div class="actions"><span>${mz.length} peaks</span><button id="export-image">Export image…</button><button id="reset-zoom">Reset zoom</button></div>
+          <div class="actions"><span>${mz.length} peaks</span><div class="peak-columns-control"><button id="peak-columns" type="button" aria-expanded="${peakMenuOpen}">Columns</button>${peakColumnMenu()}</div><button id="export-image">Export image…</button><button id="reset-zoom">Reset zoom</button></div>
         </header>
         <div class="spectrum-workspace ${comparison.bottom ? "compared" : ""}">
           <section class="plot-panel">
@@ -471,9 +564,10 @@
             <div class="peaks-header"><h2>Peaks</h2><div>${["tsv", "csv"].map((format) => `<button id="copy-peaks-${format}" type="button">Copy ${format.toUpperCase()}</button>`).join("")}<button id="save-peaks" type="button">Save…</button></div></div>
             <div class="peak-scroll">
               <table class="peak-table">
-                ${comparison.bottom
-                  ? `<thead><tr class="spectrum-labels"><th colspan="2">Upper</th><th colspan="2">Lower</th></tr><tr><th><button class="sort-button" data-sort-mz>m/z ↑</button></th><th>Intensity</th><th><button class="sort-button" data-sort-mz>m/z ↑</button></th><th>Intensity</th></tr></thead>`
-                  : `<thead><tr><th><button class="sort-button" data-sort-mz>m/z ↑</button></th><th><button class="sort-button" id="sort-intensity">Intensity</button></th></tr></thead>`}
+                <thead>
+                  ${comparison.bottom ? `<tr class="spectrum-labels">${tablePeakColumns(payload).length ? `<th colspan="${tablePeakColumns(payload).length}">Upper</th>` : ""}${tablePeakColumns(comparison.bottom).length ? `<th colspan="${tablePeakColumns(comparison.bottom).length}">Lower</th>` : ""}</tr>` : ""}
+                  <tr>${peakTableHeaders(payload, "top", Boolean(comparison.bottom))}${comparison.bottom ? peakTableHeaders(comparison.bottom, "bottom", true) : ""}</tr>
+                </thead>
                 <tbody id="peak-body"></tbody>
               </table>
             </div>
@@ -522,7 +616,7 @@
     for (const format of ["tsv", "csv"]) {
       document.getElementById(`copy-peaks-${format}`).onclick = async () => {
         try {
-          const text = peaksAsDelimited(mz, intensity, format, lowerMz, lowerIntensity, similarityTolerance);
+          const text = peaksAsDelimited(mz, intensity, format, lowerMz, lowerIntensity, similarityTolerance, spectrum, lowerSpectrum, visiblePeakColumns(payload), comparison.bottom ? visiblePeakColumns(comparison.bottom) : null);
           await navigator.clipboard.writeText(text);
           vscode.postMessage({ type: "copy-notification", message: `Copied peak table as ${format.toUpperCase()}.` });
         } catch (error) {
@@ -536,7 +630,7 @@
       vscode.postMessage({
         type: "save-peaks", basename, sourcePath: payload.datasetPath,
         contents: Object.fromEntries(["tsv", "csv"].map((format) => [
-          format, peaksAsDelimited(mz, intensity, format, lowerMz, lowerIntensity, similarityTolerance)
+          format, peaksAsDelimited(mz, intensity, format, lowerMz, lowerIntensity, similarityTolerance, spectrum, lowerSpectrum, visiblePeakColumns(payload), comparison.bottom ? visiblePeakColumns(comparison.bottom) : null)
         ]))
       });
     };
@@ -545,6 +639,38 @@
       const value = Number(toleranceInput.value);
       if (Number.isFinite(value) && value > 0) similarityTolerance = Math.min(10, value);
       renderSpectrum();
+    };
+    document.getElementById("peak-columns").onclick = () => {
+      peakMenuOpen = !peakMenuOpen;
+      document.getElementById("peak-column-menu").hidden = !peakMenuOpen;
+      document.getElementById("peak-columns").setAttribute("aria-expanded", String(peakMenuOpen));
+    };
+    document.getElementById("add-peak-column-toggle").onclick = () => {
+      const form = document.getElementById("add-peak-column-form");
+      form.hidden = !form.hidden;
+      document.getElementById("add-peak-column-toggle").setAttribute("aria-expanded", String(!form.hidden));
+    };
+    const sideSelect = document.getElementById("peak-column-side");
+    if (sideSelect) sideSelect.onchange = () => { peakMenuSide = sideSelect.value; renderSpectrum(true); };
+    const source = () => comparison[peakMenuSide] || comparison.top;
+    document.getElementById("all-peak-columns").onclick = () => {
+      const payload = source(), selected = visiblePeakColumns(payload);
+      peakColumnViews.get(peakColumnKey(payload)).selected = selected.length === allPeakColumns(payload).length ? [] : allPeakColumns(payload);
+      renderSpectrum(true);
+    };
+    document.querySelectorAll("[data-toggle-peak-column]").forEach(el => {
+      el.onclick = () => { togglePeakColumn(source(), el.dataset.togglePeakColumn); renderSpectrum(true); };
+    });
+    document.querySelectorAll("[data-move-peak-column]").forEach(el => {
+      el.onclick = () => { movePeakColumn(source(), el.dataset.movePeakColumn, Number(el.dataset.offset)); renderSpectrum(true); };
+    });
+    document.getElementById("add-peak-column-form").onsubmit = event => {
+      event.preventDefault();
+      const selected = source();
+      if (!selected?.datasetId) return;
+      vscode.postMessage({ type: "add-peak-column", datasetId: selected.datasetId,
+        column: document.getElementById("new-peak-column-name").value,
+        value: document.getElementById("new-peak-column-value").value });
     };
     setupSpectrumPlot(mz, intensity,
       lowerMz ?? [], lowerIntensity ?? [], Boolean(comparison.bottom));
@@ -562,7 +688,7 @@
     const exportImage = document.getElementById("export-image");
     const mzSorts = [...document.querySelectorAll("[data-sort-mz]")];
     const intensitySort = document.getElementById("sort-intensity");
-    if (!root || !tbody || !reset || !exportImage || !mzSorts.length || (!comparing && !intensitySort)) return;
+    if (!root || !tbody || !reset || !exportImage) return;
 
     const W = 900, H = 540, L = 72, R = 32, T = 30, B = 62;
     const allPeaks = [...peaks, ...lowerPeaks];
@@ -626,21 +752,26 @@
       if (comparing) {
         const aligned = alignPeakRows(peaks, lowerPeaks, similarityTolerance, state.sortAscending);
         tbody.innerHTML = aligned.map(({ upper, lower }) => {
-          const upperCells = upper
-            ? `<td><button data-peak-button="${upper.index}">${upper.x.toFixed(5)}</button></td><td><button data-peak-button="${upper.index}">${upper.y.toLocaleString()}</button></td>`
-            : `<td class="missing-peak"></td><td class="missing-peak"></td>`;
-          const lowerCells = lower
-            ? `<td class="lower-value">${lower.x.toFixed(5)}</td><td class="lower-value">${lower.y.toLocaleString()}</td>`
-            : `<td class="missing-peak"></td><td class="missing-peak"></td>`;
-          return `<tr ${upper ? `data-peak-row="${upper.index}"` : ""} class="peak-row ${upper && state.selectedPeak === upper.index ? "selected" : ""}">${upperCells}${lowerCells}</tr>`;
+          return `<tr ${upper ? `data-peak-row="${upper.index}"` : ""} class="peak-row ${upper && state.selectedPeak === upper.index ? "selected" : ""}">${peakTableCells(comparison.top, upper, "top")}${peakTableCells(comparison.bottom, lower, "bottom")}</tr>`;
         }).join("");
       } else {
         const ordered = [...peaks].sort((a, b) => {
           const difference = state.sortKey === "mz" ? a.x - b.x : a.y - b.y;
           return (difference || a.index - b.index) * (state.sortAscending ? 1 : -1);
         });
-        tbody.innerHTML = ordered.map((peak) => `<tr data-peak-row="${peak.index}" class="peak-row ${state.selectedPeak === peak.index ? "selected" : ""}"><td><button data-peak-button="${peak.index}">${peak.x.toFixed(5)}</button></td><td><button data-peak-button="${peak.index}">${peak.y.toLocaleString()}</button></td></tr>`).join("");
+        tbody.innerHTML = ordered.map((peak) => `<tr data-peak-row="${peak.index}" class="peak-row ${state.selectedPeak === peak.index ? "selected" : ""}">${peakTableCells(comparison.top, peak, "top")}</tr>`).join("");
       }
+      tbody.querySelectorAll("[data-annotation-side]").forEach(el => {
+        const edit = () => {
+          const source = comparison[el.dataset.annotationSide];
+          const index = Number(el.dataset.annotationPeak);
+          const column = peakColumns(source)[Number(el.dataset.annotationColumn)];
+          vscode.postMessage({ type: "edit-peak-cell", datasetId: source.datasetId, rowId: source.rowId,
+            peakIndex: index, column, value: source.spectrum.metadata?.[index]?.[column] ?? "" });
+        };
+        el.addEventListener("dblclick", edit);
+        el.addEventListener("keydown", event => { if (event.key === "Enter") { event.preventDefault(); edit(); } });
+      });
       mzSorts.forEach((sort) => { sort.textContent = `m/z ${state.sortAscending ? "↑" : "↓"}`; });
       if (intensitySort) intensitySort.textContent = `Intensity ${state.sortKey === "intensity" ? (state.sortAscending ? "↑" : "↓") : ""}`;
 
@@ -731,9 +862,39 @@
   }
 
   window.addEventListener("message", (event) => {
-    if (event.data?.type === "spectrum") receiveSpectrum(event.data.payload);
+    if (event.data?.type === "peak-columns-updated") {
+      for (const slot of [comparison.top, comparison.bottom]) {
+        if (slot?.datasetId === event.data.dataset_id) vscode.postMessage({
+          type: "get-peak-record", datasetId: slot.datasetId, rowId: slot.rowId
+        });
+      }
+    } else if (event.data?.type === "peak-record") {
+      let changed = false;
+      for (const slot of [comparison.top, comparison.bottom]) {
+        if (slot?.datasetId === event.data.dataset_id && slot.rowId === event.data.row_id) {
+          slot.spectrum = event.data.spectrum; changed = true;
+        }
+      }
+      if (changed) renderSpectrum(true);
+    } else if (event.data?.type === "spectrum") receiveSpectrum(event.data.payload);
     else if (event.data?.type === "spectrum-comparison") {
       receiveComparison(event.data.top, event.data.bottom, event.data.method);
+    }
+  });
+
+  document.addEventListener("click", event => {
+    if (peakMenuOpen && !event.target.closest?.(".peak-columns-control")) {
+      peakMenuOpen = false;
+      document.getElementById("peak-column-menu").hidden = true;
+      document.getElementById("peak-columns").setAttribute("aria-expanded", "false");
+    }
+  });
+  document.addEventListener("keydown", event => {
+    if (event.key === "Escape" && peakMenuOpen) {
+      peakMenuOpen = false;
+      document.getElementById("peak-column-menu").hidden = true;
+      document.getElementById("peak-columns").setAttribute("aria-expanded", "false");
+      document.getElementById("peak-columns").focus();
     }
   });
 

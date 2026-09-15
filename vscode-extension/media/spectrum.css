@@ -133,3 +133,23 @@ h2 { font-size: 15px; margin: 0 0 10px; color: var(--text); }
   .spectrum-header { align-items: start; flex-direction: column; }
   #plot-root > svg { min-height: 300px; }
 }
+
+.peak-table { white-space: nowrap; }
+.peak-table [data-annotation-side] { min-width: 90px; }
+.peak-table [data-annotation-side]:focus { outline: 1px solid var(--peak); outline-offset: -2px; }
+.peaks-header > div { display: flex; flex-wrap: wrap; gap: 4px; }
+
+.add-column-form { padding: 8px; border-bottom: 1px solid var(--border); }
+.add-column-form input { display: block; box-sizing: border-box; width: 100%; margin: 6px 0; padding: 5px; background: var(--vscode-input-background); color: var(--vscode-input-foreground); border: 1px solid var(--border); }
+.add-column-form small { display: block; margin: 6px 0; color: var(--vscode-descriptionForeground); }
+
+.column-menu-heading { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 4px; }
+.column-menu-heading > button { padding: 1px 7px; font-size: 18px; background: transparent; color: inherit; border: 0; }
+
+.peak-columns-control { position: relative; }
+.peak-column-menu { position: absolute; right: 0; top: calc(100% + 6px); width: 290px; max-height: 65vh; overflow: auto; z-index: 30; padding: 8px; text-align: left; background: var(--vscode-menu-background, var(--panel)); color: var(--vscode-menu-foreground, var(--text)); border: 1px solid var(--border); border-radius: 6px; box-shadow: 0 8px 24px #0006; }
+.peak-column-option { display: flex; align-items: center; gap: 3px; }
+.peak-column-menu .column-toggle { flex: 1; text-align: left; border: 0; background: transparent; color: inherit; overflow: hidden; text-overflow: ellipsis; }
+.peak-column-option > button { padding: 4px 7px; }
+.peak-column-menu button:hover { background: var(--vscode-list-hoverBackground); }
+.peak-column-menu [hidden] { display: none; }

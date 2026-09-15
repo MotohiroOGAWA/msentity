@@ -146,6 +146,14 @@
 
     const columnMenu = columnMenuOpen ? `
       <div class="column-menu" id="column-menu">
+        <div class="column-menu-heading"><strong>Columns</strong><button id="add-column-toggle" title="Add column" aria-label="Add metadata column" aria-expanded="false">+</button></div>
+        <form id="add-column-form" class="add-column-form" hidden>
+          <strong>Add column</strong>
+          <input id="new-column-name" aria-label="New column name" placeholder="Column name" required>
+          <input id="new-column-value" aria-label="Initial column value" placeholder="Initial value (blank by default)" value="">
+          <button type="submit">Add</button>
+          <small>Applies to all spectra in this dataset.</small>
+        </form>
         <button class="column-option" data-action="all-columns"><span class="checkmark ${allSelected ? "checked" : ""}">✓</span><strong>All columns</strong></button>
         ${cols.map((c) => `<div class="column-option"><button class="column-toggle" data-column="${esc(c)}"><span class="checkmark ${selectedColumns.includes(c) ? "checked" : ""}">✓</span><span>${esc(c)}</span></button>${selectedColumns.includes(c) ? `<span class="column-order"><button data-move-column="${esc(c)}" data-offset="-1" title="Move left" ${selectedColumns.indexOf(c) === 0 ? "disabled" : ""}>↑</button><button data-move-column="${esc(c)}" data-offset="1" title="Move right" ${selectedColumns.indexOf(c) === selectedColumns.length - 1 ? "disabled" : ""}>↓</button></span>` : ""}</div>`).join("")}
       </div>` : "";
@@ -219,6 +227,18 @@
       el.addEventListener("keydown", event => { if (event.key === "Enter") { event.preventDefault(); edit(); } });
     });
 
+    document.getElementById("add-column-toggle")?.addEventListener("click", () => {
+      const form = document.getElementById("add-column-form");
+      form.hidden = !form.hidden;
+      document.getElementById("add-column-toggle").setAttribute("aria-expanded", String(!form.hidden));
+    });
+    document.getElementById("add-column-form")?.addEventListener("submit", event => {
+      event.preventDefault();
+      vscode.postMessage({ type: "add-column", datasetId: activeDatasetId,
+        column: document.getElementById("new-column-name").value,
+        value: document.getElementById("new-column-value").value });
+    });
+
     const restoredColumnMenu = document.getElementById("column-menu");
     if (restoredColumnMenu) restoredColumnMenu.scrollTop = columnMenuScrollTop;
 
@@ -290,6 +310,7 @@
         row,
         columns: columns(),
         globalIndex,
+        rowId: value.row_ids[index],
         title: titleFor(row, globalIndex),
         datasetId: activeDatasetId,
         datasetName: value.dataset_name || filename,
@@ -334,6 +355,24 @@
         metadataDraft = null; metadataOpen = false;
         loadingPage = true;
         vscode.postMessage(viewRequest(datasetPages.get(activeDatasetId) || 0));
+      }
+      render();
+    } else if (message?.type === "column-added" || message?.type === "peak-columns-updated" || message?.type === "peak-record") {
+      if (message.type !== "peak-record" || message.modified) changedDatasets.add(message.dataset_id);
+      if (message.dataset_id === activeDatasetId) {
+        if (message.type === "column-added") {
+          const updatedColumns = [...columns(), message.column];
+          selectedColumns.push(message.column);
+          value.all_columns = updatedColumns;
+          knownColumnsKey = JSON.stringify(updatedColumns);
+        }
+        if (message.type === "peak-record") {
+          const index = value.row_ids.indexOf(message.row_id);
+          if (index >= 0) value.spectra[index] = { ...value.spectra[index], ...message.spectrum };
+        } else {
+          loadingPage = true;
+          vscode.postMessage(viewRequest(page()));
+        }
       }
       render();
     } else if (message?.type === "metadata-updated") {

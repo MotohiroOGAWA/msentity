@@ -90,3 +90,10 @@ button:disabled { cursor: default; opacity: .5; }
 .attribute-row input { flex: 1; min-width: 0; }
 .metadata-panel p { color: var(--muted); }
 [data-edit-row]:focus { outline: 1px solid var(--accent); outline-offset: -2px; }
+
+.add-column-form { padding: 8px; border-bottom: 1px solid var(--border); }
+.add-column-form input { display: block; box-sizing: border-box; width: 100%; margin: 6px 0; padding: 5px; background: var(--vscode-input-background); color: var(--vscode-input-foreground); border: 1px solid var(--border); }
+.add-column-form small { display: block; margin: 6px 0; color: var(--vscode-descriptionForeground); }
+
+.column-menu-heading { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 4px; }
+.column-menu-heading > button { padding: 1px 7px; font-size: 18px; background: transparent; color: inherit; border: 0; }

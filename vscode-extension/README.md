@@ -122,6 +122,34 @@ After confirmation it is removed from this viewer and from similarity choices;
 its file stays on disk. The viewer returns to the original dataset and clears
 the spectrum panel. The original dataset is removed by closing its editor tab.
 
+## Add metadata and peak annotation columns
+
+Open **Columns** in the dataset table and click **+**. Enter a column name and an optional
+initial value in the same form, then click **Add**. The initial value defaults
+to an empty string. The new column is visible immediately and applies to all
+spectra in the selected dataset, including rows outside the current filter or
+page. Existing columns cannot be overwritten by adding a column.
+
+The spectrum panel's **Peaks** table displays stored peak annotation columns
+beside m/z and intensity. The **Columns** button sits in the spectrum header
+next to **Export image…**. Toggle annotation columns and use the arrow buttons to change their order.
+**All columns** selects or clears annotation columns. m/z and Intensity remain
+visible as the first two columns and are not listed in this menu. Display settings are remembered per dataset while the panel is open,
+and column changes preserve zoom, peak selection, and sorting.
+
+Click **+** inside this menu to reveal the column-name and initial-value form.
+In a comparison, choose **Upper** or **Lower** to select the dataset to modify. A new peak annotation column applies to all peaks in
+that dataset; its default value is blank.
+
+Double-click an annotation cell, or focus it and press **Enter**, to edit that
+peak. Annotation values follow their original peaks when the table is sorted
+or two spectra are aligned. Copy/Save TSV and CSV follow the visible column selection and order.
+Embedded similarity results display saved annotations as read-only.
+
+Use dataset **Export… → MSDS** to persist peak annotations with the dataset.
+The dataset's MGF/TSV/CSV export formats do not preserve these added peak
+annotation columns. MSDS also preserves columns whose values are all blank.
+
 ## Assign SpecID
 
 Click **Assign SpecID…** and enter a prefix (or leave it empty). IDs start at 1

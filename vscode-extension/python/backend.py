@@ -117,6 +117,19 @@ def apply_view(dataset: Any, filters: Any = None, sort: Any = None, columns: Any
     return view
 
 
+def serialize_spectrum(spectrum: Any) -> dict[str, Any]:
+    metadata = spectrum.metadata
+    return {
+        "mz": json_value(spectrum.mz.tolist()),
+        "intensity": json_value(spectrum.intensity.tolist()),
+        "metadata_columns": [] if metadata is None else list(metadata.columns),
+        "metadata": [] if metadata is None else [
+            {str(k): json_value(v) for k, v in row.items()}
+            for row in metadata.to_dict(orient="records")
+        ],
+    }
+
+
 def serialize_page(dataset: Any, page: int, page_size: int, dataset_id: str, input_file: Path) -> dict[str, Any]:
     total_rows = len(dataset)
     total_pages = max(1, math.ceil(total_rows / page_size))
@@ -133,8 +146,7 @@ def serialize_page(dataset: Any, page: int, page_size: int, dataset_id: str, inp
     spectra = [
         {
             "index": start + local_index,
-            "mz": json_value(spectrum.mz),
-            "intensity": json_value(spectrum.intensity),
+            **serialize_spectrum(spectrum),
         }
         for local_index, spectrum in enumerate(page_view.peaks)
     ]
@@ -333,7 +345,7 @@ def main() -> int:
                 payload = serialize_page(view, page, page_size, dataset_id, entry["path"])
                 payload["all_columns"] = entry["dataset"].columns
                 emit({"type": "dataset-page", "value": payload})
-            elif request_type in {"update-metadata", "update-cell", "remove-dataset"}:
+            elif request_type in {"update-metadata", "update-cell", "remove-dataset", "add-column", "add-peak-column", "update-peak-cell", "get-peak-record"}:
                 try:
                     if entry is None:
                         raise ValueError(f"Unknown dataset: {dataset_id}")
@@ -343,6 +355,57 @@ def main() -> int:
                             raise ValueError("The original dataset cannot be removed. Close its tab instead.")
                         del datasets[dataset_id]
                         emit({"type": "dataset-removed", "dataset_id": dataset_id})
+                        continue
+                    if request_type in {"add-column", "add-peak-column"}:
+                        column = request.get("column")
+                        initial = request.get("value", "")
+                        if not isinstance(column, str) or not column.strip():
+                            raise ValueError("Column name must not be empty")
+                        column = column.strip()
+                        if not isinstance(initial, str):
+                            raise ValueError("Initial value must be text")
+                        peak_column = request_type == "add-peak-column"
+                        target = current.peaks if peak_column else current
+                        existing = current.peaks.metadata_columns if peak_column else current.columns
+                        reserved = {"mz", "m/z", "intensity"} if peak_column else {"peak"}
+                        if column in existing or column.casefold() in reserved:
+                            raise ValueError("Column name already exists or is reserved")
+                        target[column] = initial
+                        emit({"type": "peak-columns-updated" if peak_column else "column-added",
+                              "dataset_id": dataset_id, "column": column})
+                        continue
+                    if request_type in {"update-peak-cell", "get-peak-record"}:
+                        row_id = request.get("row_id")
+                        indices = current.peaks._index.tolist()
+                        if type(row_id) is not int or row_id not in indices:
+                            raise ValueError("Unknown spectrum")
+                        spectrum = current.peaks[indices.index(row_id)]
+                        if request_type == "update-peak-cell":
+                            column = request.get("column")
+                            peak_index = request.get("peak_index")
+                            new_value = request.get("value")
+                            if column not in current.peaks.metadata_columns:
+                                raise ValueError("Unknown peak annotation column")
+                            if type(peak_index) is not int or not 0 <= peak_index < len(spectrum):
+                                raise ValueError("Unknown peak")
+                            if not isinstance(new_value, str):
+                                raise ValueError("Annotation must be text")
+                            # Preserve the column's scalar type when editing existing annotations.
+                            old = json_value(spectrum.metadata.iloc[peak_index][column])
+                            if isinstance(old, bool):
+                                if new_value not in {"true", "false"}:
+                                    raise ValueError("Enter true or false")
+                                new_value = new_value == "true"
+                            elif isinstance(old, (int, float)):
+                                new_value = int(new_value) if isinstance(old, int) and new_value.lstrip("+-").isdigit() else float(new_value)
+                                if not math.isfinite(new_value):
+                                    raise ValueError("Enter a finite number")
+                            values = current.peaks._metadata_ref[column].astype(object).copy()
+                            values.iloc[int(current.peaks._offsets_ref[row_id]) + peak_index] = new_value
+                            current.peaks._metadata_ref[column] = values.infer_objects()
+                        emit({"type": "peak-record", "dataset_id": dataset_id, "row_id": row_id,
+                              "modified": request_type == "update-peak-cell",
+                              "spectrum": serialize_spectrum(spectrum)})
                         continue
                     if request_type == "update-metadata":
                         description = request.get("description")

@@ -11,7 +11,7 @@ test("metadata form sends edits and dataset removal restores original selection"
   const app = { dataset: {}, innerHTML: "" };
   const element = id => {
     if (!elements.has(id)) elements.set(id, {
-      handlers: {}, addEventListener(name, handler) { this.handlers[name] = handler; }
+      hidden: true, setAttribute() {}, handlers: {}, addEventListener(name, handler) { this.handlers[name] = handler; }
     });
     return elements.get(id);
   };
@@ -54,6 +54,21 @@ test("metadata form sends edits and dataset removal restores original selection"
   send({ type: "metadata-updated", dataset_id: "original" });
   assert.equal(posted.at(-1).type, "page-request");
   assert.match(app.innerHTML, /id="metadata-description">next draft<\/textarea>/);
+  element("columns-button").handlers.click({ stopPropagation() {} });
+  assert.match(app.innerHTML, /id="add-column-form" class="add-column-form" hidden/);
+  element("add-column-toggle").handlers.click();
+  assert.equal(element("add-column-form").hidden, false);
+  assert.match(app.innerHTML, /id="new-column-name"/);
+  assert.match(app.innerHTML, /id="new-column-value"/);
+  element("new-column-name").value = "Note";
+  element("new-column-value").value = "";
+  element("add-column-form").handlers.submit({ preventDefault() {} });
+  assert.equal(posted.at(-1).type, "add-column");
+  assert.equal(posted.at(-1).column, "Note");
+  assert.equal(posted.at(-1).value, "");
+  send({ type: "column-added", dataset_id: "original", column: "Note" });
+  assert.equal(posted.at(-1).type, "page-request");
+  assert.equal(posted.at(-1).columns.includes("Note"), true);
   send({ type: "dataset-added", dataset: { id: "added", name: "added" } });
   page("added");
   element("remove-dataset").handlers.click();

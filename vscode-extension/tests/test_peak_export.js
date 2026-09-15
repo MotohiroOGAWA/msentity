@@ -51,3 +51,24 @@ test("comparison export includes both spectra and empty unmatched cells", () => 
     ""
   ].join("\n"));
 });
+
+test("annotation export follows peak sorting and quotes CSV text", () => {
+  context.state = { sortKey: "mz", sortAscending: true };
+  const annotations = { metadata_columns: ["Note"], metadata: [{ Note: 'b,"quoted"' }, { Note: "a" }] };
+  assert.equal(context.exportPeaks([200, 100], [20, 10], "csv", null, null, 0, annotations),
+    'm/z,Intensity,Note\n100,10,a\n200,20,"b,""quoted"""\n');
+});
+
+test("comparison annotation export keeps unmatched annotation cells empty", () => {
+  context.state = { sortKey: "mz", sortAscending: true };
+  const annotations = { metadata_columns: ["Note"], metadata: [{ Note: "upper" }] };
+  const lower = { metadata_columns: ["Label"], metadata: [{ Label: "lower" }] };
+  assert.equal(context.exportPeaks([100], [10], "tsv", [200], [20], 0.05, annotations, lower),
+    "Upper m/z\tUpper Intensity\tUpper Note\tLower m/z\tLower Intensity\tLower Label\n100\t10\tupper\t\t\t\n\t\t\t200\t20\tlower\n");
+});
+
+test("peak export respects hidden and reordered columns", () => {
+  const annotations = { metadata_columns: ["Note"], metadata: [{ Note: "fragment" }] };
+  assert.equal(context.exportPeaks([100], [10], "tsv", null, null, 0, annotations, null, ["meta:Note", "mz"]),
+    "m/z\tIntensity\tNote\n100\t10\tfragment\n");
+});
