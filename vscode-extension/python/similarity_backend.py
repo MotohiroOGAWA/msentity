@@ -9,7 +9,7 @@ from pathlib import Path
 
 import pandas as pd
 
-from backend import emit, json_value
+from backend import emit, json_value, serialize_spectrum
 from msentity.similarity import SimilarityDataset
 
 
@@ -97,10 +97,7 @@ def match_payload(result, row):
             "title": title,
             "columns": record.columns,
             "row": metadata,
-            "spectrum": {
-                "mz": json_value(record.spectrum.mz),
-                "intensity": json_value(record.spectrum.intensity),
-            },
+            "spectrum": serialize_spectrum(record.spectrum),
         })
     return {
         "query": payloads[0],

@@ -4,6 +4,36 @@
   const filename = app.dataset.filename || "dataset";
 
   let value = null;
+  let initialDatasetId = "";
+  let metadataOpen = false;
+  let metadataDraft = null;
+  let metadataBusy = false;
+  const changedDatasets = new Set();
+
+  function metadataForm() {
+    if (!metadataOpen) return "";
+    if (!metadataDraft) metadataDraft = {
+      description: value.description || "",
+      tags: (value.tags || []).join("\n"),
+      attributes: Object.entries(value.attributes || {}).map(([key, val]) => ({ key, value: val }))
+    };
+    return `<section class="metadata-panel" aria-label="Dataset metadata">
+      <h3>Dataset metadata</h3>
+      <label>Description<textarea id="metadata-description">${esc(metadataDraft.description)}</textarea></label>
+      <label>Tags (one per line)<textarea id="metadata-tags">${esc(metadataDraft.tags)}</textarea></label>
+      <div>Attributes</div>
+      ${metadataDraft.attributes.map((item, i) => `<div class="attribute-row">
+        <input aria-label="Attribute name" data-attribute-key="${i}" value="${esc(item.key)}" placeholder="Name">
+        <input aria-label="Attribute value" data-attribute-value="${i}" value="${esc(item.value)}" placeholder="Value">
+        <button data-remove-attribute="${i}" aria-label="Remove attribute">×</button></div>`).join("")}
+      <button id="add-attribute">Add attribute</button>
+      <p>Apply updates the loaded dataset. Export as MSDS to preserve description, attributes and tags.
+      Reload or closing the viewer discards changes that have not been exported.</p>
+      <button id="apply-metadata" ${metadataBusy ? "disabled" : ""}>Apply</button>
+      <button id="cancel-metadata">Cancel</button>
+    </section>`;
+  }
+
   let selectedColumns = [];
   let knownColumnsKey = "";
   let loadingPage = false;
@@ -116,6 +146,14 @@
 
     const columnMenu = columnMenuOpen ? `
       <div class="column-menu" id="column-menu">
+        <div class="column-menu-heading"><strong>Columns</strong><button id="add-column-toggle" title="Add column" aria-label="Add metadata column" aria-expanded="false">+</button></div>
+        <form id="add-column-form" class="add-column-form" hidden>
+          <strong>Add column</strong>
+          <input id="new-column-name" aria-label="New column name" placeholder="Column name" required>
+          <input id="new-column-value" aria-label="Initial column value" placeholder="Initial value (blank by default)" value="">
+          <button type="submit">Add</button>
+          <small>Applies to all spectra in this dataset.</small>
+        </form>
         <button class="column-option" data-action="all-columns"><span class="checkmark ${allSelected ? "checked" : ""}">✓</span><strong>All columns</strong></button>
         ${cols.map((c) => `<div class="column-option"><button class="column-toggle" data-column="${esc(c)}"><span class="checkmark ${selectedColumns.includes(c) ? "checked" : ""}">✓</span><span>${esc(c)}</span></button>${selectedColumns.includes(c) ? `<span class="column-order"><button data-move-column="${esc(c)}" data-offset="-1" title="Move left" ${selectedColumns.indexOf(c) === 0 ? "disabled" : ""}>↑</button><button data-move-column="${esc(c)}" data-offset="1" title="Move right" ${selectedColumns.indexOf(c) === selectedColumns.length - 1 ? "disabled" : ""}>↓</button></span>` : ""}</div>`).join("")}
       </div>` : "";
@@ -138,8 +176,10 @@
     app.innerHTML = `
       <div class="viewer">
         <div class="toolbar">
-          <div><div class="dataset-heading"><select id="dataset-select" aria-label="Active dataset">${datasetOptions.map((dataset) => `<option value="${esc(dataset.id)}" ${dataset.id === activeDatasetId ? "selected" : ""}>${esc(dataset.name)}</option>`).join("")}</select><button class="secondary-button" id="add-dataset">Add dataset…</button></div><div class="summary">${totalRows().toLocaleString()} spectra · ${selectedColumns.length}/${cols.length} columns${value.description ? ` · ${esc(value.description)}` : ""}</div></div>
+          <div><div class="dataset-heading"><select id="dataset-select" ${loadingPage || metadataBusy ? "disabled" : ""} aria-label="Active dataset">${datasetOptions.map((dataset) => `<option value="${esc(dataset.id)}" ${dataset.id === activeDatasetId ? "selected" : ""}>${esc(dataset.name)}</option>`).join("")}</select><button class="secondary-button" id="add-dataset">Add dataset…</button><button class="secondary-button" id="remove-dataset" ${activeDatasetId === initialDatasetId || loadingPage || metadataBusy ? "disabled" : ""}>Remove dataset</button></div><div class="summary">${totalRows().toLocaleString()} spectra · ${selectedColumns.length}/${cols.length} columns${value.description ? ` · ${esc(value.description)}` : ""}</div></div>
           <div class="tools">
+            <button class="secondary-button" id="metadata-button" ${loadingPage ? "disabled" : ""}>Metadata…</button>
+            ${changedDatasets.has(activeDatasetId) ? '<span class="summary">Modified · Export to save</span>' : ""}
             <div class="columns"><button id="columns-button">Columns</button>${columnMenu}</div>
             <div class="filters"><button id="filter-button" class="${filters.length ? "active" : ""}">Filter${filters.length ? ` (${filters.length})` : ""}</button>${filterMenu}</div>
             <button class="secondary-button" id="assign-spec-id-button" ${assigningSpecId || loadingPage || exporting ? "disabled" : ""}>${assigningSpecId ? "Assigning SpecID…" : "Assign SpecID…"}</button>
@@ -148,11 +188,56 @@
             <button class="secondary-button" id="similarity-button" ${calculatingSimilarity || datasetOptions.length < 1 ? "disabled" : ""} title="Run a library search or compare matching metadata keys">${calculatingSimilarity ? `Calculating…${similarityProgress == null ? "" : ` ${similarityProgress.toFixed(1)}%`}` : "Calculate similarity…"}</button>
           </div>
         </div>
+        ${metadataForm()}
         <div class="table-wrap"><table class="dataset-table"><thead><tr><th class="row-column">Row</th><th class="spectrum-column">Spectrum</th>${selectedColumns.map((c) => { const item = sortFor(c); return `<th><button class="table-sort" data-sort-column="${esc(c)}" title="Click: ascending → descending → remove sort">${esc(c)}<span>${item ? `${item.priority}${item.direction === "asc" ? "▲" : "▼"}` : ""}</span></button></th>`; }).join("")}</tr></thead><tbody>
-          ${pageRows.length ? pageRows.map(({ row, index }) => `<tr class="${selectedSpectrumIndex === index ? "selected-record" : ""}"><td class="row-column">${rowOffset() + index + 1}</td><td class="spectrum-column"><button class="spectrum-button" data-spectrum-index="${index}" title="Show spectrum ${rowOffset() + index + 1}"><svg viewBox="0 0 28 22"><path d="M2 19h24M4 18V13m4 5V7m4 11v-4m4 4V3m4 15V9m4 9v-7"/></svg></button></td>${selectedColumns.map((c) => `<td title="${esc(display(row?.[c]))}">${esc(display(row?.[c]))}</td>`).join("")}</tr>`).join("") : `<tr><td colspan="${selectedColumns.length + 2}" class="empty">No spectra match the filters.</td></tr>`}
+          ${pageRows.length ? pageRows.map(({ row, index }) => `<tr class="${selectedSpectrumIndex === index ? "selected-record" : ""}"><td class="row-column">${rowOffset() + index + 1}</td><td class="spectrum-column"><button class="spectrum-button" data-spectrum-index="${index}" title="Show spectrum ${rowOffset() + index + 1}"><svg viewBox="0 0 28 22"><path d="M2 19h24M4 18V13m4 5V7m4 11v-4m4 4V3m4 15V9m4 9v-7"/></svg></button></td>${selectedColumns.map((c) => `<td tabindex="0" data-edit-row="${index}" data-edit-column="${esc(c)}" title="Double-click or press Enter to edit: ${esc(display(row?.[c]))}">${esc(display(row?.[c]))}</td>`).join("")}</tr>`).join("") : `<tr><td colspan="${selectedColumns.length + 2}" class="empty">No spectra match the filters.</td></tr>`}
         </tbody></table></div>
         <div class="pagination"><span>${start}–${end} of ${totalRows()}</span><div class="page-controls"><button id="prev-page" ${page() === 0 || loadingPage ? "disabled" : ""}>‹</button><span><input id="page-input" type="number" min="1" max="${pageCount()}" value="${page() + 1}" ${loadingPage ? "disabled" : ""}/> / ${pageCount()}</span><button id="next-page" ${page() >= pageCount() - 1 || loadingPage ? "disabled" : ""}>›</button></div><span>${loadingPage ? "Loading…" : `${pageSize()} rows/page`}</span></div>
       </div>`;
+
+    document.getElementById("metadata-button")?.addEventListener("click", () => { metadataOpen = !metadataOpen; render(); });
+    document.getElementById("metadata-description")?.addEventListener("input", (e) => { metadataDraft.description = e.target.value; });
+    document.getElementById("metadata-tags")?.addEventListener("input", (e) => { metadataDraft.tags = e.target.value; });
+    document.querySelectorAll("[data-attribute-key]").forEach(el => el.addEventListener("input", () => { metadataDraft.attributes[Number(el.dataset.attributeKey)].key = el.value; }));
+    document.querySelectorAll("[data-attribute-value]").forEach(el => el.addEventListener("input", () => { metadataDraft.attributes[Number(el.dataset.attributeValue)].value = el.value; }));
+    document.querySelectorAll("[data-remove-attribute]").forEach(el => el.addEventListener("click", () => { metadataDraft.attributes.splice(Number(el.dataset.removeAttribute), 1); render(); }));
+    document.getElementById("add-attribute")?.addEventListener("click", () => { metadataDraft.attributes.push({ key: "", value: "" }); render(); });
+    document.getElementById("cancel-metadata")?.addEventListener("click", () => { metadataDraft = null; metadataOpen = false; render(); });
+    document.getElementById("apply-metadata")?.addEventListener("click", () => {
+      const keys = metadataDraft.attributes.map(item => item.key);
+      if (keys.some(key => !key.trim()) || new Set(keys).size !== keys.length) {
+        vscode.postMessage({ type: "edit-error-notification", message: "Attribute names must be nonempty and unique." }); return;
+      }
+      metadataBusy = true;
+      vscode.postMessage({ type: "update-metadata", datasetId: activeDatasetId,
+        description: metadataDraft.description,
+        attributes: Object.fromEntries(metadataDraft.attributes.map(item => [item.key, item.value])),
+        tags: metadataDraft.tags.split("\n").map(tag => tag.trim()).filter(Boolean) });
+      render();
+    });
+    document.getElementById("remove-dataset")?.addEventListener("click", () => vscode.postMessage({ type: "remove-dataset", datasetId: activeDatasetId }));
+    document.querySelectorAll("[data-edit-row]").forEach(el => {
+      const edit = () => {
+        if (loadingPage) return;
+        const index = Number(el.dataset.editRow);
+        vscode.postMessage({ type: "edit-cell", datasetId: activeDatasetId,
+          rowId: value.row_ids[index], column: el.dataset.editColumn, value: rows()[index][el.dataset.editColumn] });
+      };
+      el.addEventListener("dblclick", edit);
+      el.addEventListener("keydown", event => { if (event.key === "Enter") { event.preventDefault(); edit(); } });
+    });
+
+    document.getElementById("add-column-toggle")?.addEventListener("click", () => {
+      const form = document.getElementById("add-column-form");
+      form.hidden = !form.hidden;
+      document.getElementById("add-column-toggle").setAttribute("aria-expanded", String(!form.hidden));
+    });
+    document.getElementById("add-column-form")?.addEventListener("submit", event => {
+      event.preventDefault();
+      vscode.postMessage({ type: "add-column", datasetId: activeDatasetId,
+        column: document.getElementById("new-column-name").value,
+        value: document.getElementById("new-column-value").value });
+    });
 
     const restoredColumnMenu = document.getElementById("column-menu");
     if (restoredColumnMenu) restoredColumnMenu.scrollTop = columnMenuScrollTop;
@@ -179,6 +264,7 @@
       refreshView();
     }));
     document.getElementById("dataset-select")?.addEventListener("change", (event) => {
+      metadataDraft = null; metadataOpen = false;
       activeDatasetId = event.currentTarget.value;
       const savedPage = datasetPages.get(activeDatasetId) ?? 0;
       loadingPage = true;
@@ -224,6 +310,7 @@
         row,
         columns: columns(),
         globalIndex,
+        rowId: value.row_ids[index],
         title: titleFor(row, globalIndex),
         datasetId: activeDatasetId,
         datasetName: value.dataset_name || filename,
@@ -237,12 +324,14 @@
     if (message?.type === "backend-ready") {
       loadingProgress = null;
       if (message.dataset) {
+        initialDatasetId = message.dataset.id;
         datasetOptions = [message.dataset];
         activeDatasetId = message.dataset.id;
         datasetPages.set(activeDatasetId, 0);
       }
       vscode.postMessage({ type: "ready", datasetId: activeDatasetId });
     } else if (message?.type === "dataset-added") {
+      metadataDraft = null; metadataOpen = false;
       const dataset = message.dataset;
       if (dataset && !datasetOptions.some((item) => item.id === dataset.id)) datasetOptions.push(dataset);
       if (dataset) {
@@ -253,6 +342,60 @@
         knownColumnsKey = "";
         if (!datasetPages.has(activeDatasetId)) datasetPages.set(activeDatasetId, 0);
       }
+    } else if (message?.type === "dataset-reloaded") {
+      changedDatasets.delete(message.dataset_id);
+      if (activeDatasetId === message.dataset_id) metadataDraft = null;
+    } else if (message?.type === "dataset-removed") {
+      datasetOptions = datasetOptions.filter(item => item.id !== message.dataset_id);
+      datasetPages.delete(message.dataset_id);
+      changedDatasets.delete(message.dataset_id);
+      if (activeDatasetId === message.dataset_id) {
+        activeDatasetId = initialDatasetId;
+        filters = []; rowSort = []; knownColumnsKey = "";
+        metadataDraft = null; metadataOpen = false;
+        loadingPage = true;
+        vscode.postMessage(viewRequest(datasetPages.get(activeDatasetId) || 0));
+      }
+      render();
+    } else if (message?.type === "column-added" || message?.type === "peak-columns-updated" || message?.type === "peak-record") {
+      if (message.type !== "peak-record" || message.modified) changedDatasets.add(message.dataset_id);
+      if (message.dataset_id === activeDatasetId) {
+        if (message.type === "column-added") {
+          const updatedColumns = [...columns(), message.column];
+          selectedColumns.push(message.column);
+          value.all_columns = updatedColumns;
+          knownColumnsKey = JSON.stringify(updatedColumns);
+        }
+        if (message.type === "peak-record") {
+          const index = value.row_ids.indexOf(message.row_id);
+          if (index >= 0) value.spectra[index] = { ...value.spectra[index], ...message.spectrum };
+        } else {
+          loadingPage = true;
+          vscode.postMessage(viewRequest(page()));
+        }
+      }
+      render();
+    } else if (message?.type === "metadata-updated") {
+      metadataBusy = false;
+      changedDatasets.add(message.dataset_id);
+      if (activeDatasetId === message.dataset_id) {
+        if (message.metadata) {
+          // Rebuild the form only after replacing the old values with the
+          // metadata accepted by the backend.
+          value = { ...value, ...message.metadata };
+          metadataDraft = null;
+        } else {
+          // Spectrum cell edits affect filtering and sorting; reload the table
+          // without discarding an unrelated dataset metadata draft.
+          loadingPage = true;
+          vscode.postMessage(viewRequest(page()));
+        }
+      }
+      render();
+    } else if (message?.type === "edit-error") {
+      metadataBusy = false;
+      render();
+      vscode.postMessage({ type: "edit-error-notification", message: message.message });
     } else if (message?.type === "loading-progress") {
       loadingProgress = message;
       renderLoading(`Reading ${String(message.file_type || "dataset").toUpperCase()}…`);
@@ -268,6 +411,7 @@
       render();
     } else if (message?.type === "spec-id-complete") {
       assigningSpecId = false;
+      changedDatasets.add(message.dataset_id);
       if (message.dataset_id === activeDatasetId) {
         if (!selectedColumns.includes("SpecID")) selectedColumns.push("SpecID");
         loadingPage = true;

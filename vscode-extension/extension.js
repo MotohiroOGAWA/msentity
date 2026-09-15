@@ -32,6 +32,11 @@ function resolvePythonExecutable(context) {
   return { pythonPath: "python", bundled: false };
 }
 
+function requestColumn(message, writeRequest) {
+  writeRequest({ type: message.type, dataset_id: message.datasetId,
+    column: message.column, value: message.value ?? "" });
+}
+
 class MSEntityDocument {
   constructor(uri, fileType = null) {
     this.uri = uri;
@@ -116,6 +121,9 @@ class MSEntityViewerProvider {
           } else if (message.type === "similarity-match") {
             this.showSpectrum(document.uri, message.query, message.reference, message.method);
           }
+          if (["peak-columns-updated", "peak-record"].includes(message.type)) {
+            this.spectrumPanels.get(document.uri.toString())?.panel.webview.postMessage(message);
+          }
           send(message);
         } catch (error) {
           outputChannel.appendLine(`[protocol error] ${String(error)} :: ${line}`);
@@ -168,6 +176,40 @@ class MSEntityViewerProvider {
             type: "page", page: Number(message.page) || 0, dataset_id: message.datasetId,
             filters: message.filters, sort: message.sort, columns: message.columns, bins: message.bins
           });
+          break;
+        case "add-column":
+          await requestColumn(message, writeRequest);
+          break;
+        case "update-metadata":
+          writeRequest({ type: "update-metadata", dataset_id: message.datasetId,
+            description: message.description, attributes: message.attributes, tags: message.tags });
+          break;
+        case "edit-cell": {
+          const result = await vscode.window.showInputBox({
+            title: `Edit ${message.column}`,
+            value: String(message.value ?? ""),
+            prompt: "Edit spectrum metadata. Export to save the change.",
+            ignoreFocusOut: true
+          });
+          if (result !== undefined && !disposed) writeRequest({
+            type: "update-cell", dataset_id: message.datasetId,
+            row_id: message.rowId, column: message.column, value: result
+          });
+          break;
+        }
+        case "remove-dataset": {
+          const choice = await vscode.window.showWarningMessage(
+            "Remove this dataset from the viewer? Changes that have not been exported will be discarded. The file remains on disk.",
+            { modal: true }, "Remove dataset"
+          );
+          if (choice === "Remove dataset" && !disposed) {
+            writeRequest({ type: "remove-dataset", dataset_id: message.datasetId });
+            this.spectrumPanels.get(document.uri.toString())?.panel.dispose();
+          }
+          break;
+        }
+        case "edit-error-notification":
+          vscode.window.showErrorMessage(String(message.message));
           break;
         case "assign-spec-id": {
           try {
@@ -281,6 +323,7 @@ class MSEntityViewerProvider {
         }
         case "open-spectrum":
           this.showSpectrum(document.uri, message.payload);
+          this.spectrumPanels.get(document.uri.toString()).editRequest = writeRequest;
           break;
         case "save-similarity-image":
           try {
@@ -477,8 +520,22 @@ class MSEntityViewerProvider {
       entry = { panel, ready: false, latest: payload, comparisonBottom, comparisonMethod };
       this.spectrumPanels.set(key, entry);
 
-      panel.webview.onDidReceiveMessage((message) => {
-        if (message?.type === "ready") {
+      panel.webview.onDidReceiveMessage(async (message) => {
+        if (message?.type === "add-peak-column" && entry.editRequest) {
+          await requestColumn(message, entry.editRequest);
+        } else if (message?.type === "get-peak-record" && entry.editRequest) {
+          entry.editRequest({ type: message.type, dataset_id: message.datasetId, row_id: message.rowId });
+        } else if (message?.type === "edit-peak-cell" && entry.editRequest) {
+          const value = await vscode.window.showInputBox({
+            title: `Edit peak annotation: ${message.column}`,
+            value: String(message.value ?? ""), ignoreFocusOut: true,
+            prompt: "Export the dataset as MSDS to save peak annotations."
+          });
+          if (value !== undefined) entry.editRequest({
+            type: "update-peak-cell", dataset_id: message.datasetId, row_id: message.rowId,
+            peak_index: message.peakIndex, column: message.column, value
+          });
+        } else if (message?.type === "ready") {
           entry.ready = true;
           if (entry.latest && entry.comparisonBottom) {
             panel.webview.postMessage({
