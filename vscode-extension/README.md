@@ -316,3 +316,15 @@ an existing Chromium executable. The test uses the actual Python result backend
 and a mocked VS Code host, and writes a screenshot to the system temporary directory.
 Run `WIZARD_ONLY=1 node vscode-extension/tests/test_similarity_ui.js` to check
 the VS Code parameter flow without Playwright or Chromium.
+
+Image export **Advanced** settings include upper/lower peak colors, m/z range, separate upper/lower intensity ranges, peak line width, and peak label size, color, decimal places, and top K by intensity per spectrum. Blank ranges follow the current view; 0 for top K labels all visible peaks. Enable **m/z above peaks** to show labels. Settings persist across spectrum selections and webview restoration, and apply to preview, PNG/SVG saves, and clipboard copies.
+
+Use **Reset export defaults** in Advanced to reset all image export options, including dimensions and visibility toggles. Axis ranges are displayed as minimum ～ maximum.
+
+The dataset dropdown contains compact **Add dataset** and **Remove dataset** icon buttons above the dataset list. You can also drop one or more MSDS, MSP, MGF, TSV, or CSV files anywhere in the Dataset Viewer to add them. Files dropped from the OS are imported as temporary copies when no workspace path is available; these copies are removed when the viewer closes.
+
+Any dataset, including the first one opened, can be removed from the viewer. Removing the active dataset selects a remaining dataset. Removing the last dataset shows an empty view where Add dataset and file drops remain available. Removal does not delete the source file.
+
+Adding the same file again creates an independent dataset loaded from its current on-disk contents. In-memory edits to an existing dataset are preserved. Datasets with matching filenames receive unique display names such as `sample (1).msp` and `sample (2).msp`, including files from different directories. These names also appear in spectrum views and similarity selection.
+
+The toolbar provides **Reload**, **Filter**, and **Export** directly. **More ...** contains Metadata, Columns, Assign SpecID, and Calculate similarity. Press **Ctrl+S** (or **Cmd+S** on macOS) while the Dataset Viewer is focused to open the same Export flow.

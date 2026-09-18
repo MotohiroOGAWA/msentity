@@ -8,6 +8,7 @@ import json
 import math
 import sys
 import traceback
+import uuid
 from datetime import date, datetime
 from pathlib import Path
 from typing import Any
@@ -318,8 +319,9 @@ def main() -> int:
 
     initial_id = str(input_file)
     datasets: dict[str, dict[str, Any]] = {
-        initial_id: {"dataset": dataset, "path": input_file, "file_type": args.file_type}
+        initial_id: {"dataset": dataset, "path": input_file, "file_type": args.file_type, "name": input_file.name}
     }
+    used_dataset_ids = {initial_id}
     emit({
         "type": "backend-ready",
         "file": str(input_file),
@@ -343,6 +345,7 @@ def main() -> int:
                 page = int(request.get("page", 0))
                 view = apply_view(entry["dataset"], request.get("filters"), request.get("sort"))
                 payload = serialize_page(view, page, page_size, dataset_id, entry["path"])
+                payload["dataset_name"] = entry["name"]
                 payload["all_columns"] = entry["dataset"].columns
                 emit({"type": "dataset-page", "value": payload})
             elif request_type in {"update-metadata", "update-cell", "remove-dataset", "add-column", "add-peak-column", "update-peak-cell", "get-peak-record"}:
@@ -351,8 +354,6 @@ def main() -> int:
                         raise ValueError(f"Unknown dataset: {dataset_id}")
                     current = entry["dataset"]
                     if request_type == "remove-dataset":
-                        if dataset_id == initial_id:
-                            raise ValueError("The original dataset cannot be removed. Close its tab instead.")
                         del datasets[dataset_id]
                         emit({"type": "dataset-removed", "dataset_id": dataset_id})
                         continue
@@ -461,14 +462,26 @@ def main() -> int:
                 added_path = Path(str(request.get("path", ""))).expanduser().resolve()
                 if not added_path.is_file():
                     raise FileNotFoundError(str(added_path))
+                added_type = request.get("file_type")
+                # Each addition reads the source again and owns independent edits.
+                added_dataset = load_dataset(added_path, added_type)
                 added_id = str(added_path)
-                if added_id not in datasets:
-                    added_type = request.get("file_type")
-                    added_dataset = load_dataset(added_path, added_type)
-                    datasets[added_id] = {"dataset": added_dataset, "path": added_path, "file_type": added_type}
-                added_entry = datasets[added_id]
-                emit({"type": "dataset-added", "dataset": {"id": added_id, "name": added_path.name, "path": added_id, "total_rows": len(added_entry["dataset"])}})
-                emit({"type": "dataset-page", "value": serialize_page(added_entry["dataset"], 0, page_size, added_id, added_path)})
+                if added_id in used_dataset_ids:
+                    added_id = f"{added_path}#{uuid.uuid4().hex}"
+                used_dataset_ids.add(added_id)
+                used_names = {item["name"] for item in datasets.values()}
+                added_name = added_path.name
+                suffix = 1
+                while added_name in used_names:
+                    added_name = f"{added_path.stem} ({suffix}){added_path.suffix}"
+                    suffix += 1
+                added_entry = {"dataset": added_dataset, "path": added_path,
+                               "file_type": added_type, "name": added_name}
+                datasets[added_id] = added_entry
+                emit({"type": "dataset-added", "dataset": {"id": added_id, "name": added_name, "path": str(added_path), "total_rows": len(added_dataset)}})
+                payload = serialize_page(added_dataset, 0, page_size, added_id, added_path)
+                payload["dataset_name"] = added_name
+                emit({"type": "dataset-page", "value": payload})
             elif request_type == "reload":
                 if entry is None:
                     raise ValueError(f"Unknown dataset: {dataset_id}")
@@ -476,11 +489,12 @@ def main() -> int:
                 emit({"type": "dataset-reloaded", "dataset_id": dataset_id})
                 view = apply_view(entry["dataset"], request.get("filters"), request.get("sort"))
                 payload = serialize_page(view, 0, page_size, dataset_id, entry["path"])
+                payload["dataset_name"] = entry["name"]
                 payload["all_columns"] = entry["dataset"].columns
                 emit({"type": "dataset-page", "value": payload})
             elif request_type == "similarity-options":
                 emit({"type": "similarity-options", "datasets": [
-                    {"id": identifier, "name": item["path"].name,
+                    {"id": identifier, "name": item["name"],
                      "columns": item["dataset"].columns}
                     for identifier, item in datasets.items()
                 ], "active_dataset_id": dataset_id})

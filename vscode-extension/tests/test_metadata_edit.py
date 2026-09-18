@@ -44,7 +44,7 @@ class MetadataProtocolTest(unittest.TestCase):
             messages = [json.loads(line.split("MSENTITY_JSON:", 1)[1])
                         for line in result.stdout.splitlines() if line.startswith("MSENTITY_JSON:")]
             self.assertFalse([m for m in messages if m["type"] == "error"], result.stdout)
-            self.assertEqual(len([m for m in messages if m["type"] == "edit-error"]), 3, result.stdout)
+            self.assertEqual(len([m for m in messages if m["type"] == "edit-error"]), 2, result.stdout)
             pages = [m["value"] for m in messages if m["type"] == "dataset-page"]
             applied = next(m for m in messages if m["type"] == "metadata-updated")
             self.assertEqual(applied["metadata"], {
@@ -60,7 +60,10 @@ class MetadataProtocolTest(unittest.TestCase):
             self.assertEqual(pages[5]["attributes"], {"測定": "test"})
             self.assertEqual(pages[5]["tags"], ["確認済み"])
             options = next(m for m in messages if m["type"] == "similarity-options")
-            self.assertEqual(len(options["datasets"]), 1)
+            self.assertEqual(len(options["datasets"]), 0)
+            removed = [m["dataset_id"] for m in messages if m["type"] == "dataset-removed"]
+            self.assertEqual(removed, [str(source), str(other)])
+            self.assertTrue(source.exists())
             self.assertTrue(other.exists())
             self.assertNotIn("changed", source.read_text())
 

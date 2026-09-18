@@ -90,6 +90,7 @@ class MSEntityViewerProvider {
       }
     );
 
+    const droppedDirectories = new Set();
     let disposed = false;
     let stdoutBuffer = "";
     const send = (message) => {
@@ -283,6 +284,32 @@ class MSEntityViewerProvider {
         case "open-similarity-match":
           writeRequest({ type: "match", row: Number(message.resultIndex) });
           break;
+        case "drop-datasets": {
+          try {
+            const supported = name => Object.hasOwn(DATASET_FORMATS, path.extname(name).slice(1).toLowerCase());
+            for (const droppedPath of message.paths || []) {
+              if (typeof droppedPath !== "string" || !path.isAbsolute(droppedPath) || !supported(droppedPath)) throw new Error("Unsupported dropped dataset path.");
+              writeRequest({ type: "add-dataset", path: droppedPath });
+            }
+            for (const value of message.uris || []) {
+              const uri = vscode.Uri.parse(value);
+              if (!["file", "vscode-remote"].includes(uri.scheme) || !supported(uri.path)) throw new Error("Unsupported dropped dataset URI.");
+              writeRequest({ type: "add-dataset", path: uri.fsPath });
+            }
+            for (const file of message.files || []) {
+              if (!file || typeof file.name !== "string" || path.basename(file.name) !== file.name || file.name.includes("\\") || !supported(file.name) || typeof file.data !== "string") throw new Error("Unsupported dropped dataset file.");
+              const directory = await fs.promises.mkdtemp(path.join(require("os").tmpdir(), "msentity-drop-"));
+              droppedDirectories.add(directory);
+              if (disposed) { await fs.promises.rm(directory, { recursive: true, force: true }); break; }
+              const target = path.join(directory, file.name);
+              await fs.promises.writeFile(target, Buffer.from(file.data, "base64"));
+              if (!disposed) writeRequest({ type: "add-dataset", path: target });
+            }
+          } catch (error) {
+            vscode.window.showErrorMessage(`Could not add dropped dataset: ${error.message || String(error)}`);
+          }
+          break;
+        }
         case "add-dataset": {
           const selected = await vscode.window.showOpenDialog({
             title: "Add dataset to this viewer",
@@ -352,6 +379,9 @@ class MSEntityViewerProvider {
       disposed = true;
       messageDisposable.dispose();
       if (child.exitCode === null) child.kill();
+      for (const directory of droppedDirectories) {
+        fs.promises.rm(directory, { recursive: true, force: true }).catch(error => outputChannel?.appendLine(`Dropped dataset cleanup: ${error.message}`));
+      }
     });
   }
 

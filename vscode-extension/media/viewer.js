@@ -3,8 +3,21 @@
   const app = document.getElementById("app");
   const filename = app.dataset.filename || "dataset";
 
+  const toolbarIcon = name => `<svg class="toolbar-icon icon-${name}" viewBox="0 0 24 24" aria-hidden="true" focusable="false">${({
+    add: '<path d="M12 4v16M4 12h16"/>',
+    remove: '<path d="M4 6h16M9 6V3h6v3M6 6l1 15h10l1-15M10 10v7m4-7v7"/>',
+    reload: '<path d="M20 4v6h-6M20 10a8 8 0 1 0 .2 5"/>',
+    more: '<circle cx="5" cy="12" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/>',
+    chevron: '<path d="m6 9 6 6 6-6"/>',
+    metadata: '<path d="M14 3H5v18h14V8l-5-5v5h5M8 12h8M8 16h8"/>',
+    columns: '<rect x="3" y="3" width="18" height="18" rx="1"/><path d="M11 3v18M3 10h18M6 6h2m6 0h4M6 14h2m6 0h4"/>',
+    filter: '<path d="M3 4h18l-7 9v6l-4 2v-8L3 4Z"/>',
+    specid: '<path d="M3 3h9l9 9-9 9-9-9V3Z"/><circle cx="7.5" cy="7.5" r="1"/>',
+    export: '<path d="M12 16V3m-5 5 5-5 5 5M5 12H3v9h18v-9h-2"/>',
+    similarity: '<path d="M5 20V13m7 7V4m7 16V9" stroke-width="3"/>',
+  })[name]}</svg>`;
+
   let value = null;
-  let initialDatasetId = "";
   let metadataOpen = false;
   let metadataDraft = null;
   let metadataBusy = false;
@@ -37,6 +50,8 @@
   let selectedColumns = [];
   let knownColumnsKey = "";
   let loadingPage = false;
+  let datasetMenuOpen = false;
+  let moreActionsOpen = false;
   let columnMenuOpen = false;
   let columnMenuScrollTop = 0;
   let filterMenuOpen = false;
@@ -132,6 +147,11 @@
   }
 
   function render() {
+    if (!datasetOptions.length && !activeDatasetId && value === null) {
+      app.innerHTML = `<div class="viewer"><div class="toolbar"><span class="summary">No datasets</span><button id="add-dataset" class="secondary-button dataset-primary">${toolbarIcon("add")} Add dataset</button></div><div class="status"><div><p>No datasets loaded.</p><p>Add a dataset or drop MSDS, MSP, MGF, TSV, or CSV files here.</p></div></div></div>`;
+      document.getElementById("add-dataset")?.addEventListener("click", () => vscode.postMessage({type: "add-dataset"}));
+      return;
+    }
     if (!value) return renderLoading();
     ensureColumns();
     const pageRows = rows().map((row, index) => ({ row, index }));
@@ -176,16 +196,34 @@
     app.innerHTML = `
       <div class="viewer">
         <div class="toolbar">
-          <div><div class="dataset-heading"><select id="dataset-select" ${loadingPage || metadataBusy ? "disabled" : ""} aria-label="Active dataset">${datasetOptions.map((dataset) => `<option value="${esc(dataset.id)}" ${dataset.id === activeDatasetId ? "selected" : ""}>${esc(dataset.name)}</option>`).join("")}</select><button class="secondary-button" id="add-dataset">Add dataset…</button><button class="secondary-button" id="remove-dataset" ${activeDatasetId === initialDatasetId || loadingPage || metadataBusy ? "disabled" : ""}>Remove dataset</button></div><div class="summary">${totalRows().toLocaleString()} spectra · ${selectedColumns.length}/${cols.length} columns${value.description ? ` · ${esc(value.description)}` : ""}</div></div>
-          <div class="tools">
-            <button class="secondary-button" id="metadata-button" ${loadingPage ? "disabled" : ""}>Metadata…</button>
-            ${changedDatasets.has(activeDatasetId) ? '<span class="summary">Modified · Export to save</span>' : ""}
-            <div class="columns"><button id="columns-button">Columns</button>${columnMenu}</div>
-            <div class="filters"><button id="filter-button" class="${filters.length ? "active" : ""}">Filter${filters.length ? ` (${filters.length})` : ""}</button>${filterMenu}</div>
-            <button class="secondary-button" id="assign-spec-id-button" ${assigningSpecId || loadingPage || exporting ? "disabled" : ""}>${assigningSpecId ? "Assigning SpecID…" : "Assign SpecID…"}</button>
-            <button class="secondary-button" id="export-button" ${exporting ? "disabled" : ""}>${exporting ? "Exporting…" : "Export…"}</button>
-            <button class="secondary-button" id="reload-button" title="Reload dataset from disk">Reload</button>
-            <button class="secondary-button" id="similarity-button" ${calculatingSimilarity || datasetOptions.length < 1 ? "disabled" : ""} title="Run a library search or compare matching metadata keys">${calculatingSimilarity ? `Calculating…${similarityProgress == null ? "" : ` ${similarityProgress.toFixed(1)}%`}` : "Calculate similarity…"}</button>
+          <div class="dataset-info">
+            <button id="dataset-select" class="dataset-trigger" value="${esc(activeDatasetId)}" ${loadingPage || metadataBusy ? "disabled" : ""} aria-label="Active dataset" aria-haspopup="true" aria-expanded="${datasetMenuOpen}" aria-controls="dataset-menu"><span>${esc(datasetOptions.find(d => d.id === activeDatasetId)?.name || filename)}</span>${toolbarIcon("chevron")}</button>
+            <div class="summary">${totalRows().toLocaleString()} spectra · ${selectedColumns.length}/${cols.length} columns${changedDatasets.has(activeDatasetId) ? ' · Modified' : ''}</div>
+            <div class="dataset-menu" id="dataset-menu" ${datasetMenuOpen ? "" : "hidden"}>
+              <div class="dataset-menu-actions">
+                <button class="secondary-button dataset-primary" id="add-dataset" title="Add dataset" aria-label="Add dataset">${toolbarIcon("add")}</button>
+                <button class="secondary-button" id="remove-dataset" title="Remove active dataset" aria-label="Remove dataset" ${!activeDatasetId || loadingPage || metadataBusy ? "disabled" : ""}>${toolbarIcon("remove")}</button>
+              </div>
+              <div class="dataset-options" role="listbox" aria-label="Datasets">
+                ${datasetOptions.map(d => `<button class="dataset-option" role="option" aria-selected="${d.id === activeDatasetId}" data-dataset-id="${esc(d.id)}"><span>${esc(d.name)}</span>${d.id === activeDatasetId ? '<span aria-hidden="true">✓</span>' : ''}</button>`).join("")}
+              </div>
+            </div>
+          </div>
+          <div class="toolbar-group view-actions">
+            <button class="secondary-button" id="reload-button" title="Reload dataset from disk">${toolbarIcon("reload")}<span>Reload</span></button>
+            <div class="filters"><button class="secondary-button" id="filter-button" aria-expanded="${filterMenuOpen}" aria-controls="filter-menu">${toolbarIcon("filter")}<span class="menu-action-label">Filter</span>${filters.length ? ` <span class="filter-count">${filters.length}</span>` : ""}</button>${filterMenu}</div>
+            <button class="secondary-button" id="export-button" ${exporting || loadingPage || metadataBusy ? "disabled" : ""} title="Export dataset (Ctrl+S)">${toolbarIcon("export")}<span class="menu-action-label">${exporting ? "Exporting…" : "Export"}</span></button>
+          </div>
+          <div class="more-actions columns">
+            <button class="secondary-button" id="more-actions-button" aria-haspopup="menu" aria-controls="more-actions-menu" aria-expanded="${moreActionsOpen}"><span>More ...</span></button>
+            <div id="more-actions-menu" class="more-actions-menu" role="menu" aria-label="Dataset actions" ${moreActionsOpen ? "" : "hidden"}>
+              <button class="more-action" role="menuitem" id="metadata-button" ${loadingPage ? "disabled" : ""}>${toolbarIcon("metadata")}<span class="menu-action-label">Metadata</span></button>
+              <button class="more-action" role="menuitem" id="columns-button" aria-expanded="${columnMenuOpen}" aria-controls="column-menu">${toolbarIcon("columns")}<span class="menu-action-label">Columns</span></button>
+              <button class="more-action" role="menuitem" id="assign-spec-id-button" ${assigningSpecId || loadingPage || exporting ? "disabled" : ""}>${toolbarIcon("specid")}<span class="menu-action-label">${assigningSpecId ? "Assigning SpecID…" : "Assign SpecID"}</span></button>
+              <div class="more-actions-divider" role="separator"></div>
+              <button class="more-action" role="menuitem" id="similarity-button" ${calculatingSimilarity || datasetOptions.length < 1 ? "disabled" : ""} title="Run a library search or compare matching metadata keys">${toolbarIcon("similarity")}<span class="menu-action-label">${calculatingSimilarity ? `Calculating…${similarityProgress == null ? "" : ` ${similarityProgress.toFixed(1)}%`}` : "Calculate similarity"}</span></button>
+            </div>
+            ${columnMenu}
           </div>
         </div>
         ${metadataForm()}
@@ -195,7 +233,33 @@
         <div class="pagination"><span>${start}–${end} of ${totalRows()}</span><div class="page-controls"><button id="prev-page" ${page() === 0 || loadingPage ? "disabled" : ""}>‹</button><span><input id="page-input" type="number" min="1" max="${pageCount()}" value="${page() + 1}" ${loadingPage ? "disabled" : ""}/> / ${pageCount()}</span><button id="next-page" ${page() >= pageCount() - 1 || loadingPage ? "disabled" : ""}>›</button></div><span>${loadingPage ? "Loading…" : `${pageSize()} rows/page`}</span></div>
       </div>`;
 
-    document.getElementById("metadata-button")?.addEventListener("click", () => { metadataOpen = !metadataOpen; render(); });
+    const moreButton = document.getElementById("more-actions-button");
+    const menuItems = () => [...document.querySelectorAll("#more-actions-menu button:not(:disabled)")];
+    moreButton?.addEventListener("click", (e) => {
+      e.stopPropagation();
+      moreActionsOpen = !moreActionsOpen;
+      datasetMenuOpen = false; columnMenuOpen = false; filterMenuOpen = false;
+      render();
+      if (moreActionsOpen) menuItems()[0]?.focus();
+      else document.getElementById("more-actions-button")?.focus();
+    });
+    moreButton?.addEventListener("keydown", (e) => {
+      if (e.key === "ArrowDown" || e.key === "ArrowUp") {
+        e.preventDefault(); moreActionsOpen = true; columnMenuOpen = false; filterMenuOpen = false; render();
+        const items = menuItems(); (e.key === "ArrowUp" ? items.at(-1) : items[0])?.focus();
+      }
+    });
+    document.getElementById("more-actions-menu")?.addEventListener("keydown", (e) => {
+      const items = menuItems(); const index = items.indexOf(document.activeElement);
+      let next;
+      if (e.key === "ArrowDown") next = (index + 1) % items.length;
+      else if (e.key === "ArrowUp") next = (index - 1 + items.length) % items.length;
+      else if (e.key === "Home") next = 0;
+      else if (e.key === "End") next = items.length - 1;
+      if (next != null) { e.preventDefault(); items[next]?.focus(); }
+    });
+    document.getElementById("metadata-button")?.addEventListener("click", () => { moreActionsOpen = false; metadataOpen = !metadataOpen; render();
+      document.getElementById("metadata-description")?.focus?.(); });
     document.getElementById("metadata-description")?.addEventListener("input", (e) => { metadataDraft.description = e.target.value; });
     document.getElementById("metadata-tags")?.addEventListener("input", (e) => { metadataDraft.tags = e.target.value; });
     document.querySelectorAll("[data-attribute-key]").forEach(el => el.addEventListener("input", () => { metadataDraft.attributes[Number(el.dataset.attributeKey)].key = el.value; }));
@@ -215,7 +279,7 @@
         tags: metadataDraft.tags.split("\n").map(tag => tag.trim()).filter(Boolean) });
       render();
     });
-    document.getElementById("remove-dataset")?.addEventListener("click", () => vscode.postMessage({ type: "remove-dataset", datasetId: activeDatasetId }));
+    document.getElementById("remove-dataset")?.addEventListener("click", () => { datasetMenuOpen = false; render(); vscode.postMessage({ type: "remove-dataset", datasetId: activeDatasetId }); });
     document.querySelectorAll("[data-edit-row]").forEach(el => {
       const edit = () => {
         if (loadingPage) return;
@@ -242,11 +306,13 @@
     const restoredColumnMenu = document.getElementById("column-menu");
     if (restoredColumnMenu) restoredColumnMenu.scrollTop = columnMenuScrollTop;
 
-    document.getElementById("columns-button")?.addEventListener("click", (e) => { e.stopPropagation(); columnMenuOpen = !columnMenuOpen; render(); });
+    document.getElementById("columns-button")?.addEventListener("click", (e) => { e.stopPropagation(); datasetMenuOpen = false; moreActionsOpen = false; columnMenuOpen = !columnMenuOpen; filterMenuOpen = false; render();
+      document.getElementById("add-column-toggle")?.focus?.(); });
     document.querySelector("[data-action='all-columns']")?.addEventListener("click", () => { columnMenuScrollTop = document.getElementById("column-menu")?.scrollTop || 0; selectedColumns = allSelected ? [] : [...cols]; render(); });
     document.querySelectorAll("[data-column]").forEach((el) => el.addEventListener("click", () => toggleColumn(el.dataset.column)));
     document.querySelectorAll("[data-move-column]").forEach((el) => el.addEventListener("click", () => moveColumn(el.dataset.moveColumn, Number(el.dataset.offset))));
-    document.getElementById("filter-button")?.addEventListener("click", (e) => { e.stopPropagation(); filterMenuOpen = !filterMenuOpen; columnMenuOpen = false; render(); });
+    document.getElementById("filter-button")?.addEventListener("click", (e) => { e.stopPropagation(); datasetMenuOpen = false; moreActionsOpen = false; filterMenuOpen = !filterMenuOpen; columnMenuOpen = false; render();
+      document.getElementById("add-filter")?.focus?.(); });
     document.getElementById("add-filter")?.addEventListener("click", () => { filters.push({ id: ++filterSequence, column: cols[0] || "", operator: "text_eq", value: "" }); render(); });
     document.querySelectorAll("[data-filter-id]").forEach((row) => {
       const filter = filters.find((item) => item.id === Number(row.dataset.filterId));
@@ -263,9 +329,17 @@
       else rowSort.splice(index, 1);
       refreshView();
     }));
-    document.getElementById("dataset-select")?.addEventListener("change", (event) => {
+    document.getElementById("dataset-select")?.addEventListener("click", (e) => {
+      e.stopPropagation(); datasetMenuOpen = !datasetMenuOpen;
+      moreActionsOpen = false; columnMenuOpen = false; filterMenuOpen = false; render();
+      if (datasetMenuOpen) document.querySelector('.dataset-option[aria-selected="true"]')?.focus();
+      else document.getElementById("dataset-select")?.focus();
+    });
+    const switchDataset = datasetId => {
+      datasetMenuOpen = false;
+      moreActionsOpen = false; columnMenuOpen = false; filterMenuOpen = false;
       metadataDraft = null; metadataOpen = false;
-      activeDatasetId = event.currentTarget.value;
+      activeDatasetId = datasetId;
       const savedPage = datasetPages.get(activeDatasetId) ?? 0;
       loadingPage = true;
       selectedSpectrumIndex = null;
@@ -275,18 +349,27 @@
       knownColumnsKey = "";
       render();
       vscode.postMessage(viewRequest(savedPage));
+    };
+    document.getElementById("dataset-select")?.addEventListener("change", event => switchDataset(event.currentTarget.value));
+    document.querySelectorAll("[data-dataset-id]").forEach(el => el.addEventListener("click", () => switchDataset(el.dataset.datasetId)));
+    document.getElementById("dataset-menu")?.addEventListener("keydown", e => {
+      const items = [...document.querySelectorAll("#dataset-menu button:not(:disabled)")];
+      const index = items.indexOf(document.activeElement);
+      if (e.key === "ArrowDown" || e.key === "ArrowUp") {
+        e.preventDefault(); items[(index + (e.key === "ArrowDown" ? 1 : items.length - 1)) % items.length]?.focus();
+      }
     });
     document.getElementById("similarity-button")?.addEventListener("click", () => {
-      calculatingSimilarity = true; render();
+      moreActionsOpen = false; calculatingSimilarity = true; render();
       vscode.postMessage({ type: "calculate-similarity", datasetId: activeDatasetId });
     });
-    document.getElementById("add-dataset")?.addEventListener("click", () => vscode.postMessage({ type: "add-dataset" }));
+    document.getElementById("add-dataset")?.addEventListener("click", () => { datasetMenuOpen = false; render(); vscode.postMessage({ type: "add-dataset" }); });
     document.getElementById("assign-spec-id-button")?.addEventListener("click", () => {
-      assigningSpecId = true;
+      moreActionsOpen = false; assigningSpecId = true;
       render();
       vscode.postMessage({ type: "assign-spec-id", datasetId: activeDatasetId, hasSpecId: columns().includes("SpecID") });
     });
-    document.getElementById("export-button")?.addEventListener("click", () => { exporting = true; render(); vscode.postMessage({ type: "export-dataset", datasetId: activeDatasetId, datasetPath: value.dataset_path, filters, sort: rowSort, columns: selectedColumns }); });
+    document.getElementById("export-button")?.addEventListener("click", requestExport);
     document.getElementById("reload-button")?.addEventListener("click", () => { loadingPage = true; selectedSpectrumIndex = null; render(); vscode.postMessage({ type: "reload", datasetId: activeDatasetId, filters, sort: rowSort }); });
     document.getElementById("prev-page")?.addEventListener("click", () => requestPage(page() - 1));
     document.getElementById("next-page")?.addEventListener("click", () => requestPage(page() + 1));
@@ -324,7 +407,6 @@
     if (message?.type === "backend-ready") {
       loadingProgress = null;
       if (message.dataset) {
-        initialDatasetId = message.dataset.id;
         datasetOptions = [message.dataset];
         activeDatasetId = message.dataset.id;
         datasetPages.set(activeDatasetId, 0);
@@ -350,11 +432,14 @@
       datasetPages.delete(message.dataset_id);
       changedDatasets.delete(message.dataset_id);
       if (activeDatasetId === message.dataset_id) {
-        activeDatasetId = initialDatasetId;
-        filters = []; rowSort = []; knownColumnsKey = "";
-        metadataDraft = null; metadataOpen = false;
-        loadingPage = true;
-        vscode.postMessage(viewRequest(datasetPages.get(activeDatasetId) || 0));
+        activeDatasetId = datasetOptions[0]?.id || "";
+        filters = []; rowSort = []; selectedColumns = []; knownColumnsKey = "";
+        metadataDraft = null; metadataOpen = false; datasetMenuOpen = false;
+        moreActionsOpen = false; columnMenuOpen = false; filterMenuOpen = false;
+        selectedSpectrumIndex = null;
+        loadingPage = Boolean(activeDatasetId);
+        if (activeDatasetId) vscode.postMessage(viewRequest(datasetPages.get(activeDatasetId) || 0));
+        else value = null;
       }
       render();
     } else if (message?.type === "column-added" || message?.type === "peak-columns-updated" || message?.type === "peak-record") {
@@ -454,9 +539,73 @@
     }
   });
 
+  function requestExport() {
+    if (!value || !activeDatasetId || exporting || loadingPage || metadataBusy) return;
+    datasetMenuOpen = false; moreActionsOpen = false; columnMenuOpen = false; filterMenuOpen = false;
+    exporting = true; render();
+    vscode.postMessage({type: "export-dataset", datasetId: activeDatasetId,
+      datasetPath: value.dataset_path, filters, sort: rowSort, columns: selectedColumns});
+  }
+
+  document.addEventListener("keydown", (e) => {
+    if ((e.ctrlKey || e.metaKey) && !e.altKey && !e.shiftKey && e.key.toLowerCase() === "s") {
+      e.preventDefault();
+      if (!e.repeat) requestExport();
+      return;
+    }
+    if (e.key === "Escape" && (datasetMenuOpen || moreActionsOpen || columnMenuOpen || filterMenuOpen)) {
+      const focusTarget = datasetMenuOpen ? "dataset-select" : columnMenuOpen ? "columns-button" : filterMenuOpen ? "filter-button" : "more-actions-button";
+      e.preventDefault(); datasetMenuOpen = false; moreActionsOpen = false; columnMenuOpen = false; filterMenuOpen = false;
+      render(); document.getElementById(focusTarget)?.focus();
+    }
+  });
   document.addEventListener("click", (e) => {
-    if (columnMenuOpen && !e.target.closest?.(".columns")) { columnMenuOpen = false; render(); }
+    if (datasetMenuOpen && !e.target.closest?.(".dataset-info")) { datasetMenuOpen = false; render(); }
+    else if (moreActionsOpen && !e.target.closest?.(".more-actions")) { moreActionsOpen = false; render(); }
+    else if (columnMenuOpen && !e.target.closest?.(".columns")) { columnMenuOpen = false; render(); }
     else if (filterMenuOpen && !e.target.closest?.(".filters")) { filterMenuOpen = false; render(); }
+  });
+
+  let dragDepth = 0;
+  const isFileDrag = e => [...(e.dataTransfer?.types || [])].some(t => ["Files", "text/uri-list", "CodeFiles"].includes(t));
+  document.addEventListener("dragenter", e => {
+    if (!isFileDrag(e)) return;
+    e.preventDefault(); dragDepth++; app.classList.add("dataset-drop-active");
+  });
+  document.addEventListener("dragover", e => {
+    if (!isFileDrag(e)) return;
+    e.preventDefault(); e.dataTransfer.dropEffect = "copy";
+  });
+  document.addEventListener("dragleave", () => {
+    if (--dragDepth <= 0) { dragDepth = 0; app.classList.remove("dataset-drop-active"); }
+  });
+  document.addEventListener("drop", async e => {
+    if (!isFileDrag(e)) return;
+    e.preventDefault(); dragDepth = 0; app.classList.remove("dataset-drop-active");
+    const supported = name => /\.(msds|msp|mgf|tsv|csv)$/i.test(name);
+    const codeFiles = e.dataTransfer.getData("CodeFiles");
+    const uris = e.dataTransfer.getData("text/uri-list").split(/\r?\n/).filter(u => u && !u.startsWith("#"));
+    try {
+      if (codeFiles) {
+        const paths = JSON.parse(codeFiles).filter(supported);
+        if (!paths.length) throw new Error("Drop an MSDS, MSP, MGF, TSV, or CSV file.");
+        vscode.postMessage({type: "drop-datasets", paths});
+      } else if (uris.length && uris.every(u => /^(file|vscode-remote):/.test(u))) {
+        const selected = uris.filter(u => supported(u.split(/[?#]/)[0]));
+        if (!selected.length) throw new Error("Drop an MSDS, MSP, MGF, TSV, or CSV file.");
+        vscode.postMessage({type: "drop-datasets", uris: selected});
+      } else {
+        const files = [...e.dataTransfer.files].filter(f => supported(f.name));
+        if (!files.length) throw new Error("Drop an MSDS, MSP, MGF, TSV, or CSV file.");
+        for (const file of files) {
+          const data = await new Promise((resolve, reject) => {
+            const reader = new FileReader(); reader.onload = () => resolve(reader.result.split(",")[1]);
+            reader.onerror = () => reject(new Error(`Could not read ${file.name}`)); reader.readAsDataURL(file);
+          });
+          vscode.postMessage({type: "drop-datasets", files: [{name: file.name, data}]});
+        }
+      }
+    } catch (error) { vscode.postMessage({type: "edit-error-notification", message: error.message}); }
   });
 
   renderLoading();

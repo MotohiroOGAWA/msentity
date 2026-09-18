@@ -30,7 +30,7 @@ test("metadata form sends edits and dataset removal restores original selection"
   } });
   send({ type: "backend-ready", dataset: { id: "original", name: "original" } });
   page("original");
-  assert.match(app.innerHTML, /id="remove-dataset" disabled/);
+  assert.doesNotMatch(app.innerHTML, /id="remove-dataset"[^>]* disabled/);
   element("metadata-button").handlers.click();
   assert.match(app.innerHTML, /&lt;safe&gt;/);
   element("metadata-description").handlers.input({ target: { value: "edited" } });
@@ -76,4 +76,11 @@ test("metadata form sends edits and dataset removal restores original selection"
   send({ type: "dataset-removed", dataset_id: "added" });
   assert.equal(posted.at(-1).datasetId, "original");
   assert.doesNotMatch(app.innerHTML, /value="added"/);
+  send({type: "dataset-removed", dataset_id: "original"});
+  assert.match(app.innerHTML, /No datasets loaded/);
+  element("add-dataset").handlers.click();
+  assert.equal(posted.at(-1).type, "add-dataset");
+  send({type: "dataset-added", dataset: {id: "new", name: "new"}});
+  page("new");
+  assert.doesNotMatch(app.innerHTML, /No datasets loaded/);
 });
