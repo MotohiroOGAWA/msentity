@@ -351,8 +351,6 @@ def main() -> int:
                         raise ValueError(f"Unknown dataset: {dataset_id}")
                     current = entry["dataset"]
                     if request_type == "remove-dataset":
-                        if dataset_id == initial_id:
-                            raise ValueError("The original dataset cannot be removed. Close its tab instead.")
                         del datasets[dataset_id]
                         emit({"type": "dataset-removed", "dataset_id": dataset_id})
                         continue
