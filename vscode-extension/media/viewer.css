@@ -97,3 +97,29 @@ button:disabled { cursor: default; opacity: .5; }
 
 .column-menu-heading { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 4px; }
 .column-menu-heading > button { padding: 1px 7px; font-size: 18px; background: transparent; color: inherit; border: 0; }
+
+/* Dataset toolbar and its secondary actions share VS Code menu colors. */
+.toolbar { justify-content: flex-start; flex-wrap: wrap; gap: 12px; padding: 10px 16px; }
+.dataset-info { min-width: 0; }
+.dataset-heading select { min-width: min(220px, 70vw); max-width: min(360px, 80vw); }
+.toolbar-group { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; padding-left: 12px; border-left: 1px solid var(--border); }
+.toolbar button { white-space: nowrap; }
+.dataset-primary { font-weight: 600; border-color: var(--vscode-focusBorder, var(--accent)); }
+.more-actions { margin-left: auto; position: relative; }
+.more-actions-menu { position: absolute; top: calc(100% + 6px); right: 0; z-index: 20; box-sizing: border-box; width: min(240px, calc(100vw - 32px)); padding: 5px; border: 1px solid var(--vscode-menu-border, var(--border)); border-radius: 3px; background: var(--vscode-menu-background, var(--panel)); color: var(--vscode-menu-foreground, var(--text)); box-shadow: 0 3px 10px var(--vscode-widget-shadow, #0003); }
+.more-actions-menu[hidden] { display: none; }
+.more-action { display: flex; align-items: center; justify-content: space-between; gap: 12px; width: 100%; padding: 7px 10px; border: 0; border-radius: 2px; background: transparent; color: inherit; font: inherit; text-align: left; }
+.more-action:hover:not(:disabled), .more-action:focus-visible { background: var(--vscode-menu-selectionBackground, var(--row-hover)); color: var(--vscode-menu-selectionForeground, var(--text)); }
+.more-actions-divider { height: 1px; margin: 5px 6px; background: var(--vscode-menu-separatorBackground, var(--border)); }
+.filter-count { color: var(--vscode-descriptionForeground, var(--muted)); font-size: 12px; }
+.toolbar button:focus-visible, .toolbar select:focus-visible, .column-menu button:focus-visible, .filter-menu :focus-visible { outline: 1px solid var(--vscode-focusBorder, var(--accent)); outline-offset: 2px; }
+.more-actions .column-menu { width: min(260px, calc(100vw - 48px)); box-sizing: border-box; }
+.more-actions .filter-menu { width: min(720px, calc(100vw - 48px)); box-sizing: border-box; max-height: 65vh; overflow: auto; }
+@media (max-width: 600px) {
+  .toolbar { gap: 10px; }
+  .dataset-info { flex-basis: 100%; }
+  .dataset-actions { border-left: 0; padding-left: 0; }
+  .filter-row { grid-template-columns: minmax(0, 1fr) 90px 30px; }
+  .filter-row input { grid-column: 1 / 3; grid-row: 2; }
+  .filter-row .remove-filter { grid-column: 3; grid-row: 1 / 3; }
+}

@@ -37,6 +37,7 @@
   let selectedColumns = [];
   let knownColumnsKey = "";
   let loadingPage = false;
+  let moreActionsOpen = false;
   let columnMenuOpen = false;
   let columnMenuScrollTop = 0;
   let filterMenuOpen = false;
@@ -176,16 +177,26 @@
     app.innerHTML = `
       <div class="viewer">
         <div class="toolbar">
-          <div><div class="dataset-heading"><select id="dataset-select" ${loadingPage || metadataBusy ? "disabled" : ""} aria-label="Active dataset">${datasetOptions.map((dataset) => `<option value="${esc(dataset.id)}" ${dataset.id === activeDatasetId ? "selected" : ""}>${esc(dataset.name)}</option>`).join("")}</select><button class="secondary-button" id="add-dataset">Add dataset…</button><button class="secondary-button" id="remove-dataset" ${activeDatasetId === initialDatasetId || loadingPage || metadataBusy ? "disabled" : ""}>Remove dataset</button></div><div class="summary">${totalRows().toLocaleString()} spectra · ${selectedColumns.length}/${cols.length} columns${value.description ? ` · ${esc(value.description)}` : ""}</div></div>
-          <div class="tools">
-            <button class="secondary-button" id="metadata-button" ${loadingPage ? "disabled" : ""}>Metadata…</button>
-            ${changedDatasets.has(activeDatasetId) ? '<span class="summary">Modified · Export to save</span>' : ""}
-            <div class="columns"><button id="columns-button">Columns</button>${columnMenu}</div>
-            <div class="filters"><button id="filter-button" class="${filters.length ? "active" : ""}">Filter${filters.length ? ` (${filters.length})` : ""}</button>${filterMenu}</div>
-            <button class="secondary-button" id="assign-spec-id-button" ${assigningSpecId || loadingPage || exporting ? "disabled" : ""}>${assigningSpecId ? "Assigning SpecID…" : "Assign SpecID…"}</button>
-            <button class="secondary-button" id="export-button" ${exporting ? "disabled" : ""}>${exporting ? "Exporting…" : "Export…"}</button>
-            <button class="secondary-button" id="reload-button" title="Reload dataset from disk">Reload</button>
-            <button class="secondary-button" id="similarity-button" ${calculatingSimilarity || datasetOptions.length < 1 ? "disabled" : ""} title="Run a library search or compare matching metadata keys">${calculatingSimilarity ? `Calculating…${similarityProgress == null ? "" : ` ${similarityProgress.toFixed(1)}%`}` : "Calculate similarity…"}</button>
+          <div class="dataset-info"><div class="dataset-heading"><select id="dataset-select" ${loadingPage || metadataBusy ? "disabled" : ""} aria-label="Active dataset">${datasetOptions.map((dataset) => `<option value="${esc(dataset.id)}" ${dataset.id === activeDatasetId ? "selected" : ""}>${esc(dataset.name)}</option>`).join("")}</select></div>
+            <div class="summary">${totalRows().toLocaleString()} spectra · ${selectedColumns.length}/${cols.length} columns${changedDatasets.has(activeDatasetId) ? ' · Modified' : ''}</div>
+          </div>
+          <div class="dataset-actions toolbar-group">
+            <button class="secondary-button dataset-primary" id="add-dataset">+ Add dataset</button>
+            <button class="secondary-button" id="remove-dataset" ${activeDatasetId === initialDatasetId || loadingPage || metadataBusy ? "disabled" : ""}>Remove dataset</button>
+          </div>
+          <div class="toolbar-group"><button class="secondary-button" id="reload-button" title="Reload dataset from disk">↻ Reload</button></div>
+          <div class="more-actions columns filters">
+            <button class="secondary-button" id="more-actions-button" aria-haspopup="menu" aria-controls="more-actions-menu" aria-expanded="${moreActionsOpen}">⋯ More actions ▾</button>
+            <div id="more-actions-menu" class="more-actions-menu" role="menu" aria-label="Dataset actions" ${moreActionsOpen ? "" : "hidden"}>
+              <button class="more-action" role="menuitem" id="metadata-button" ${loadingPage ? "disabled" : ""}>Metadata</button>
+              <button class="more-action" role="menuitem" id="columns-button" aria-expanded="${columnMenuOpen}" aria-controls="column-menu">Columns</button>
+              <button class="more-action" role="menuitem" id="filter-button" aria-expanded="${filterMenuOpen}" aria-controls="filter-menu">Filter${filters.length ? ` <span class="filter-count">${filters.length}</span>` : ""}</button>
+              <button class="more-action" role="menuitem" id="assign-spec-id-button" ${assigningSpecId || loadingPage || exporting ? "disabled" : ""}>${assigningSpecId ? "Assigning SpecID…" : "Assign SpecID"}</button>
+              <button class="more-action" role="menuitem" id="export-button" ${exporting ? "disabled" : ""}>${exporting ? "Exporting…" : "Export"}</button>
+              <div class="more-actions-divider" role="separator"></div>
+              <button class="more-action" role="menuitem" id="similarity-button" ${calculatingSimilarity || datasetOptions.length < 1 ? "disabled" : ""} title="Run a library search or compare matching metadata keys">${calculatingSimilarity ? `Calculating…${similarityProgress == null ? "" : ` ${similarityProgress.toFixed(1)}%`}` : "Calculate similarity"}</button>
+            </div>
+            ${columnMenu}${filterMenu}
           </div>
         </div>
         ${metadataForm()}
@@ -195,7 +206,33 @@
         <div class="pagination"><span>${start}–${end} of ${totalRows()}</span><div class="page-controls"><button id="prev-page" ${page() === 0 || loadingPage ? "disabled" : ""}>‹</button><span><input id="page-input" type="number" min="1" max="${pageCount()}" value="${page() + 1}" ${loadingPage ? "disabled" : ""}/> / ${pageCount()}</span><button id="next-page" ${page() >= pageCount() - 1 || loadingPage ? "disabled" : ""}>›</button></div><span>${loadingPage ? "Loading…" : `${pageSize()} rows/page`}</span></div>
       </div>`;
 
-    document.getElementById("metadata-button")?.addEventListener("click", () => { metadataOpen = !metadataOpen; render(); });
+    const moreButton = document.getElementById("more-actions-button");
+    const menuItems = () => [...document.querySelectorAll("#more-actions-menu button:not(:disabled)")];
+    moreButton?.addEventListener("click", (e) => {
+      e.stopPropagation();
+      moreActionsOpen = !moreActionsOpen;
+      columnMenuOpen = false; filterMenuOpen = false;
+      render();
+      if (moreActionsOpen) menuItems()[0]?.focus();
+      else document.getElementById("more-actions-button")?.focus();
+    });
+    moreButton?.addEventListener("keydown", (e) => {
+      if (e.key === "ArrowDown" || e.key === "ArrowUp") {
+        e.preventDefault(); moreActionsOpen = true; columnMenuOpen = false; filterMenuOpen = false; render();
+        const items = menuItems(); (e.key === "ArrowUp" ? items.at(-1) : items[0])?.focus();
+      }
+    });
+    document.getElementById("more-actions-menu")?.addEventListener("keydown", (e) => {
+      const items = menuItems(); const index = items.indexOf(document.activeElement);
+      let next;
+      if (e.key === "ArrowDown") next = (index + 1) % items.length;
+      else if (e.key === "ArrowUp") next = (index - 1 + items.length) % items.length;
+      else if (e.key === "Home") next = 0;
+      else if (e.key === "End") next = items.length - 1;
+      if (next != null) { e.preventDefault(); items[next]?.focus(); }
+    });
+    document.getElementById("metadata-button")?.addEventListener("click", () => { moreActionsOpen = false; metadataOpen = !metadataOpen; render();
+      document.getElementById("metadata-description")?.focus?.(); });
     document.getElementById("metadata-description")?.addEventListener("input", (e) => { metadataDraft.description = e.target.value; });
     document.getElementById("metadata-tags")?.addEventListener("input", (e) => { metadataDraft.tags = e.target.value; });
     document.querySelectorAll("[data-attribute-key]").forEach(el => el.addEventListener("input", () => { metadataDraft.attributes[Number(el.dataset.attributeKey)].key = el.value; }));
@@ -242,11 +279,13 @@
     const restoredColumnMenu = document.getElementById("column-menu");
     if (restoredColumnMenu) restoredColumnMenu.scrollTop = columnMenuScrollTop;
 
-    document.getElementById("columns-button")?.addEventListener("click", (e) => { e.stopPropagation(); columnMenuOpen = !columnMenuOpen; render(); });
+    document.getElementById("columns-button")?.addEventListener("click", (e) => { e.stopPropagation(); moreActionsOpen = false; columnMenuOpen = !columnMenuOpen; filterMenuOpen = false; render();
+      document.getElementById("add-column-toggle")?.focus?.(); });
     document.querySelector("[data-action='all-columns']")?.addEventListener("click", () => { columnMenuScrollTop = document.getElementById("column-menu")?.scrollTop || 0; selectedColumns = allSelected ? [] : [...cols]; render(); });
     document.querySelectorAll("[data-column]").forEach((el) => el.addEventListener("click", () => toggleColumn(el.dataset.column)));
     document.querySelectorAll("[data-move-column]").forEach((el) => el.addEventListener("click", () => moveColumn(el.dataset.moveColumn, Number(el.dataset.offset))));
-    document.getElementById("filter-button")?.addEventListener("click", (e) => { e.stopPropagation(); filterMenuOpen = !filterMenuOpen; columnMenuOpen = false; render(); });
+    document.getElementById("filter-button")?.addEventListener("click", (e) => { e.stopPropagation(); moreActionsOpen = false; filterMenuOpen = !filterMenuOpen; columnMenuOpen = false; render();
+      document.getElementById("add-filter")?.focus?.(); });
     document.getElementById("add-filter")?.addEventListener("click", () => { filters.push({ id: ++filterSequence, column: cols[0] || "", operator: "text_eq", value: "" }); render(); });
     document.querySelectorAll("[data-filter-id]").forEach((row) => {
       const filter = filters.find((item) => item.id === Number(row.dataset.filterId));
@@ -264,6 +303,7 @@
       refreshView();
     }));
     document.getElementById("dataset-select")?.addEventListener("change", (event) => {
+      moreActionsOpen = false; columnMenuOpen = false; filterMenuOpen = false;
       metadataDraft = null; metadataOpen = false;
       activeDatasetId = event.currentTarget.value;
       const savedPage = datasetPages.get(activeDatasetId) ?? 0;
@@ -277,16 +317,16 @@
       vscode.postMessage(viewRequest(savedPage));
     });
     document.getElementById("similarity-button")?.addEventListener("click", () => {
-      calculatingSimilarity = true; render();
+      moreActionsOpen = false; calculatingSimilarity = true; render();
       vscode.postMessage({ type: "calculate-similarity", datasetId: activeDatasetId });
     });
     document.getElementById("add-dataset")?.addEventListener("click", () => vscode.postMessage({ type: "add-dataset" }));
     document.getElementById("assign-spec-id-button")?.addEventListener("click", () => {
-      assigningSpecId = true;
+      moreActionsOpen = false; assigningSpecId = true;
       render();
       vscode.postMessage({ type: "assign-spec-id", datasetId: activeDatasetId, hasSpecId: columns().includes("SpecID") });
     });
-    document.getElementById("export-button")?.addEventListener("click", () => { exporting = true; render(); vscode.postMessage({ type: "export-dataset", datasetId: activeDatasetId, datasetPath: value.dataset_path, filters, sort: rowSort, columns: selectedColumns }); });
+    document.getElementById("export-button")?.addEventListener("click", () => { moreActionsOpen = false; exporting = true; render(); vscode.postMessage({ type: "export-dataset", datasetId: activeDatasetId, datasetPath: value.dataset_path, filters, sort: rowSort, columns: selectedColumns }); });
     document.getElementById("reload-button")?.addEventListener("click", () => { loadingPage = true; selectedSpectrumIndex = null; render(); vscode.postMessage({ type: "reload", datasetId: activeDatasetId, filters, sort: rowSort }); });
     document.getElementById("prev-page")?.addEventListener("click", () => requestPage(page() - 1));
     document.getElementById("next-page")?.addEventListener("click", () => requestPage(page() + 1));
@@ -454,8 +494,15 @@
     }
   });
 
+  document.addEventListener("keydown", (e) => {
+    if (e.key === "Escape" && (moreActionsOpen || columnMenuOpen || filterMenuOpen)) {
+      e.preventDefault(); moreActionsOpen = false; columnMenuOpen = false; filterMenuOpen = false;
+      render(); document.getElementById("more-actions-button")?.focus();
+    }
+  });
   document.addEventListener("click", (e) => {
-    if (columnMenuOpen && !e.target.closest?.(".columns")) { columnMenuOpen = false; render(); }
+    if (moreActionsOpen && !e.target.closest?.(".more-actions")) { moreActionsOpen = false; render(); }
+    else if (columnMenuOpen && !e.target.closest?.(".columns")) { columnMenuOpen = false; render(); }
     else if (filterMenuOpen && !e.target.closest?.(".filters")) { filterMenuOpen = false; render(); }
   });
 
