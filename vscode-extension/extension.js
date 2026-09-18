@@ -723,17 +723,27 @@ function activate(context) {
     })
   );
 
-  for (const fileType of Object.keys(DATASET_FORMATS)) {
-    context.subscriptions.push(
-      vscode.commands.registerCommand(`msentitySpectrumViewer.openAs${fileType.toUpperCase()}`, (uri) => provider.openAs(uri, fileType))
-    );
-  }
+  context.subscriptions.push(
+    vscode.commands.registerCommand("msentitySpectrumViewer.openAs", async (uri) => {
+      const target = uri || vscode.window.activeTextEditor?.document?.uri;
+      if (!target) {
+        vscode.window.showWarningMessage("Select a dataset file first.");
+        return;
+      }
+      const fileType = await vscode.window.showQuickPick(Object.keys(DATASET_FORMATS), {
+        title: "MS Entity: Open as",
+        placeHolder: "Choose the dataset format"
+      });
+      if (!fileType) return;
+      return provider.openAs(target, fileType);
+    })
+  );
 
   context.subscriptions.push(
     vscode.commands.registerCommand("msentitySpectrumViewer.open", async (uri) => {
       const target = uri || vscode.window.activeTextEditor?.document?.uri;
       if (!target) {
-        vscode.window.showWarningMessage("Select an .msds, .msp, or .mgf file first, or use “MS Entity: Open as TSV” or “MS Entity: Open as CSV”.");
+        vscode.window.showWarningMessage("Select a dataset file first, or use “MS Entity: Open as...”.");
         return;
       }
       await vscode.commands.executeCommand("vscode.openWith", target,

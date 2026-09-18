@@ -234,7 +234,7 @@ above, while the versioned filenames support pinned downloads. See
 ## Usage
 
 Open an `.msds`, `.msp`, or `.mgf` file normally. For TSV or CSV, use **MS
-Entity: Open as TSV** or **MS Entity: Open as CSV** so ordinary tabular files
+Entity: Open as...** and select **tsv** or **csv** so ordinary tabular files
 remain associated with VS Code's normal text editor. Click a spectrum button in the table;
 the reusable **Mass Spectrum** panel opens and updates when another record is
 selected. Use **Add dataset…** to load more files into the same dataset viewer,
@@ -279,9 +279,8 @@ includes the complete spectra, independent of the current plot zoom.
 
 Opening normally detects MSDS, MSP, or MGF from the extension. TSV and CSV are
 intentionally not registered as custom-editor file extensions. To open one as a spectrum table,
-right-click a file in Explorer and choose **MS Entity: Open as MSDS**, **Open as
-MSP**, **Open as MGF**, **Open as TSV**, or **Open as CSV**. The same commands are available in the Command
-Palette. Dataset **Export...** first asks for MSDS, MSP, MGF, TSV, or CSV and then for the
+right-click a file in Explorer and choose **MS Entity: Open as...**, then select **msds**, **msp**, **mgf**,
+**tsv**, or **csv**. The same command is available in the Command Palette. Dataset **Export...** first asks for MSDS, MSP, MGF, TSV, or CSV and then for the
 save location; the chosen format takes precedence and its extension is applied
 automatically. The exported dataset contains the currently selected columns in
 their displayed order and the rows in their current filtered and sorted order.
