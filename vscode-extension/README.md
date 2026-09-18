@@ -324,3 +324,5 @@ Use **Reset export defaults** in Advanced to reset all image export options, inc
 The dataset dropdown contains compact **Add dataset** and **Remove dataset** icon buttons above the dataset list. You can also drop one or more MSDS, MSP, MGF, TSV, or CSV files anywhere in the Dataset Viewer to add them. Files dropped from the OS are imported as temporary copies when no workspace path is available; these copies are removed when the viewer closes.
 
 Any dataset, including the first one opened, can be removed from the viewer. Removing the active dataset selects a remaining dataset. Removing the last dataset shows an empty view where Add dataset and file drops remain available. Removal does not delete the source file.
+
+Adding the same file again creates an independent dataset loaded from its current on-disk contents. In-memory edits to an existing dataset are preserved. Datasets with matching filenames receive unique display names such as `sample (1).msp` and `sample (2).msp`, including files from different directories. These names also appear in spectrum views and similarity selection.
