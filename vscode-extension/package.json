@@ -108,11 +108,6 @@
     "menus": {
       "explorer/context": [
         {
-          "command": "msentitySpectrumViewer.open",
-          "when": "resourceExtname == .msds || resourceExtname == .msp || resourceExtname == .mgf || resourceExtname == .mssim",
-          "group": "navigation@20"
-        },
-        {
           "command": "msentitySpectrumViewer.openAs",
           "when": "!explorerResourceIsFolder",
           "group": "msentity@21"
