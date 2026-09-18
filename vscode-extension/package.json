@@ -33,12 +33,8 @@
     "onCustomEditor:msentity.spectrumViewer",
     "onCommand:msentitySpectrumViewer.open",
     "onCommand:msentitySpectrumViewer.showLogs",
-    "onCommand:msentitySpectrumViewer.openAsMSDS",
-    "onCommand:msentitySpectrumViewer.openAsMSP",
-    "onCommand:msentitySpectrumViewer.openAsMGF",
-    "onCommand:msentitySpectrumViewer.openAsTSV",
-    "onCommand:msentitySpectrumViewer.openAsCSV",
-    "onCustomEditor:msentity.similarityViewer"
+    "onCustomEditor:msentity.similarityViewer",
+    "onCommand:msentitySpectrumViewer.openAs"
   ],
   "contributes": {
     "languages": [
@@ -105,52 +101,16 @@
         "title": "MS Entity: Show Spectrum Viewer Logs"
       },
       {
-        "command": "msentitySpectrumViewer.openAsMSDS",
-        "title": "MS Entity: Open as MSDS"
-      },
-      {
-        "command": "msentitySpectrumViewer.openAsMSP",
-        "title": "MS Entity: Open as MSP"
-      },
-      {
-        "command": "msentitySpectrumViewer.openAsMGF",
-        "title": "MS Entity: Open as MGF"
-      },
-      {
-        "command": "msentitySpectrumViewer.openAsTSV",
-        "title": "MS Entity: Open as TSV"
-      },
-      {
-        "command": "msentitySpectrumViewer.openAsCSV",
-        "title": "MS Entity: Open as CSV"
+        "command": "msentitySpectrumViewer.openAs",
+        "title": "MS Entity: Open as..."
       }
     ],
     "menus": {
       "explorer/context": [
         {
-          "command": "msentitySpectrumViewer.open",
-          "when": "resourceExtname == .msds || resourceExtname == .msp || resourceExtname == .mgf || resourceExtname == .mssim",
-          "group": "navigation@20"
-        },
-        {
-          "command": "msentitySpectrumViewer.openAsMSDS",
+          "command": "msentitySpectrumViewer.openAs",
+          "when": "!explorerResourceIsFolder",
           "group": "msentity@21"
-        },
-        {
-          "command": "msentitySpectrumViewer.openAsMSP",
-          "group": "msentity@22"
-        },
-        {
-          "command": "msentitySpectrumViewer.openAsMGF",
-          "group": "msentity@23"
-        },
-        {
-          "command": "msentitySpectrumViewer.openAsTSV",
-          "group": "msentity@24"
-        },
-        {
-          "command": "msentitySpectrumViewer.openAsCSV",
-          "group": "msentity@25"
         }
       ]
     },
