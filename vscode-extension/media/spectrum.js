@@ -2,6 +2,26 @@
   const vscode = acquireVsCodeApi();
   const app = document.getElementById("spectrum-app");
   let state = null;
+  let exportPlot = null;
+  const exportDefaults = { gridLines: false, mzTickLabels: false, intensityTickLabels: false,
+    peakLabels: false, width: 900, height: 540, upperColor: "#2563eb", lowerColor: "#dc2626",
+    mzMin: "", mzMax: "", intensityMin: "", intensityMax: "", lowerMin: "", lowerMax: "",
+    labelSize: 11, labelColor: "#000000", topK: 0, decimals: 4, peakWidth: 2.4 };
+  let exportSettings = { ...exportDefaults, ...vscode.getState()?.exportSettings };
+  const exportRange = (min, max, fallback) => {
+    const lo = min === "" ? fallback[0] : Number(min);
+    const hi = max === "" ? fallback[1] : Number(max);
+    if (!Number.isFinite(lo) || !Number.isFinite(hi) || lo < 0 || hi <= lo) {
+      throw new Error("Ranges must have non-negative minimum and maximum greater than minimum.");
+    }
+    return [lo, hi];
+  };
+  const labelPeaks = (peaks, range, options) => {
+    const eligible = peaks.filter(p => p.y >= range[0] && p.y <= range[1]);
+    return options?.topK > 0
+      ? eligible.slice().sort((a, b) => b.y - a.y || a.index - b.index).slice(0, options.topK)
+      : eligible;
+  };
   const comparison = { top: null, bottom: null, topPinned: false, bottomPinned: false };
   let similarityMethod = "dot";
   let similarityTolerance = 0.05;
@@ -298,7 +318,12 @@
   const prepareExportSvg = (options) => {
     const source = document.getElementById("spectrum-svg");
     if (!source) return null;
-    const svg = source.cloneNode(true);
+    for (const [key, min, max, integer] of [["labelSize", 1, 100, false], ["topK", 0, Number.MAX_SAFE_INTEGER, true], ["decimals", 0, 10, true], ["peakWidth", 0.1, 20, false]]) {
+      if (!Number.isFinite(options[key]) || options[key] < min || options[key] > max || (integer && !Number.isInteger(options[key]))) {
+        throw new Error(`Invalid ${key}: enter ${integer ? "an integer" : "a number"} between ${min} and ${max}.`);
+      }
+    }
+    const svg = exportPlot ? exportPlot(options) : source.cloneNode(true);
     svg.querySelector("#drag-box")?.remove();
     if (!options.gridLines) svg.querySelectorAll(".grid").forEach((element) => element.remove());
     if (!options.mzTickLabels) svg.querySelectorAll(".mz-tick-label").forEach((element) => element.remove());
@@ -339,7 +364,7 @@
       .axis { stroke: #000; stroke-width: 1.5 }
       .axis-title { font-weight: 650; fill: #000 }
       .mz-title { font-style: italic }
-      .peak-label { font-size: 11px; font-style: italic; fill: #000 }
+      .peak-label { font-size: ${options.labelSize}px; font-style: italic; fill: ${options.labelColor} }
       .intensity-tick-label { fill: #000 }
     `;
     const style = document.createElementNS("http://www.w3.org/2000/svg", "style");
@@ -353,8 +378,8 @@
       element.setAttribute("opacity", ".72");
     });
     svg.querySelectorAll(".peak").forEach((element) => {
-      element.setAttribute("stroke", element.classList.contains("lower-peak") ? color("--lower-peak", "#dc2626") : element.classList.contains("selected") ? color("--peak-selected", "#dc2626") : color("--peak", "#2563eb"));
-      element.setAttribute("stroke-width", element.classList.contains("selected") ? "4" : "2.4");
+      element.style.stroke = element.classList.contains("lower-peak") ? options.lowerColor : options.upperColor;
+      element.style.strokeWidth = String(options.peakWidth);
     });
     svg.querySelectorAll(".axis").forEach((element) => {
       element.setAttribute("stroke", "#000");
@@ -368,7 +393,8 @@
     svg.querySelectorAll(".axis-title, .peak-label").forEach((element) => element.setAttribute("fill", "#000"));
     svg.querySelectorAll(".intensity-tick-label").forEach((element) => element.setAttribute("fill", "#000"));
     svg.querySelectorAll(".peak-label").forEach((element) => {
-      element.setAttribute("font-size", "11");
+      element.style.fontSize = `${options.labelSize}px`;
+      element.style.fill = options.labelColor;
       element.setAttribute("font-style", "italic");
     });
     keepExportTextUnscaled(svg);
@@ -427,7 +453,16 @@
       width: document.getElementById("export-width"),
       height: document.getElementById("export-height")
     };
+    for (const key of Object.keys(exportDefaults)) {
+      controls[key] ||= document.getElementById(`export-${key}`);
+      const input = controls[key];
+      if (input.type === "checkbox") input.checked = exportSettings[key];
+      else input.value = exportSettings[key];
+    }
     const options = () => ({
+      ...Object.fromEntries(Object.entries(controls).map(([key, input]) =>
+        [key, input.type === "number" && !key.endsWith("Min") && !key.endsWith("Max")
+          ? Number(input.value) : input.value])),
       gridLines: Boolean(controls.gridLines?.checked),
       mzTickLabels: Boolean(controls.mzTickLabels?.checked),
       intensityTickLabels: Boolean(controls.intensityTickLabels?.checked),
@@ -437,15 +472,31 @@
     });
     const status = document.getElementById("export-status");
     const update = () => {
-      const svg = prepareExportSvg(options());
+      exportSettings = options();
+      vscode.setState({ ...vscode.getState(), exportSettings });
+      try {
+      const svg = prepareExportSvg(exportSettings);
       if (svg) svg.style.aspectRatio = `${svg.getAttribute("width")} / ${svg.getAttribute("height")}`;
       preview.replaceChildren(...(svg ? [svg] : []));
       if (status) status.textContent = "";
+      dialog.querySelectorAll(".export-actions button:not(#export-cancel)").forEach(b => b.disabled = false);
+      } catch (error) {
+        if (status) status.textContent = error.message;
+        dialog.querySelectorAll(".export-actions button:not(#export-cancel)").forEach(b => b.disabled = true);
+      }
     };
     Object.values(controls).forEach((input) => {
       input.onchange = update;
-      if (input.type === "number") input.oninput = update;
+      input.oninput = update;
     });
+    document.getElementById("export-reset").onclick = () => {
+      for (const [key, input] of Object.entries(controls)) {
+        if (input.type === "checkbox") input.checked = exportDefaults[key];
+        else input.value = exportDefaults[key];
+      }
+      update();
+      if (status) status.textContent = "All export settings restored to defaults.";
+    };
     document.getElementById("export-cancel").onclick = () => dialog.close();
     document.getElementById("export-png").onclick = () => saveExport("png", options(), state?.title);
     document.getElementById("export-svg").onclick = () => saveExport("svg", options(), state?.title);
@@ -588,6 +639,23 @@
             <label>Width <input id="export-width" type="number" value="900" min="1" max="16384" step="1"> px</label>
             <label>Height <input id="export-height" type="number" value="540" min="1" max="16384" step="1"> px</label>
           </fieldset>
+          <details class="export-advanced">
+            <summary>Advanced</summary>
+            <div class="export-advanced-toolbar"><span>Settings are retained across spectra.</span><button id="export-reset" type="button">Reset export defaults</button></div>
+            <div class="export-advanced-grid">
+              <fieldset class="export-settings-group"><legend>Axis ranges</legend>
+<div class="export-range-row"><span>m/z</span><div class="export-range-inputs"><input id="export-mzMin" type="number" min="0" step="any" placeholder="Auto" aria-label="m/z minimum"><span aria-hidden="true">～</span><input id="export-mzMax" type="number" min="0" step="any" placeholder="Auto" aria-label="m/z maximum"></div></div><div class="export-range-row"><span>Upper intensity</span><div class="export-range-inputs"><input id="export-intensityMin" type="number" min="0" step="any" placeholder="Auto" aria-label="Upper intensity minimum"><span aria-hidden="true">～</span><input id="export-intensityMax" type="number" min="0" step="any" placeholder="Auto" aria-label="Upper intensity maximum"></div></div><div class="export-range-row"><span>Lower intensity</span><div class="export-range-inputs"><input id="export-lowerMin" type="number" min="0" step="any" placeholder="Auto" aria-label="Lower intensity minimum"><span aria-hidden="true">～</span><input id="export-lowerMax" type="number" min="0" step="any" placeholder="Auto" aria-label="Lower intensity maximum"></div></div>
+                <p class="export-help">Minimum ～ maximum. Leave blank to use the current view.</p>
+              </fieldset>
+              <fieldset class="export-settings-group"><legend>Spectrum appearance</legend>
+<label>Upper color<input id="export-upperColor" type="color" ></label><label>Lower color<input id="export-lowerColor" type="color" ></label><label>Line width (px)<input id="export-peakWidth" type="number" min="0.1" max="20" step="0.1"></label>
+              </fieldset>
+              <fieldset class="export-settings-group"><legend>Peak labels</legend>
+<label>Size (px)<input id="export-labelSize" type="number" min="1" max="100"></label><label>Color<input id="export-labelColor" type="color" ></label><label>m/z decimal places<input id="export-decimals" type="number" min="0" max="10" step="1"></label><label>Top K per spectrum<input id="export-topK" type="number" min="0" step="1"></label>
+                <p class="export-help">0 = all visible peaks. Top K selects the strongest visible peaks on each side. Enable “m/z above peaks” to show labels.</p>
+              </fieldset>
+            </div>
+          </details>
           <div id="export-preview" class="export-preview" aria-label="Image preview"></div>
           <div id="export-status" class="export-status" role="status" aria-live="polite"></div>
           <div class="export-actions"><button id="export-cancel" type="button">Cancel</button><button id="copy-svg" type="button">Copy SVG</button><button id="copy-png" type="button">Copy PNG</button><button id="export-svg" type="button">Save SVG</button><button id="export-png" type="button">Save PNG</button></div>
@@ -707,11 +775,12 @@
       document.querySelector(`[data-peak-row="${index}"]`)?.scrollIntoView({ block: "nearest" });
     };
 
-    const draw = () => {
+    const draw = (options = null) => {
       if (!state) return;
-      const domain = state.domain;
+      const domain = options ? exportRange(options.mzMin, options.mzMax, state.domain) : state.domain;
       const domainWidth = Math.max(Number.EPSILON, domain[1] - domain[0]);
-      const yDomain = state.yDomain;
+      const yDomain = options ? exportRange(options.intensityMin, options.intensityMax, state.yDomain) : state.yDomain;
+      const lowerDomain = options ? exportRange(options.lowerMin, options.lowerMax, [0, lowerYMax]) : [0, lowerYMax];
       const yDomainWidth = Math.max(Number.EPSILON, yDomain[1] - yDomain[0]);
       const shown = peaks.filter((p) => p.x >= domain[0] && p.x <= domain[1]);
       const lowerShown = lowerPeaks.filter((p) => p.x >= domain[0] && p.x <= domain[1]);
@@ -719,7 +788,7 @@
       const baseline = hasLower ? H / 2 : H - B;
       const sx = (x) => L + (x - domain[0]) / domainWidth * (W - L - R);
       const sy = (y) => baseline - (y - yDomain[0]) / yDomainWidth * (baseline - T);
-      const lowerSy = (y) => baseline + Math.max(0, y) / lowerYMax * (H - B - baseline);
+      const lowerSy = (y) => baseline + (Math.max(lowerDomain[0], y) - lowerDomain[0]) / (lowerDomain[1] - lowerDomain[0]) * (H - B - baseline);
 
       let grid = "";
       const xTicks = ticks(domain[0], domain[1]);
@@ -735,7 +804,7 @@
         grid += `<text class="tick-label intensity-tick-label" x="${L - 10}" y="${y + 4}" text-anchor="end">${value.toFixed(tickDecimals(yTicks.step))}</text>`;
       }
       if (hasLower) {
-        const lowerTicks = ticks(0, lowerYMax);
+        const lowerTicks = ticks(...lowerDomain);
         for (const value of lowerTicks.values) {
           if (Math.abs(value) < lowerTicks.step * 1e-9) continue;
           const y = lowerSy(value);
@@ -744,10 +813,16 @@
         }
       }
       const sticks = shown.map((p) => `<line data-peak="${p.index}" x1="${sx(p.x)}" y1="${sy(Math.max(0, yDomain[0]))}" x2="${sx(p.x)}" y2="${sy(p.y)}" class="peak ${state.selectedPeak === p.index ? "selected" : ""}"><title>m/z ${p.x} · intensity ${p.y}</title></line>`).join("");
-      const peakLabels = shown.filter((p) => p.y >= yDomain[0] && p.y <= yDomain[1]).map((p) => `<text x="${sx(p.x)}" y="${Math.max(T + 11, sy(p.y) - 8)}" text-anchor="middle" class="peak-label">${p.x.toFixed(4)}</text>`).join("");
+      const peakLabels = labelPeaks(shown, yDomain, options).map((p) => `<text x="${sx(p.x)}" y="${Math.max(T + 11, sy(p.y) - 8)}" text-anchor="middle" class="peak-label">${p.x.toFixed(options?.decimals ?? 4)}</text>`).join("");
       const lowerSticks = lowerShown.map((p) => `<line x1="${sx(p.x)}" y1="${baseline}" x2="${sx(p.x)}" y2="${lowerSy(p.y)}" class="peak lower-peak"><title>m/z ${p.x} · intensity ${p.y}</title></line>`).join("");
-      const lowerLabels = lowerShown.map((p) => `<text x="${sx(p.x)}" y="${Math.min(H - B - 4, lowerSy(p.y) + 14)}" text-anchor="middle" class="peak-label lower-label">${p.x.toFixed(4)}</text>`).join("");
-      root.innerHTML = `<svg id="spectrum-svg" viewBox="0 0 ${W} ${H}" role="img" aria-label="${hasLower ? "Compared mass spectra" : "Mass spectrum"}"><defs><clipPath id="plot-clip"><rect x="${L}" y="${T}" width="${W - L - R}" height="${H - T - B}"/></clipPath></defs><g class="spectrum-grid">${grid}</g><line x1="${L}" y1="${baseline}" x2="${W - R}" y2="${baseline}" class="axis"/><line x1="${L}" y1="${T}" x2="${L}" y2="${H - B}" class="axis"/><g clip-path="url(#plot-clip)">${sticks}${lowerSticks}<g class="peak-labels">${peakLabels}${lowerLabels}</g></g><rect id="drag-box" x="${L}" y="${T}" width="0" height="${baseline - T}" class="selection"/><text x="${(L + W - R) / 2}" y="${H - 12}" text-anchor="middle" class="axis-title mz-title">m/z</text><text transform="translate(17 ${(T + baseline) / 2}) rotate(-90)" text-anchor="middle" class="axis-title">Intensity</text>${hasLower ? `<text transform="translate(17 ${(baseline + H - B) / 2}) rotate(-90)" text-anchor="middle" class="axis-title lower-axis-title">Intensity</text>` : ""}</svg>`;
+      const lowerLabels = labelPeaks(lowerShown, lowerDomain, options).map((p) => `<text x="${sx(p.x)}" y="${Math.min(H - B - 4, lowerSy(p.y) + 14)}" text-anchor="middle" class="peak-label lower-label">${p.x.toFixed(options?.decimals ?? 4)}</text>`).join("");
+      const markup = `<svg id="spectrum-svg" viewBox="0 0 ${W} ${H}" role="img" aria-label="${hasLower ? "Compared mass spectra" : "Mass spectrum"}"><defs><clipPath id="plot-clip"><rect x="${L}" y="${T}" width="${W - L - R}" height="${H - T - B}"/></clipPath></defs><g class="spectrum-grid">${grid}</g><line x1="${L}" y1="${baseline}" x2="${W - R}" y2="${baseline}" class="axis"/><line x1="${L}" y1="${T}" x2="${L}" y2="${H - B}" class="axis"/><g clip-path="url(#plot-clip)">${sticks}${lowerSticks}<g class="peak-labels">${peakLabels}${lowerLabels}</g></g><rect id="drag-box" x="${L}" y="${T}" width="0" height="${baseline - T}" class="selection"/><text x="${(L + W - R) / 2}" y="${H - 12}" text-anchor="middle" class="axis-title mz-title">m/z</text><text transform="translate(17 ${(T + baseline) / 2}) rotate(-90)" text-anchor="middle" class="axis-title">Intensity</text>${hasLower ? `<text transform="translate(17 ${(baseline + H - B) / 2}) rotate(-90)" text-anchor="middle" class="axis-title lower-axis-title">Intensity</text>` : ""}</svg>`;
+      if (options) {
+        const container = document.createElement("div");
+        container.innerHTML = markup;
+        return container.firstElementChild;
+      }
+      root.innerHTML = markup;
 
       if (comparing) {
         const aligned = alignPeakRows(peaks, lowerPeaks, similarityTolerance, state.sortAscending);
@@ -857,6 +932,7 @@
       event.preventDefault();
       resetZoom();
     };
+    exportPlot = options => draw(options);
     exportImage.onclick = openExportPreview;
     draw();
   }

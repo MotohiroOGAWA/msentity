@@ -316,3 +316,7 @@ an existing Chromium executable. The test uses the actual Python result backend
 and a mocked VS Code host, and writes a screenshot to the system temporary directory.
 Run `WIZARD_ONLY=1 node vscode-extension/tests/test_similarity_ui.js` to check
 the VS Code parameter flow without Playwright or Chromium.
+
+Image export **Advanced** settings include upper/lower peak colors, m/z range, separate upper/lower intensity ranges, peak line width, and peak label size, color, decimal places, and top K by intensity per spectrum. Blank ranges follow the current view; 0 for top K labels all visible peaks. Enable **m/z above peaks** to show labels. Settings persist across spectrum selections and webview restoration, and apply to preview, PNG/SVG saves, and clipboard copies.
+
+Use **Reset export defaults** in Advanced to reset all image export options, including dimensions and visibility toggles. Axis ranges are displayed as minimum ～ maximum.

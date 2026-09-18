@@ -13,7 +13,7 @@ test("peak column form targets lower dataset and refresh updates pinned spectra"
     return elements.get(id);
   };
   vm.runInNewContext(source, {
-    acquireVsCodeApi: () => ({ postMessage: message => posted.push(message) }),
+    acquireVsCodeApi: () => ({ postMessage: message => posted.push(message), getState: () => ({}) }),
     document: { getElementById: id => id === "plot-root" ? null : element(id), querySelectorAll: () => [], addEventListener() {} },
     window: { addEventListener: (_, handler) => { listener = handler; } }
   });
