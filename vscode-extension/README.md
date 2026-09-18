@@ -326,3 +326,5 @@ The dataset dropdown contains compact **Add dataset** and **Remove dataset** ico
 Any dataset, including the first one opened, can be removed from the viewer. Removing the active dataset selects a remaining dataset. Removing the last dataset shows an empty view where Add dataset and file drops remain available. Removal does not delete the source file.
 
 Adding the same file again creates an independent dataset loaded from its current on-disk contents. In-memory edits to an existing dataset are preserved. Datasets with matching filenames receive unique display names such as `sample (1).msp` and `sample (2).msp`, including files from different directories. These names also appear in spectrum views and similarity selection.
+
+The toolbar provides **Reload**, **Filter**, and **Export** directly. **More ...** contains Metadata, Columns, Assign SpecID, and Calculate similarity. Press **Ctrl+S** (or **Cmd+S** on macOS) while the Dataset Viewer is focused to open the same Export flow.

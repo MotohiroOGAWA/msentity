@@ -27,7 +27,7 @@ const { chromium } = require('playwright');
     await page.locator('#dataset-select').click(); await page.locator('#remove-dataset').click(); assert.equal((await last()).type, 'remove-dataset');
     await send({type: 'dataset-removed', dataset_id: 'added'}); await datasetPage('original');
     await open(); assert.equal(await visible(), true);
-    assert.deepEqual(await page.locator('#more-actions-menu button').allTextContents(), ['Metadata', 'Columns', 'Filter', 'Assign SpecID', 'Export', 'Calculate similarity']);
+    assert.deepEqual(await page.locator('#more-actions-menu button').allTextContents(), ['Metadata', 'Columns', 'Assign SpecID', 'Calculate similarity']);
     await page.locator('.summary').click(); assert.equal(await visible(), false);
     await open(); await page.keyboard.press('Escape'); assert.equal(await visible(), false);
     assert.equal(await page.locator('#more-actions-button').evaluate(e => e === document.activeElement), true);
@@ -37,15 +37,23 @@ const { chromium } = require('playwright');
     await page.locator('#add-column-toggle').click(); assert.equal(await page.locator('#add-column-form').isVisible(), true);
     await page.locator('#new-column-name').fill('Note'); await page.locator('#add-column-form button').click(); assert.equal((await last()).type, 'add-column');
     await page.keyboard.press('Escape');
-    await open(); await page.locator('#filter-button').click(); await page.locator('#add-filter').click(); await page.locator('#add-filter').click();
+    await page.locator('#filter-button').click(); await page.locator('#add-filter').click(); await page.locator('#add-filter').click();
     assert.equal(await page.locator('.filter-row').count(), 2);
     await page.locator('#apply-filters').click(); assert.equal((await last()).filters.length, 2); await datasetPage('original');
-    await open(); assert.match(await page.locator('#filter-button').textContent(), /2/);
+    assert.match(await page.locator('#filter-button').textContent(), /2/); await open();
     await page.locator('#metadata-button').click(); assert.equal(await page.locator('.metadata-panel').isVisible(), true); assert.equal(await visible(), false);
     await page.locator('#cancel-metadata').click();
     for (const [id, type] of [['assign-spec-id-button', 'assign-spec-id'], ['export-button', 'export-dataset'], ['similarity-button', 'calculate-similarity']]) {
       await open(); await page.locator('#' + id).click(); assert.equal((await last()).type, type); assert.equal(await visible(), false);
     }
+    await send({type: 'export-cancelled'});
+    const beforeShortcut = await page.evaluate(() => messages.length);
+    await page.keyboard.press('Control+s');
+    assert.equal((await last()).type, 'export-dataset');
+    assert.equal(await page.evaluate(() => messages.length), beforeShortcut + 1);
+    await page.keyboard.press('Control+s');
+    assert.equal(await page.evaluate(() => messages.length), beforeShortcut + 1);
+    await send({type: 'export-cancelled'});
     await page.locator('#reload-button').click(); assert.equal((await last()).type, 'reload'); await datasetPage('original');
     for (const [theme, background, foreground] of [['dark', '#252526', '#cccccc'], ['light', '#ffffff', '#333333']]) {
       await page.evaluate(({background, foreground}) => { document.documentElement.style.setProperty('--vscode-menu-background', background); document.documentElement.style.setProperty('--vscode-menu-foreground', foreground); }, {background, foreground});

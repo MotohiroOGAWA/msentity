@@ -166,3 +166,12 @@ button:disabled { cursor: default; opacity: .5; }
 .dataset-drop-active::after { content: "Drop datasets to add · MSDS / MSP / MGF / TSV / CSV"; position: fixed; inset: 8px; z-index: 100; display: grid; place-items: center; padding: 20px; pointer-events: none; border: 2px dashed var(--vscode-focusBorder, var(--accent)); background: var(--vscode-editor-background, var(--panel)); color: var(--text); opacity: .95; }
 .toolbar { gap: 14px; padding: 8px 12px; }
 .toolbar-group { padding-left: 14px; }
+
+.view-actions > .columns > button, .view-actions > .filters > button { display: inline-flex; align-items: center; gap: 9px; min-height: 38px; padding: 8px 12px; background: transparent; }
+.view-actions .column-menu { left: 0; right: auto; width: min(260px, calc(100vw - 48px)); box-sizing: border-box; }
+.view-actions .filters { position: static; }
+.view-actions .filter-menu { right: 12px; width: min(720px, calc(100vw - 24px)); box-sizing: border-box; max-height: 65vh; overflow: auto; }
+@media (max-width: 600px) {
+  .view-actions .columns { position: static; }
+  .view-actions .column-menu { left: auto; right: 12px; }
+}
