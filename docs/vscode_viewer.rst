@@ -9,32 +9,37 @@ spectrum in one reusable VS Code panel. It does not use or require Gradio.
 Install a release VSIX
 ----------------------
 
-1. Download the `latest msentity-spectrum-viewer.vsix
-   <https://github.com/MotohiroOGAWA/msentity/releases/latest/download/msentity-spectrum-viewer.vsix>`_.
-   This URL always points to the newest release, so no version needs to be
-   specified.
+1. Download the package for the computer running VS Code:
+
+   * `Windows x64 VSIX
+     <https://github.com/MotohiroOGAWA/msentity/releases/latest/download/msentity-spectrum-viewer-win32-x64.vsix>`_
+   * `Linux x64 VSIX
+     <https://github.com/MotohiroOGAWA/msentity/releases/latest/download/msentity-spectrum-viewer-linux-x64.vsix>`_
+
+   These release packages include a private Python runtime and ``msentity``.
+   A separate Python installation is therefore not required for normal use.
 2. Install the downloaded file with either method below.
 
 From a terminal:
 
 .. code-block:: bash
 
-   code --install-extension ./msentity-spectrum-viewer.vsix
+   code --install-extension ./msentity-spectrum-viewer-linux-x64.vsix
 
 From VS Code, open **Extensions**, choose **Views and More Actions (...)**,
 select **Install from VSIX...**, and choose the downloaded file. Run
 **Developer: Reload Window** when installation finishes.
 
-The extension starts a small Python process to read each dataset. Install
-``msentity`` into that environment and verify it before opening a file:
+An unbundled VSIX built locally uses a Python process from the development
+environment. Install the checkout and verify it before opening a file:
 
 .. code-block:: bash
 
    python -m pip install "msentity @ git+https://github.com/MotohiroOGAWA/msentity.git"
    python -c "import msentity; print(msentity.__file__)"
 
-If VS Code uses a different interpreter, set
-``msentitySpectrumViewer.pythonPath`` to its absolute path.
+Set ``msentitySpectrumViewer.pythonPath`` to an absolute interpreter path only
+to override the bundled runtime or when using an unbundled development build.
 
 Use the viewer
 --------------
@@ -52,6 +57,29 @@ remembers its last metadata page, so switching away and back restores that
 page. Files added this way share one spectrum panel, which makes comparisons
 across files possible. Opening a dataset in a separate VS Code tab still
 creates a separate reusable spectrum panel.
+
+The dataset toolbar also provides:
+
+``Columns``
+   Show, hide, add, and reorder spectrum-metadata columns. Double-click a cell
+   or press Enter to edit it. Numeric and boolean columns validate their input.
+
+``Filter`` and column headings
+   Combine text or numeric conditions across the complete dataset, then apply
+   prioritized multi-column sorting. Paging affects display only.
+
+``Assign SpecID...``
+   Assign sequential, zero-padded IDs to the complete active dataset. An
+   optional prefix such as ``SP`` produces ``SP1`` through ``SP3`` for the
+   three-record example. Existing IDs require confirmation before replacement.
+
+``Metadata...``
+   Edit the dataset description, string attributes, and tags. Export as MSDS
+   to preserve these values.
+
+``Remove dataset``
+   Remove a file previously loaded with **Add dataset...** from this viewer;
+   the source file on disk is not deleted.
 
 Normal opening detects the input format from the filename extension. To select
 it explicitly, right-click any file in Explorer and choose **MS Entity: Open as
@@ -110,6 +138,29 @@ datasets, including unsaved edits, regardless of current table filters.
    :align: center
 
    Inspect the selected spectrum, peak list, and spectrum metadata together.
+
+The two figures show the basic table and single-spectrum views. The current
+extension has additional controls that are not visible in those older images.
+To complete the visual tour, capture the following screenshots from a current
+release and save them at these exact paths; the names make replacing or adding
+the figures unambiguous:
+
+* ``docs/_static/images/viewer_dataset_toolbar.png`` — the complete dataset
+  toolbar with **Add dataset**, dataset selector, **Columns**, **Filter**,
+  **Assign SpecID**, **Metadata**, **Calculate similarity**, **Export**, and
+  **Reload** visible; use ``docs/examples/example.msp`` as the active file.
+* ``docs/_static/images/viewer_comparison.png`` — Compound_A pinned above and
+  Compound_C below, including both pin controls, tolerance, similarity method,
+  score, mirrored plot, aligned peak table, and both metadata panels.
+* ``docs/_static/images/viewer_similarity.png`` — a ``.mssim`` result with the
+  histogram, summary statistics, filter controls, calculation metadata, and
+  at least one **Open spectra** button visible.
+* ``docs/_static/images/viewer_export_preview.png`` — the image-export preview
+  with dimensions and all visibility toggles visible next to the preview.
+
+Use a VS Code dark theme, capture the whole relevant editor (not the desktop),
+and avoid personal paths or unrelated tabs. PNG at native resolution is
+preferred; do not resize before committing.
 
 The plot begins at m/z 0. Drag horizontally to zoom only the m/z axis, drag
 vertically to zoom only the intensity axis, or drag diagonally to zoom both.
@@ -191,7 +242,8 @@ Settings
 --------
 
 ``msentitySpectrumViewer.pythonPath``
-   Python executable that imports ``msentity``. Default: ``python``.
+   Optional Python executable override. By default, a release uses its bundled
+   runtime; an unbundled development build falls back to ``python`` on PATH.
 
 ``msentitySpectrumViewer.pageSize``
    Number of spectra loaded into one metadata page. Default: 20; range: 1–500.
@@ -221,8 +273,8 @@ an existing copy by substituting the generated version in this command:
 
    code --install-extension ./dist/msentity-spectrum-viewer-<version>.vsix --force
 
-For a release, run ``npm run package:release`` instead. It creates both the
-versioned VSIX and ``msentity-spectrum-viewer.vsix`` under ``dist/``; attach
-both files to the matching GitHub release. The fixed asset name keeps the
-recommended ``latest/download`` URL valid while the versioned asset remains
-available for pinned downloads.
+For a release, run ``npm run package:release`` instead. It creates versioned
+and fixed-name packages for ``linux-x64`` and ``win32-x64`` under ``dist/``.
+Attach all four files to the matching GitHub release. The fixed platform asset
+names keep the ``latest/download`` URLs valid; versioned assets support pinned
+downloads.

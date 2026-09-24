@@ -19,10 +19,22 @@ Importing msentity
 Loading MSP files
 -----------------
 
+The complete input is shown in :doc:`../getting_started`. Loading it and
+printing both the summary and metadata makes the conversion visible:
+
 .. jupyter-input::
 
    dataset = load_ms_dataset("example.msp")
-   dataset
+   print(dataset)
+   print(dataset.metadata.to_string(index=False))
+
+.. code-block:: text
+
+   MSDataset(n_spectra=3, n_peaks=12, columns=['Name', 'PrecursorMZ', 'AdductType', 'CollisionEnergy', 'NumPeaks'])
+         Name PrecursorMZ AdductType CollisionEnergy NumPeaks
+   Compound_A    301.2162     [M+H]+              20        4
+   Compound_B    255.1234     [M+H]+              30        3
+   Compound_C    412.2871    [M+Na]+              25        5
 
 Typical MSP fields are canonicalized (for example, ``PRECURSORMZ`` becomes
 ``PrecursorMZ``). Unknown fields are retained rather than discarded. Peak
@@ -44,7 +56,14 @@ Loading TSV files
 
 TSV spectrum tables are detected from the ``.tsv`` extension. Each row is one
 spectrum, and the required ``Peak`` column stores peaks as
-``mz1,intensity1;mz2,intensity2;...``::
+``mz1,intensity1;mz2,intensity2;...``:
+
+.. code-block:: text
+
+   Name\tPrecursorMZ\tPeak
+   Compound_A\t301.2162\t100.0,0.12;145.1,0.553;183.2,0.217;301.2,1.0
+
+.. code-block:: python
 
    dataset = load_ms_dataset("example.tsv")
 
@@ -53,7 +72,9 @@ Loading CSV files
 
 CSV spectrum tables have the same columns and ``Peak`` representation as TSV,
 but use commas between columns. Standard CSV quoting allows metadata fields to
-contain commas, double quotes, and line breaks::
+contain commas, double quotes, and line breaks:
+
+.. code-block:: python
 
    dataset = load_ms_dataset("example.csv")
 
@@ -101,6 +122,13 @@ Generating SpecID values
        spec_id_prefix="sample-",
    )
    dataset["SpecID"].head()
+
+.. code-block:: text
+
+   0    sample-1
+   1    sample-2
+   2    sample-3
+   Name: SpecID, dtype: str
 
 For an already loaded dataset, use
 :func:`msentity.processing.id.set_spec_id`. MSP and MGF content can also be

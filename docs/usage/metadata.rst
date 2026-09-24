@@ -20,6 +20,10 @@ Description
    dataset.description = "Curated positive-mode reference spectra"
    dataset.description
 
+.. code-block:: text
+
+   'Curated positive-mode reference spectra'
+
 The value must be a string and is preserved by MSDS save/load.
 
 Attributes
@@ -33,6 +37,10 @@ Attributes are string-to-string key/value pairs:
    dataset.set_attribute("instrument", "Orbitrap")
    dataset.has_attribute("source"), dataset.attributes
 
+.. code-block:: text
+
+   (True, {'source': 'MassBank', 'instrument': 'Orbitrap'})
+
 ``set_attribute`` updates an existing key. ``remove_attribute`` returns
 whether a key existed, and ``clear_attributes`` removes every attribute.
 The ``attributes`` getter returns a copy, so mutate through these methods or
@@ -44,6 +52,10 @@ Removing an attribute:
 
    removed = dataset.remove_attribute("source")
    removed, dataset.attributes
+
+.. code-block:: text
+
+   (True, {'instrument': 'Orbitrap'})
 
 Tags
 ----
@@ -57,12 +69,20 @@ they changed the dataset:
    dataset.add_tag("positive-mode")
    dataset.has_tag("reference"), dataset.tags
 
+.. code-block:: text
+
+   (True, ['reference', 'positive-mode'])
+
 Removing a tag:
 
 .. jupyter-input::
 
    dataset.remove_tag("reference")
    dataset.tags
+
+.. code-block:: text
+
+   ['positive-mode']
 
 Use ``clear_tags`` to remove all tags. Assigning ``dataset.tags`` replaces the
 complete ordered list.

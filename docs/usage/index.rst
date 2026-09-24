@@ -5,6 +5,9 @@ This section introduces common workflows with :mod:`msentity` from Python.
 
 Python examples are presented as Jupyter notebook cells. They can be copied to
 Jupyter Notebook or JupyterLab and adapted by changing the example paths.
+Each page shows the relevant output immediately after the code. All MSP
+examples use the exact file printed in :doc:`../getting_started`; download it
+as :download:`example.msp <../examples/example.msp>`.
 
 Most operations shown here correspond to operations available from the
 ``msentity`` command line interface.
@@ -67,7 +70,7 @@ The Python API can reproduce the main CLI operations.
    * - ``filter PrecursorMZ > 300``
      - ``dataset[pd.to_numeric(dataset["PrecursorMZ"], errors="coerce") > 300]``
    * - ``msentity similarity-by-key first.msds second.msds --output result.mssim``
-     - ``SimilarityDataset.from_datasets(first, second).save("result.mssim")``
+     - ``calculate_similarity(first, second).save("result.mssim")``
    * - ``msentity library-search query.msds reference.msds --output matches.mssim``
      - ``calculate_library_search(query, reference).save("matches.mssim")``
 

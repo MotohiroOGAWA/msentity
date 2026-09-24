@@ -1,99 +1,130 @@
 Getting Started
 ===============
 
-``msentity`` is a Python toolkit for reading, representing, editing, and
-writing tandem mass-spectrometry datasets.  An :class:`msentity.MSDataset`
-keeps spectrum metadata in a :class:`pandas.DataFrame` and stores all peak
-lists compactly in a :class:`msentity.PeakSeries`.
-
-It is designed for workflows that need:
-
-- MSP, MGF, TSV, CSV, and native MSDS (HDF5) input
-- spectrum- and peak-level metadata
-- zero-copy dataset views for slicing, filtering, and sorting
-- normalization, ID assignment, metadata joins, concatenation, metadata-key
-  comparison, exhaustive library search, and export
-- a command-line interface, interactive shell, and VS Code spectrum viewer
+``msentity`` reads, edits, compares, and writes tandem mass-spectrometry
+datasets.  :class:`msentity.MSDataset` keeps one metadata row and one peak
+list per spectrum. This page uses a complete three-spectrum MSP file so that
+every result can be reproduced.
 
 Requirements
 ------------
 
-- Python 3.10 or later
-- NumPy, pandas, h5py, PyArrow, and tqdm (installed automatically)
-- For documentation builds: Sphinx, Furo, MyST Parser, and MyST-NB
-- For the VS Code viewer: VS Code 1.90 or later and Node.js when building locally
+* Python 3.10 or later
+* NumPy, pandas, h5py, PyArrow, and tqdm (installed with ``msentity``)
+* VS Code 1.90 or later only when using the Spectrum Viewer
 
-Installation
-------------
+Installation and verification
+-----------------------------
 
-Install the current release directly from GitHub:
+Install the current release from GitHub, then print the installed version and
+the command-line help:
 
-.. code-block:: bash
+.. code-block:: console
 
-   python -m pip install "msentity @ git+https://github.com/MotohiroOGAWA/msentity.git"
+   $ python -m pip install "msentity @ git+https://github.com/MotohiroOGAWA/msentity.git"
+   $ python -c "import importlib.metadata; print(importlib.metadata.version('msentity'))"
+   0.1.0
+   $ msentity --help
+   usage: msentity [-h]
+                   {convert,head,info,library-search,merge-dir,meta,similarity-by-key,shell}
+                   ...
 
-For development, clone the repository and install it in editable mode:
+The version is an example; a newer release may print a larger number. For a
+development checkout:
 
-.. code-block:: bash
+.. code-block:: console
 
-   git clone https://github.com/MotohiroOGAWA/msentity.git
-   cd msentity
-   python -m pip install -e ".[docs]"
+   $ git clone https://github.com/MotohiroOGAWA/msentity.git
+   $ cd msentity
+   $ python -m pip install -e ".[docs]"
 
-The VS Code viewer is installed separately from a release VSIX. See
-:doc:`vscode_viewer` for download, installation, and build instructions.
-See :doc:`cli` for command-line workflows.
+The example input
+-----------------
 
-Testing
--------
+Save the following as ``example.msp``. It is also included in the repository
+at ``docs/examples/example.msp``.
 
-Run the complete test suite from the repository root:
+.. literalinclude:: examples/example.msp
+   :language: text
 
-.. code-block:: bash
+Load and inspect the result
+---------------------------
 
-   python -m unittest discover -s tests -p "Test*.py" -v
+Run this from the directory containing ``example.msp``:
 
-Build the documentation and treat warnings as errors:
+.. code-block:: python
 
-.. code-block:: bash
+   from msentity import load_ms_dataset
 
-   python -m sphinx -W -b html docs docs/_build/html
+   dataset = load_ms_dataset("example.msp")
+   print(dataset)
+   print(dataset.metadata.to_string(index=False))
 
-Basic Usage
------------
+Output (the reader may also display a progress bar):
 
-Python examples in this guide are Jupyter cells.  The following cell creates a
-small, self-contained dataset, so it can be copied directly into a notebook:
+.. code-block:: text
 
-.. jupyter-input::
+   MSDataset(n_spectra=3, n_peaks=12, columns=['Name', 'PrecursorMZ', 'AdductType', 'CollisionEnergy', 'NumPeaks'])
+         Name PrecursorMZ AdductType CollisionEnergy NumPeaks
+   Compound_A    301.2162     [M+H]+              20        4
+   Compound_B    255.1234     [M+H]+              30        3
+   Compound_C    412.2871    [M+Na]+              25        5
 
-   import numpy as np
+MSP field names are canonicalized: for example, ``Precursor_type`` becomes
+``AdductType`` and ``Collision_energy`` becomes ``CollisionEnergy``. MSP
+metadata values remain strings. Peak intensities are normalized to a maximum
+of 1.0 for each spectrum when read.
+
+Inspect one spectrum
+--------------------
+
+.. code-block:: python
+
    import pandas as pd
-   from msentity import MSDataset, PeakSeries
-
-   metadata = pd.DataFrame({
-       "Name": ["caffeine", "glucose"],
-       "PrecursorMZ": [195.0877, 179.0561],
-       "IonMode": ["Positive", "Negative"],
-   })
-   peaks = PeakSeries(
-       data=np.array([
-           [138.0662, 42.0], [195.0877, 100.0],
-           [89.0244, 64.0], [179.0561, 100.0],
-       ]),
-       offsets=np.array([0, 2, 4], dtype=np.int64),
-   )
-   dataset = MSDataset(metadata, peaks, description="Notebook example")
-   dataset
-
-Integer indexing returns a :class:`msentity.SpectrumRecord`; slices and
-boolean masks return lightweight dataset views:
-
-.. jupyter-input::
 
    record = dataset[0]
    print(record["Name"], record.n_peaks)
-   print(record.spectrum.mz)
+   peaks = pd.DataFrame(record.spectrum.data, columns=["mz", "intensity"])
+   print(peaks.to_string(index=False))
 
-   selected = dataset[dataset["PrecursorMZ"] > 180]
-   selected.metadata
+Output:
+
+.. code-block:: text
+
+   Compound_A 4
+      mz  intensity
+   100.0      0.120
+   145.1      0.553
+   183.2      0.217
+   301.2      1.000
+
+Integer indexing returns a :class:`msentity.SpectrumRecord`. Slices and
+boolean masks return lightweight dataset views:
+
+.. code-block:: python
+
+   precursor_mz = dataset["PrecursorMZ"].astype(float)
+   selected = dataset[precursor_mz > 300]
+   print(selected.metadata[["Name", "PrecursorMZ"]].to_string(index=False))
+
+.. code-block:: text
+
+         Name PrecursorMZ
+   Compound_A    301.2162
+   Compound_C    412.2871
+
+Next steps
+----------
+
+* :doc:`cli` covers commands and the interactive shell with transcripts.
+* :doc:`usage/index` develops the same example through the Python API.
+* :doc:`vscode_viewer` explains the graphical table, plots, comparison, and
+  export workflows.
+
+Development checks
+------------------
+
+.. code-block:: console
+
+   $ python -m unittest discover -s tests -p "Test*.py" -v
+   $ python -m sphinx -W -b html docs docs/_build/html

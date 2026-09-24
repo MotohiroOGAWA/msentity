@@ -22,6 +22,18 @@ The Python equivalent is:
    dataset = load_ms_dataset("example.msp")
    dataset.save("example.msds")
 
+The call returns ``None`` and creates ``example.msds``. Verify the artifact
+instead of assuming the write succeeded:
+
+.. jupyter-input::
+
+   from pathlib import Path
+   print(Path("example.msds").is_file(), Path("example.msds").stat().st_size > 0)
+
+.. code-block:: text
+
+   True True
+
 ``mode="w"`` (the default) creates/replaces the file; ``mode="a"`` passes
 append mode to the MSDS writer.
 
@@ -34,7 +46,11 @@ Loading the saved file
 
    loaded = load_ms_dataset("example.msds")
    loaded_directly = MSDataset.load("example.msds")
-   loaded
+   print(loaded)
+
+.. code-block:: text
+
+   MSDataset(n_spectra=3, n_peaks=12, columns=['Name', 'PrecursorMZ', 'AdductType', 'CollisionEnergy', 'NumPeaks'])
 
 Pass ``load_peak_metadata=False`` to ``MSDataset.load`` when peak annotations
 are not needed and memory use matters.
@@ -51,6 +67,11 @@ and corresponding peaks are materialized consistently:
    precursor_mz = pd.to_numeric(dataset["PrecursorMZ"], errors="coerce")
    filtered = dataset[precursor_mz > 300]
    filtered.save("filtered.msds", save_view=True)
+   print(load_ms_dataset("filtered.msds"))
+
+.. code-block:: text
+
+   MSDataset(n_spectra=2, n_peaks=9, columns=['Name', 'PrecursorMZ', 'AdductType', 'CollisionEnergy', 'NumPeaks'])
 
 Use ``save_view=False`` only when intentionally saving the complete underlying
 references rather than the current view.
@@ -69,13 +90,23 @@ Saving TSV and CSV files
 ------------------------
 
 Both formats write one spectrum per row. The final ``Peak`` column uses
-``mz1,intensity1;mz2,intensity2;...``::
+``mz1,intensity1;mz2,intensity2;...``:
+
+.. code-block:: python
 
    from msentity import write_csv, write_tsv
 
    write_tsv(dataset, "output.tsv")
    write_csv(dataset, "output.csv")
    write_csv(dataset, "selected.csv", headers=["SpecID", "Name"])
+
+After writing, inspect the result with ``Path("output.tsv").read_text()`` or
+load it again. For the example dataset, the TSV header and first row begin:
+
+.. code-block:: text
+
+   Name\tPrecursorMZ\tAdductType\tCollisionEnergy\tNumPeaks\tPeak
+   Compound_A\t301.2162\t[M+H]+\t20\t4\t100,0.12;145.09999999999999,0.55299999999999994;...
 
 CSV fields containing commas, quotes, or newlines are quoted automatically.
 The writer call order is ``(dataset, output_path)``; ``headers`` selects and

@@ -24,6 +24,10 @@ The interactive-shell command ``show 0`` corresponds to integer indexing:
    record = dataset[0]
    record
 
+.. code-block:: text
+
+   SpectrumRecord(n_peaks=4, Name='Compound_A', PrecursorMZ='301.2162', AdductType='[M+H]+', CollisionEnergy='20', NumPeaks='4')
+
 Unlike ``dataset.metadata.iloc[0]``, a record keeps its metadata and peak list
 together. Iterating over a dataset yields records in the current view order.
 
@@ -32,9 +36,13 @@ Record-level metadata
 
 .. jupyter-input::
 
-   record["Name"]
-   record["PrecursorMZ"]
-   record.columns
+   print(record["Name"], record["PrecursorMZ"])
+   print(record.columns)
+
+.. code-block:: text
+
+   Compound_A 301.2162
+   ['Name', 'PrecursorMZ', 'AdductType', 'CollisionEnergy', 'NumPeaks']
 
 Assignment adds or updates a field in the parent dataset:
 
@@ -58,6 +66,14 @@ Accessing peaks
    peaks = pd.DataFrame(spectrum.data, columns=["mz", "intensity"])
    peaks
 
+.. code-block:: text
+
+         mz  intensity
+   0  100.0      0.120
+   1  145.1      0.553
+   2  183.2      0.217
+   3  301.2      1.000
+
 Direct arrays are available as ``spectrum.mz`` and ``spectrum.intensity``.
 Across the current dataset view, use ``dataset.peaks.data``, ``.mz``,
 ``.intensity``, ``.offsets``, ``.lengths``, and ``.n_peaks_total``. If the
@@ -74,12 +90,24 @@ Use the spectrum operation when the result should remain a ``Spectrum``:
    top_spectrum = spectrum.sort_by_intensity()  # descending by default
    pd.DataFrame(top_spectrum.data[:10], columns=["mz", "intensity"])
 
+.. code-block:: text
+
+         mz  intensity
+   0  301.2      1.000
+   1  145.1      0.553
+   2  183.2      0.217
+   3  100.0      0.120
+
 Normalization is non-mutating unless ``in_place=True``:
 
 .. jupyter-input::
 
    normalized = spectrum.normalize(scale=100.0)
    normalized.intensity.max()
+
+.. code-block:: text
+
+   100.0
 
 At dataset scale, ``dataset.peaks.normalize(scale=100.0)`` normalizes every
 spectrum independently. Record methods provide the same operations while
@@ -92,6 +120,10 @@ Sorting peaks by m/z
 
    mz_sorted = spectrum.sort_by_mz(ascending=True)
    mz_sorted.mz
+
+.. code-block:: text
+
+   array([100. , 145.1, 183.2, 301.2])
 
 ``Spectrum.sort_by_mz``, ``sort_by_intensity``, and ``normalize`` default to
 ``in_place=False``. The corresponding ``PeakSeries`` operations can process
