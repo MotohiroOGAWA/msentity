@@ -2,8 +2,10 @@ import os
 import sys
 
 import importlib
-import importlib.metadata
 import inspect
+import json
+from pathlib import Path
+import tomllib
 
 sys.path.insert(0, os.path.abspath(".."))
 
@@ -48,7 +50,27 @@ def get_summary(module_name: str, obj_name: str, member_name: str) -> str:
 project = 'msentity'
 copyright = '2026, MotohiroOGAWA'
 author = 'MotohiroOGAWA'
-release = importlib.metadata.version("msentity")
+
+# Read versions from the manifests used to build the release artifacts. This
+# avoids reporting a stale globally installed package during a documentation
+# build from a tagged checkout.
+repository_root = Path(__file__).resolve().parent.parent
+with (repository_root / "pyproject.toml").open("rb") as file:
+    python_package_version = tomllib.load(file)["project"]["version"]
+with (repository_root / "vscode-extension" / "package.json").open(
+    encoding="utf-8"
+) as file:
+    viewer_version = json.load(file)["version"]
+
+# GitHub releases and VSIX filenames are versioned from package.json.
+version = viewer_version
+release = viewer_version
+
+rst_epilog = f"""
+.. |release_version| replace:: {viewer_version}
+.. |viewer_version| replace:: {viewer_version}
+.. |python_package_version| replace:: {python_package_version}
+"""
 
 # -- General configuration ---------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#general-configuration

@@ -6,6 +6,10 @@ VS Code Spectrum Viewer
 TSV, and CSV datasets as a paged metadata table and displays the selected mass
 spectrum in one reusable VS Code panel. It does not use or require Gradio.
 
+This page documents Spectrum Viewer |viewer_version|. Sphinx reads this
+value directly from ``vscode-extension/package.json``, the same manifest used
+to name and package the release VSIX.
+
 Install a release VSIX
 ----------------------
 
@@ -81,6 +85,14 @@ The dataset toolbar also provides:
    Remove a file previously loaded with **Add dataset...** from this viewer;
    the source file on disk is not deleted.
 
+.. figure:: _static/images/viewer_dataset_toolbar.png
+   :alt: Dataset table for example.msp with Reload, Filter, Export, and the More menu open
+   :align: center
+
+   Browse ``example.msp`` and open **More...** to reach metadata, column,
+   SpecID, and similarity operations. The footer shows the current page and
+   configured page size.
+
 Normal opening detects the input format from the filename extension. To select
 it explicitly, right-click any file in Explorer and choose **MS Entity: Open as
 MSDS**, **Open as MSP**, **Open as MGF**, **Open as TSV**, or **Open as CSV**.
@@ -127,41 +139,6 @@ Metadata-key mode compares only records whose chosen keys are equal. Keys must
 be non-missing and unique on each side. Both modes use the complete in-memory
 datasets, including unsaved edits, regardless of current table filters.
 
-.. figure:: _static/images/gui_screenshot_1.png
-   :alt: VS Code custom editor showing the paged msentity dataset table
-   :align: center
-
-   Browse, filter, page through, and select spectra from the dataset table.
-
-.. figure:: _static/images/gui_screenshot_2.png
-   :alt: VS Code mass-spectrum panel with peak table and metadata
-   :align: center
-
-   Inspect the selected spectrum, peak list, and spectrum metadata together.
-
-The two figures show the basic table and single-spectrum views. The current
-extension has additional controls that are not visible in those older images.
-To complete the visual tour, capture the following screenshots from a current
-release and save them at these exact paths; the names make replacing or adding
-the figures unambiguous:
-
-* ``docs/_static/images/viewer_dataset_toolbar.png`` — the complete dataset
-  toolbar with **Add dataset**, dataset selector, **Columns**, **Filter**,
-  **Assign SpecID**, **Metadata**, **Calculate similarity**, **Export**, and
-  **Reload** visible; use ``docs/examples/example.msp`` as the active file.
-* ``docs/_static/images/viewer_comparison.png`` — Compound_A pinned above and
-  Compound_C below, including both pin controls, tolerance, similarity method,
-  score, mirrored plot, aligned peak table, and both metadata panels.
-* ``docs/_static/images/viewer_similarity.png`` — a ``.mssim`` result with the
-  histogram, summary statistics, filter controls, calculation metadata, and
-  at least one **Open spectra** button visible.
-* ``docs/_static/images/viewer_export_preview.png`` — the image-export preview
-  with dimensions and all visibility toggles visible next to the preview.
-
-Use a VS Code dark theme, capture the whole relevant editor (not the desktop),
-and avoid personal paths or unrelated tabs. PNG at native resolution is
-preferred; do not resize before committing.
-
 The plot begins at m/z 0. Drag horizontally to zoom only the m/z axis, drag
 vertically to zoom only the intensity axis, or drag diagonally to zoom both.
 A movement component below the drag threshold leaves that axis unchanged, so
@@ -197,6 +174,14 @@ within the current tolerance occupy the same row. For every unmatched peak,
 the opposite side remains empty. The shared m/z sort control reverses the
 whole alignment so that both Upper and Lower values always retain their own
 ascending or descending order.
+
+.. figure:: _static/images/viewer_comparison.png
+   :alt: Mirrored comparison of two Purine spectra with similarity score, aligned peaks, and metadata
+   :align: center
+
+   Compare pinned upper and lower spectra on a shared m/z axis. The selected
+   method, tolerance, score, matched-peak count, aligned peak annotations, and
+   metadata for both spectra remain visible together.
 
 When both slots are populated, the viewer reports a score from 0 to 1 and the
 number of one-to-one matched peaks. The tolerance is editable in Da and
@@ -237,6 +222,14 @@ formats use a transparent background and the requested dimensions. **Copy
 PNG** writes a raster preview to the clipboard. **Copy SVG** writes an SVG
 clipboard item when supported, otherwise it copies the SVG source text. Export
 uses the currently visible m/z range, including any active zoom.
+
+.. figure:: _static/images/viewer_export_preview.png
+   :alt: Spectrum image export preview with display options, dimensions, and copy and save actions
+   :align: center
+
+   Preview the transparent image while choosing tick grids, axis numbers,
+   peak labels, and exact pixel dimensions, then copy or save it as PNG or
+   SVG.
 
 Settings
 --------

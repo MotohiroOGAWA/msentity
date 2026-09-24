@@ -59,6 +59,11 @@ version in the documentation manually. npm synchronizes the lock file,
 below reuse `RELEASE_VERSION` for filenames, the Git tag, and the release
 title.
 
+Sphinx reads the displayed Viewer/GitHub release version directly from
+`vscode-extension/package.json`. It reads the Python package/API version
+separately from `pyproject.toml`. Rebuilding the documentation after this
+command therefore updates the release version without editing an RST file.
+
 Confirm that both files contain the requested version:
 
 ```bash

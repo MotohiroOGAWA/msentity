@@ -19,17 +19,18 @@ Installation and verification
 Install the current release from GitHub, then print the installed version and
 the command-line help:
 
-.. code-block:: console
+.. parsed-literal::
 
    $ python -m pip install "msentity @ git+https://github.com/MotohiroOGAWA/msentity.git"
    $ python -c "import importlib.metadata; print(importlib.metadata.version('msentity'))"
-   0.1.0
+   |python_package_version|
    $ msentity --help
    usage: msentity [-h]
                    {convert,head,info,library-search,merge-dir,meta,similarity-by-key,shell}
                    ...
 
-The version is an example; a newer release may print a larger number. For a
+The displayed version is generated from ``pyproject.toml`` and tracks the
+Python package in the checkout used to build this documentation. For a
 development checkout:
 
 .. code-block:: console

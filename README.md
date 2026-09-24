@@ -148,12 +148,12 @@ The export dialog can independently include tick grid lines, tick numbers, and
 m/z labels above peaks; grid lines, tick numbers, and peak labels are off by
 default. Without tick numbers, exported axis titles and margins are compacted.
 
-![VS Code custom editor showing the paged msentity dataset table](docs/_static/images/gui_screenshot_1.png)
+![VS Code Spectrum Viewer comparing two spectra with an aligned peak table and metadata](docs/_static/images/viewer_comparison.png)
 
-The dataset editor provides paging, filtering, column selection, and a spectrum
-button for each row. Selecting a spectrum updates one reusable plot panel:
-
-![VS Code mass-spectrum panel with peak table and metadata](docs/_static/images/gui_screenshot_2.png)
+The comparison view keeps the mirrored plot, similarity method and score,
+matched peaks, peak annotations, and metadata for both spectra visible in one
+place. The complete dataset-table and image-export workflows are shown in the
+[viewer documentation](https://msentity.readthedocs.io/en/latest/vscode_viewer.html).
 
 To build the VSIX yourself:
 
