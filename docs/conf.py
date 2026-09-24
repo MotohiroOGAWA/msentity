@@ -4,8 +4,8 @@ import sys
 import importlib
 import inspect
 import json
+from importlib.metadata import version as distribution_version
 from pathlib import Path
-import tomllib
 
 sys.path.insert(0, os.path.abspath(".."))
 
@@ -51,12 +51,12 @@ project = 'msentity'
 copyright = '2026, MotohiroOGAWA'
 author = 'MotohiroOGAWA'
 
-# Read versions from the manifests used to build the release artifacts. This
-# avoids reporting a stale globally installed package during a documentation
-# build from a tagged checkout.
+# Read versions from the artifacts installed or packaged by the release build.
+# Read the Python package installed by ``pip install .[docs]``. Unlike
+# ``tomllib``, importlib.metadata is available on every supported Python
+# version (3.10+).
 repository_root = Path(__file__).resolve().parent.parent
-with (repository_root / "pyproject.toml").open("rb") as file:
-    python_package_version = tomllib.load(file)["project"]["version"]
+python_package_version = distribution_version("msentity")
 with (repository_root / "vscode-extension" / "package.json").open(
     encoding="utf-8"
 ) as file:
