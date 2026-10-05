@@ -62,7 +62,11 @@ button:disabled { cursor: default; opacity: .5; }
 .dataset-table tbody tr:hover td { background: var(--row-hover); }
 .row-column { width: 66px; text-align: right !important; color: var(--muted); font-variant-numeric: tabular-nums; }
 .spectrum-column { width: 82px; text-align: center !important; }
+.structure-column { width: 86px; text-align: center !important; }
 .spectrum-button { display: inline-grid; place-items: center; width: 36px; height: 29px; padding: 3px; border: 1px solid var(--accent); color: var(--accent); background: transparent; border-radius: 4px; }
+.structure-button { display: inline-grid; place-items: center; width: 36px; height: 29px; padding: 3px; border: 1px solid var(--accent); color: var(--accent); background: transparent; border-radius: 4px; }
+.structure-button:hover:not(:disabled) { background: var(--row-hover); }
+.structure-button svg { width: 25px; height: 21px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
 .spectrum-button:hover { background: var(--row-hover); }
 .spectrum-button svg { width: 25px; height: 19px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; }
 .empty { text-align: center; color: var(--muted); padding: 38px !important; }
@@ -78,6 +82,13 @@ button:disabled { cursor: default; opacity: .5; }
 .loading-details { margin-top: 9px; font-variant-numeric: tabular-nums; font-size: 12px; }
 .error-card { max-width: 760px; border: 1px solid var(--danger); padding: 18px; border-radius: 6px; text-align: left; }
 .error-card h2 { margin-top: 0; color: var(--danger); }
+.structure-backdrop { position: fixed; inset: 0; z-index: 50; display: grid; place-items: center; padding: 24px; background: #0008; }
+.structure-preview { width: min(640px, 92vw); max-height: 90vh; overflow: auto; padding: 14px; border: 1px solid var(--border); border-radius: 6px; background: var(--panel); color: var(--text); box-shadow: 0 12px 40px #0008; }
+.structure-preview header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
+.structure-preview .modal-close { padding: 2px 9px; font-size: 20px; }
+.structure-canvas { display: grid; min-height: 300px; place-items: center; overflow: auto; background: white; color: #333; }
+.structure-canvas img { display: block; max-width: 100%; height: auto; }
+.structure-preview code { display: block; margin-top: 10px; overflow-wrap: anywhere; white-space: normal; }
 
 .dataset-table tbody tr.selected-record td { background: var(--selection); color: var(--selection-fg); }
 

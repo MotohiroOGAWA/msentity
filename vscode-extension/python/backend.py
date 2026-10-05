@@ -13,6 +13,8 @@ from datetime import date, datetime
 from pathlib import Path
 from typing import Any
 
+from chemistry import ChemistryBackend, ChemistryError, detect_smiles_column
+
 PREFIX = "MSENTITY_JSON:"
 
 
@@ -44,7 +46,13 @@ def json_value(value: Any) -> Any:
     return str(value)
 
 
-def apply_view(dataset: Any, filters: Any = None, sort: Any = None, columns: Any = None) -> Any:
+def apply_view(
+    dataset: Any,
+    filters: Any = None,
+    sort: Any = None,
+    columns: Any = None,
+    chemistry: ChemistryBackend | None = None,
+) -> Any:
     """Return a dataset view with UI filtering, row sorting, and column order applied."""
     import pandas as pd
 
@@ -58,7 +66,14 @@ def apply_view(dataset: Any, filters: Any = None, sort: Any = None, columns: Any
             continue
 
         series = view[column]
-        if operator in {">", ">=", "<", "<="}:
+        if operator == "smarts":
+            if chemistry is None:
+                raise ChemistryError("SMARTS filtering requires optional RDKit support")
+            mask = pd.Series(
+                chemistry.smarts_matches(series.tolist(), str(raw_value)),
+                index=series.index,
+            )
+        elif operator in {">", ">=", "<", "<="}:
             left = pd.to_numeric(series, errors="coerce")
             try:
                 right = float(raw_value)
@@ -164,6 +179,7 @@ def serialize_page(dataset: Any, page: int, page_size: int, dataset_id: str, inp
         "total_rows": total_rows,
         "total_pages": total_pages,
         "row_offset": start,
+        "structure_smiles_column": detect_smiles_column(dataset.columns),
         "description": str(getattr(dataset, "description", "") or ""),
         "attributes": json_value(getattr(dataset, "attributes", {})),
         "tags": json_value(getattr(dataset, "tags", [])),
@@ -300,6 +316,7 @@ def main() -> int:
     parser.add_argument("--file-type", choices=("msds", "msp", "mgf", "tsv", "csv"))
     args = parser.parse_args()
 
+    chemistry = ChemistryBackend()
     input_file = args.input_file.expanduser().resolve()
     if not input_file.is_file():
         emit({"type": "error", "title": "File not found", "message": str(input_file)})
@@ -329,6 +346,7 @@ def main() -> int:
         "page_size": page_size,
         "dataset": {"id": initial_id, "name": input_file.name, "path": str(input_file), "total_rows": len(dataset)},
     })
+    emit({"type": "capabilities", "chemistry": chemistry.capabilities})
 
     for line in sys.stdin:
         line = line.strip()
@@ -343,7 +361,14 @@ def main() -> int:
                 if entry is None:
                     raise ValueError(f"Unknown dataset: {dataset_id}")
                 page = int(request.get("page", 0))
-                view = apply_view(entry["dataset"], request.get("filters"), request.get("sort"))
+                try:
+                    view = apply_view(
+                        entry["dataset"], request.get("filters"), request.get("sort"),
+                        chemistry=chemistry,
+                    )
+                except ChemistryError as exc:
+                    emit({"type": "filter-error", "operator": "smarts", "message": str(exc)})
+                    continue
                 payload = serialize_page(view, page, page_size, dataset_id, entry["path"])
                 payload["dataset_name"] = entry["name"]
                 payload["all_columns"] = entry["dataset"].columns
@@ -487,7 +512,14 @@ def main() -> int:
                     raise ValueError(f"Unknown dataset: {dataset_id}")
                 entry["dataset"] = load_dataset(entry["path"], entry["file_type"])
                 emit({"type": "dataset-reloaded", "dataset_id": dataset_id})
-                view = apply_view(entry["dataset"], request.get("filters"), request.get("sort"))
+                try:
+                    view = apply_view(
+                        entry["dataset"], request.get("filters"), request.get("sort"),
+                        chemistry=chemistry,
+                    )
+                except ChemistryError as exc:
+                    emit({"type": "filter-error", "operator": "smarts", "message": str(exc)})
+                    continue
                 payload = serialize_page(view, 0, page_size, dataset_id, entry["path"])
                 payload["dataset_name"] = entry["name"]
                 payload["all_columns"] = entry["dataset"].columns
@@ -582,13 +614,26 @@ def main() -> int:
                 except Exception as exc:  # noqa: BLE001
                     traceback.print_exc(file=sys.stderr)
                     emit({"type": "spec-id-error", "dataset_id": dataset_id, "message": str(exc)})
+            elif request_type == "render-structure":
+                try:
+                    smiles, svg = chemistry.render_svg(request.get("smiles"))
+                    emit({"type": "structure-rendered", "smiles": smiles, "svg": svg})
+                except ChemistryError as exc:
+                    emit({
+                        "type": "chemistry-error",
+                        "operation": "render-structure",
+                        "message": str(exc),
+                    })
             elif request_type == "export":
                 if entry is None:
                     raise ValueError(f"Unknown dataset: {dataset_id}")
                 output_file = Path(str(request.get("path", ""))).expanduser().resolve()
                 emit({"type": "export-start", "path": str(output_file)})
                 try:
-                    view = apply_view(entry["dataset"], request.get("filters"), request.get("sort"), request.get("columns"))
+                    view = apply_view(
+                        entry["dataset"], request.get("filters"), request.get("sort"),
+                        request.get("columns"), chemistry=chemistry,
+                    )
                     export_dataset(view, output_file, request.get("file_type"))
                     emit({"type": "export-complete", "path": str(output_file), "total_rows": len(view)})
                 except Exception as exc:  # noqa: BLE001

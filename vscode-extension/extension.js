@@ -19,6 +19,9 @@ let outputChannel;
 // explicit msentitySpectrumViewer.pythonPath always wins, so Dev Containers
 // and other advanced setups keep pointing at their own interpreter.
 function resolvePythonExecutable(context) {
+  const developmentPath = String(process.env.MSENTITY_SPECTRUM_VIEWER_PYTHON_PATH || "").trim();
+  if (developmentPath) return { pythonPath: developmentPath, bundled: false };
+
   const config = vscode.workspace.getConfiguration("msentitySpectrumViewer");
   const configuredPath = String(config.get("pythonPath", "") || "").trim();
   if (configuredPath) return { pythonPath: configuredPath, bundled: false };
@@ -178,6 +181,9 @@ class MSEntityViewerProvider {
             filters: message.filters, sort: message.sort, columns: message.columns, bins: message.bins
           });
           break;
+        case "render-structure":
+          writeRequest({ type: "render-structure", smiles: message.smiles });
+          break;
         case "add-column":
           await requestColumn(message, writeRequest);
           break;
@@ -210,6 +216,10 @@ class MSEntityViewerProvider {
           break;
         }
         case "edit-error-notification":
+          vscode.window.showErrorMessage(String(message.message));
+          break;
+        case "chemistry-error-notification":
+        case "filter-error-notification":
           vscode.window.showErrorMessage(String(message.message));
           break;
         case "assign-spec-id": {

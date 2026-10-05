@@ -35,6 +35,22 @@ python -m pip install "msentity @ git+https://github.com/MotohiroOGAWA/msentity.
 This installs the Python API, command-line tools, and interactive shell. The
 VS Code extension is distributed as a separate VSIX from this same repository.
 
+RDKit is not required for the core package. Install the optional chemistry
+extra when using an external Python environment with the Viewer’s SMARTS
+filtering and structure rendering features:
+
+```console
+python -m pip install "msentity[chem]"
+```
+
+The Viewer checks the Python backend it actually starts and enables each
+chemistry feature only when its RDKit smoke test succeeds. Release VSIX files
+keep their bundled Python runtime RDKit-free; point
+`msentitySpectrumViewer.pythonPath` at the chemistry-enabled environment to
+enable these features automatically. RDKit is an optional third-party package
+distributed under the BSD-3-Clause license; no RDKit binary, logo, or icon is
+copied into the `msentity` wheel or VSIX.
+
 ## Python API
 
 `load_ms_dataset` detects MSP, MGF, MSDS, TSV, and CSV from the filename. TSV

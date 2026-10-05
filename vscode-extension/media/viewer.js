@@ -64,6 +64,8 @@
   let calculatingSimilarity = false;
   let similarityProgress = null;
   let assigningSpecId = false;
+  let chemistryCapabilities = { backend: null, smarts_filter: false, structure_render: false };
+  let structurePreview = null;
   let datasetOptions = [];
   let activeDatasetId = "";
   const datasetPages = new Map();
@@ -159,6 +161,8 @@
     const allSelected = cols.length > 0 && selectedColumns.length === cols.length;
     const start = rows().length ? rowOffset() + 1 : 0;
     const end = rowOffset() + rows().length;
+    const smilesColumn = value?.structure_smiles_column || null;
+    const showStructureColumn = chemistryCapabilities.structure_render && Boolean(smilesColumn);
     const sortFor = (column) => {
       const index = rowSort.findIndex((item) => item.column === column);
       return index < 0 ? null : { ...rowSort[index], priority: index + 1 };
@@ -185,7 +189,8 @@
           <select data-filter-field="column" aria-label="Column">${cols.map((c) => `<option value="${esc(c)}" ${c === filter.column ? "selected" : ""}>${esc(c)}</option>`).join("")}</select>
           <select data-filter-field="operator" aria-label="Operator">${[
             ["text_eq", "= (text)"], ["numeric_eq", "= (number)"], ["!=", "!= (text)"], ["contains", "contains"],
-            [">", "> (number)"], [">=", ">= (number)"], ["<", "< (number)"], ["<=", "<= (number)"]
+            [">", "> (number)"], [">=", ">= (number)"], ["<", "< (number)"], ["<=", "<= (number)"],
+            ...(chemistryCapabilities.smarts_filter ? [["smarts", "SMARTS substructure"]] : [])
           ].map(([op, label]) => `<option value="${esc(op)}" ${op === filter.operator ? "selected" : ""}>${esc(label)}</option>`).join("")}</select>
           <input data-filter-field="value" value="${esc(filter.value)}" placeholder="Value" />
           <button class="remove-filter" title="Remove filter">×</button>
@@ -227,10 +232,11 @@
           </div>
         </div>
         ${metadataForm()}
-        <div class="table-wrap"><table class="dataset-table"><thead><tr><th class="row-column">Row</th><th class="spectrum-column">Spectrum</th>${selectedColumns.map((c) => { const item = sortFor(c); return `<th><button class="table-sort" data-sort-column="${esc(c)}" title="Click: ascending → descending → remove sort">${esc(c)}<span>${item ? `${item.priority}${item.direction === "asc" ? "▲" : "▼"}` : ""}</span></button></th>`; }).join("")}</tr></thead><tbody>
-          ${pageRows.length ? pageRows.map(({ row, index }) => `<tr class="${selectedSpectrumIndex === index ? "selected-record" : ""}"><td class="row-column">${rowOffset() + index + 1}</td><td class="spectrum-column"><button class="spectrum-button" data-spectrum-index="${index}" title="Show spectrum ${rowOffset() + index + 1}"><svg viewBox="0 0 28 22"><path d="M2 19h24M4 18V13m4 5V7m4 11v-4m4 4V3m4 15V9m4 9v-7"/></svg></button></td>${selectedColumns.map((c) => `<td tabindex="0" data-edit-row="${index}" data-edit-column="${esc(c)}" title="Double-click or press Enter to edit: ${esc(display(row?.[c]))}">${esc(display(row?.[c]))}</td>`).join("")}</tr>`).join("") : `<tr><td colspan="${selectedColumns.length + 2}" class="empty">No spectra match the filters.</td></tr>`}
+        <div class="table-wrap"><table class="dataset-table"><thead><tr><th class="row-column">Row</th><th class="spectrum-column">Spectrum</th>${showStructureColumn ? `<th class="structure-column">Structure</th>` : ""}${selectedColumns.map((c) => { const item = sortFor(c); return `<th><button class="table-sort" data-sort-column="${esc(c)}" title="Click: ascending → descending → remove sort">${esc(c)}<span>${item ? `${item.priority}${item.direction === "asc" ? "▲" : "▼"}` : ""}</span></button></th>`; }).join("")}</tr></thead><tbody>
+          ${pageRows.length ? pageRows.map(({ row, index }) => { const smiles = smilesColumn ? String(row?.[smilesColumn] ?? "").trim() : ""; return `<tr class="${selectedSpectrumIndex === index ? "selected-record" : ""}"><td class="row-column">${rowOffset() + index + 1}</td><td class="spectrum-column"><button class="spectrum-button" data-spectrum-index="${index}" title="Show spectrum ${rowOffset() + index + 1}"><svg viewBox="0 0 28 22"><path d="M2 19h24M4 18V13m4 5V7m4 11v-4m4 4V3m4 15V9m4 9v-7"/></svg></button></td>${showStructureColumn ? `<td class="structure-column">${smiles ? `<button class="structure-button" data-structure-index="${index}" aria-label="View structure" title="View structure"><svg viewBox="0 0 28 24" aria-hidden="true" focusable="false"><path d="M7 3h14l5 9-5 9H7l-5-9Z"/></svg></button>` : ""}</td>` : ""}${selectedColumns.map((c) => `<td tabindex="0" data-edit-row="${index}" data-edit-column="${esc(c)}" title="Double-click or press Enter to edit: ${esc(display(row?.[c]))}">${esc(display(row?.[c]))}</td>`).join("")}</tr>`; }).join("") : `<tr><td colspan="${selectedColumns.length + 2 + (showStructureColumn ? 1 : 0)}" class="empty">No spectra match the filters.</td></tr>`}
         </tbody></table></div>
         <div class="pagination"><span>${start}–${end} of ${totalRows()}</span><div class="page-controls"><button id="prev-page" ${page() === 0 || loadingPage ? "disabled" : ""}>‹</button><span><input id="page-input" type="number" min="1" max="${pageCount()}" value="${page() + 1}" ${loadingPage ? "disabled" : ""}/> / ${pageCount()}</span><button id="next-page" ${page() >= pageCount() - 1 || loadingPage ? "disabled" : ""}>›</button></div><span>${loadingPage ? "Loading…" : `${pageSize()} rows/page`}</span></div>
+        ${structurePreview ? `<div class="structure-backdrop" id="structure-backdrop"><section class="structure-preview" role="dialog" aria-modal="true" aria-labelledby="structure-title"><header><strong id="structure-title">Structure</strong><button id="close-structure" class="modal-close" aria-label="Close structure preview">×</button></header><div class="structure-canvas">${structurePreview.url ? `<img src="${esc(structurePreview.url)}" alt="Chemical structure for ${esc(structurePreview.smiles)}">` : `<span>Rendering structure…</span>`}</div><code>${esc(structurePreview.smiles)}</code></section></div>` : ""}
       </div>`;
 
     const moreButton = document.getElementById("more-actions-button");
@@ -378,6 +384,22 @@
     pageInput?.addEventListener("change", go);
     pageInput?.addEventListener("keydown", (e) => { if (e.key === "Enter") go(); });
     document.querySelectorAll("[data-spectrum-index]").forEach((el) => el.addEventListener("click", () => openSpectrum(Number(el.dataset.spectrumIndex))));
+    document.querySelectorAll("[data-structure-index]").forEach((el) => el.addEventListener("click", () => {
+      const row = rows()[Number(el.dataset.structureIndex)] || {};
+      const smiles = smilesColumn ? String(row[smilesColumn] ?? "").trim() : "";
+      if (!chemistryCapabilities.structure_render || !smiles) return;
+      closeStructurePreview();
+      structurePreview = { smiles, url: null };
+      render();
+      vscode.postMessage({ type: "render-structure", smiles });
+    }));
+    document.getElementById("close-structure")?.addEventListener("click", () => { closeStructurePreview(); render(); });
+    document.getElementById("structure-backdrop")?.addEventListener("click", event => { if (event.target.id === "structure-backdrop") { closeStructurePreview(); render(); } });
+  }
+
+  function closeStructurePreview() {
+    if (structurePreview?.url) URL.revokeObjectURL(structurePreview.url);
+    structurePreview = null;
   }
 
   function openSpectrum(index) {
@@ -412,6 +434,9 @@
         datasetPages.set(activeDatasetId, 0);
       }
       vscode.postMessage({ type: "ready", datasetId: activeDatasetId });
+    } else if (message?.type === "capabilities") {
+      chemistryCapabilities = { ...chemistryCapabilities, ...(message.chemistry || {}) };
+      render();
     } else if (message?.type === "dataset-added") {
       metadataDraft = null; metadataOpen = false;
       const dataset = message.dataset;
@@ -494,6 +519,20 @@
       filterMenuOpen = false;
       selectedSpectrumIndex = null;
       render();
+    } else if (message?.type === "structure-rendered") {
+      closeStructurePreview();
+      const blob = new Blob([String(message.svg || "")], { type: "image/svg+xml" });
+      structurePreview = { smiles: String(message.smiles || ""), url: URL.createObjectURL(blob) };
+      render();
+      document.getElementById("close-structure")?.focus();
+    } else if (message?.type === "chemistry-error") {
+      closeStructurePreview();
+      render();
+      vscode.postMessage({ type: "chemistry-error-notification", message: message.message || "Chemistry operation failed." });
+    } else if (message?.type === "filter-error") {
+      loadingPage = false;
+      render();
+      vscode.postMessage({ type: "filter-error-notification", message: message.message || "Invalid filter." });
     } else if (message?.type === "spec-id-complete") {
       assigningSpecId = false;
       changedDatasets.add(message.dataset_id);
@@ -553,7 +592,9 @@
       if (!e.repeat) requestExport();
       return;
     }
-    if (e.key === "Escape" && (datasetMenuOpen || moreActionsOpen || columnMenuOpen || filterMenuOpen)) {
+    if (e.key === "Escape" && structurePreview) {
+      e.preventDefault(); closeStructurePreview(); render();
+    } else if (e.key === "Escape" && (datasetMenuOpen || moreActionsOpen || columnMenuOpen || filterMenuOpen)) {
       const focusTarget = datasetMenuOpen ? "dataset-select" : columnMenuOpen ? "columns-button" : filterMenuOpen ? "filter-button" : "more-actions-button";
       e.preventDefault(); datasetMenuOpen = false; moreActionsOpen = false; columnMenuOpen = false; filterMenuOpen = false;
       render(); document.getElementById(focusTarget)?.focus();

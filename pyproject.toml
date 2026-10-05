@@ -21,6 +21,9 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
+chem = [
+    "rdkit"
+]
 docs = [
     "sphinx>=8",
     "furo",
