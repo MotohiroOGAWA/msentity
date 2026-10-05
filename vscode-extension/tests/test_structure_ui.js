@@ -61,4 +61,6 @@ test("chemistry capabilities control Structure and SMARTS UI", () => {
   element("export-button").handlers.click();
   assert.deepEqual(Array.from(posted.at(-1).columns), ["Name", "SMILES"]);
   assert.equal(posted.at(-1).columns.includes("Structure"), false);
+  element("settings-button").handlers.click();
+  assert.equal(posted.at(-1).type, "open-settings");
 });

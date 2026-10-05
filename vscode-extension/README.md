@@ -46,6 +46,13 @@ enable setting is needed. RDKit is an optional third-party dependency provided
 under the BSD-3-Clause license. RDKit binaries and branding are not included in
 the extension.
 
+Structure previews use the metadata column configured by
+`msentitySpectrumViewer.structureSmilesColumn`, which defaults to `SMILES` and
+matches column names case-insensitively. Known canonical and isomeric SMILES
+column names are used as fallbacks. After changing it, use **Reload** in the
+Viewer. The extension settings can be opened from **More ... → msentity
+settings**.
+
 ## Calculate similarity and run a library search
 
 Click **Calculate similarity…** next to **Reload**, then choose **Library

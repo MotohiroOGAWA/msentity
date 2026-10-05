@@ -164,9 +164,17 @@ class ChemistryCapabilityTest(unittest.TestCase):
         self.assertEqual(len(page["rows"]), 20)
         self.assertEqual(page["rows"][0]["order"], 98)
 
+    def test_configured_structure_column_is_serialized_for_the_viewer(self) -> None:
+        dataset = dataset_with_structures(["CCO"], "My_Structure")
+        page = backend.serialize_page(
+            dataset, 0, 20, "dataset", Path("sample.msds"), "my_structure",
+        )
+        self.assertEqual(page["structure_smiles_column"], "My_Structure")
+
     def test_smiles_column_detection_priority_is_case_insensitive(self) -> None:
         detect = chemistry_module.detect_smiles_column
         self.assertEqual(detect(["ISOMERIC_SMILES", "Canonical_SMILES", "SMILES"]), "SMILES")
+        self.assertEqual(detect(["SMILES", "My_Structure"], "my_structure"), "My_Structure")
         self.assertEqual(detect(["Name", "Canonical_SMILES"]), "Canonical_SMILES")
         self.assertIsNone(detect(["Name", "Formula"]))
 

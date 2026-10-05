@@ -144,7 +144,10 @@ class ChemistryBackend:
 SMILES_COLUMN_PRIORITY = ("smiles", "canonical_smiles", "isomeric_smiles")
 
 
-def detect_smiles_column(columns: Iterable[Any]) -> str | None:
-    """Return the first case-insensitive SMILES column in explicit priority order."""
+def detect_smiles_column(columns: Iterable[Any], preferred: str = "SMILES") -> str | None:
+    """Return the preferred column, then a known SMILES column, case-insensitively."""
     by_casefold = {str(column).casefold(): str(column) for column in columns}
+    preferred_name = str(preferred).strip().casefold()
+    if preferred_name and preferred_name in by_casefold:
+        return by_casefold[preferred_name]
     return next((by_casefold[name] for name in SMILES_COLUMN_PRIORITY if name in by_casefold), None)

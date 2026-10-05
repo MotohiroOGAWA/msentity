@@ -13,6 +13,12 @@ const VIEW_TYPE = "msentity.spectrumViewer";
 const SIMILARITY_VIEW_TYPE = "msentity.similarityViewer";
 let outputChannel;
 
+function configuredStructureSmilesColumn() {
+  return String(
+    vscode.workspace.getConfiguration("msentitySpectrumViewer").get("structureSmilesColumn", "SMILES") || "SMILES"
+  ).trim() || "SMILES";
+}
+
 // Platform-specific release packages embed a private Python runtime under
 // runtime/python (see scripts/build-runtime.js and scripts/package-vsix.js);
 // a given package only ever contains its own platform's runtime. An
@@ -173,12 +179,14 @@ class MSEntityViewerProvider {
     const messageDisposable = webview.onDidReceiveMessage(async (message) => {
       switch (message?.type) {
         case "ready":
-          writeRequest({ type: "page", page: 0, dataset_id: message.datasetId });
+          writeRequest({ type: "page", page: 0, dataset_id: message.datasetId,
+            structure_smiles_column: configuredStructureSmilesColumn() });
           break;
         case "page-request":
           writeRequest({
             type: "page", page: Number(message.page) || 0, dataset_id: message.datasetId,
-            filters: message.filters, sort: message.sort, columns: message.columns, bins: message.bins
+            filters: message.filters, sort: message.sort, columns: message.columns, bins: message.bins,
+            structure_smiles_column: configuredStructureSmilesColumn()
           });
           break;
         case "render-structure":
@@ -217,6 +225,12 @@ class MSEntityViewerProvider {
         }
         case "edit-error-notification":
           vscode.window.showErrorMessage(String(message.message));
+          break;
+        case "open-settings":
+          vscode.commands.executeCommand(
+            "workbench.action.openSettings",
+            `@ext:${this.context.extension.packageJSON.publisher}.${this.context.extension.packageJSON.name}`
+          );
           break;
         case "chemistry-error-notification":
         case "filter-error-notification":
@@ -263,7 +277,9 @@ class MSEntityViewerProvider {
           vscode.window.showErrorMessage(String(message.message || "Could not assign SpecID."));
           break;
         case "reload":
-          writeRequest({ type: "reload", dataset_id: message.datasetId, filters: message.filters, sort: message.sort, bins: message.bins });
+          writeRequest({ type: "reload", dataset_id: message.datasetId, filters: message.filters,
+            sort: message.sort, bins: message.bins,
+            structure_smiles_column: configuredStructureSmilesColumn() });
           break;
         case "calculate-similarity":
           writeRequest({ type: "similarity-options", dataset_id: message.datasetId });
