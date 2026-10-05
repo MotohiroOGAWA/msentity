@@ -8,8 +8,8 @@ from typing import Any, Callable, Dict, List, Optional
 
 import numpy as np
 import pandas as pd
-from tqdm import tqdm
 
+from .._internal.progress import SimpleProgress
 from .ItemParser import ItemParser
 from .constants import ErrorLogLevel
 from ..core.MSDataset import MSDataset
@@ -100,7 +100,12 @@ class ReaderContext:
     def progress_bar(self):
         name = os.path.basename(self.file_path)
         label = f"[Reading {self.file_type_name}]" if self.file_type_name else "[Reading]"
-        return tqdm(total=self.file_size, desc=f"{label}{name}", mininterval=0.5)
+        return SimpleProgress(
+            total=self.file_size,
+            description=f"{label}{name}",
+            unit="bytes",
+            min_interval=0.5,
+        )
 
     def update(self, line: str) -> None:
         """

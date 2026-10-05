@@ -4,8 +4,8 @@ from typing import Callable, Sequence
 
 import numpy as np
 import pandas as pd
-from tqdm import tqdm
 
+from .._internal.progress import SimpleProgress
 from ..core.MSDataset import MSDataset
 
 
@@ -97,7 +97,7 @@ def _binned_similarity_pair(
     scores = np.empty(k, dtype=np.float32)
 
     start = 0
-    pbar = tqdm(total=k, desc="Computing paired cosine similarity") if show_progress else None
+    pbar = SimpleProgress(total=k, description="Computing paired cosine similarity", unit="pairs") if show_progress else None
 
     while start < k:
         cumsum1 = np.cumsum(len1[start:])
@@ -512,7 +512,7 @@ def cosine_similarity_all_pairs_matrix(
     total_pairs = n1 * n2
 
     start = 0
-    pbar = tqdm(total=total_pairs, desc="Computing all-pairs cosine similarity") if show_progress else None
+    pbar = SimpleProgress(total=total_pairs, description="Computing all-pairs cosine similarity", unit="pairs") if show_progress else None
 
     while start < total_pairs:
         end = min(total_pairs, start + max_pairs_per_call)
@@ -582,7 +582,7 @@ def library_search(
     hit_query: list[np.ndarray] = []
     hit_reference: list[np.ndarray] = []
     hit_scores: list[np.ndarray] = []
-    progress = tqdm(total=total_pairs, desc="Searching spectrum library") if show_progress else None
+    progress = SimpleProgress(total=total_pairs, description="Searching spectrum library", unit="pairs") if show_progress else None
 
     if total_pairs == 0 and progress_callback is not None:
         progress_callback(0, 0)

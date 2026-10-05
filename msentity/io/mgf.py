@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Any, Callable, Dict, List, Mapping, Optional, Sequence
 
-from tqdm import tqdm
+from .._internal.progress import SimpleProgress
 
 from .IOContext import (
     ReaderContext,
@@ -414,7 +414,7 @@ def write_mgf(
             valid_peak_headers.append(col)
 
     pbar = (
-        tqdm(total=len(dataset), desc="[Writing MGF]", unit="record", mininterval=1.0)
+        SimpleProgress(total=len(dataset), description="[Writing MGF]", unit="records", min_interval=1.0)
         if show_progress
         else None
     )
