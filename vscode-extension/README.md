@@ -7,6 +7,8 @@ MSDS, MSP, MGF, TSV, and CSV datasets without Gradio.
 ## Features
 
 - Paged spectrum metadata table with reorderable columns and one reusable spectrum panel
+- Optional RDKit-backed SMARTS filtering and 2D structure previews when a
+  chemistry-enabled custom Python environment is selected
 - Full-dataset, multi-condition filtering (separate text/number `=`, text `!=`, `contains`, `>`, `>=`, `<`, `<=`) and prioritized multi-column row sorting
 - Assign sequential SpecID values from the toolbar with an optional prefix
 - MSP/MGF loading progress with bytes, percentage, and spectrum count
@@ -26,6 +28,31 @@ MSDS, MSP, MGF, TSV, and CSV datasets without Gradio.
   and peak m/z labels
 - Custom-sized transparent PNG/SVG export and clipboard copy
 - VS Code light, dark, and high-contrast theme support
+
+## Optional chemistry features
+
+The bundled Python runtime does not contain RDKit, and all existing Viewer
+features work without it. To enable SMARTS substructure filters and structure
+previews, install the optional extra into a separate Python environment:
+
+```console
+python -m pip install "msentity[chem]"
+```
+
+Set `msentitySpectrumViewer.pythonPath` to that environment's Python
+executable. Each Viewer backend performs SMILES parsing, SMARTS matching, and
+SVG drawing smoke tests and enables only the features that pass; no separate
+enable setting is needed. RDKit is an optional third-party dependency provided
+under the BSD-3-Clause license. RDKit binaries and branding are not included in
+the extension.
+
+Structure previews use the metadata column configured by
+`msentitySpectrumViewer.structureSmilesColumn`, which defaults to `SMILES` and
+matches column names case-insensitively. Known canonical and isomeric SMILES
+column names are used as fallbacks. After changing it, use **Reload** in the
+Viewer. The extension settings can be opened from **More ... → Settings**.
+The Structure column can be hidden, and the rendered SVG width and height can
+also be adjusted there.
 
 ## Calculate similarity and run a library search
 

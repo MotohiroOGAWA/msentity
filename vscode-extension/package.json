@@ -133,6 +133,30 @@
           "type": "boolean",
           "default": true,
           "description": "Open the reusable Mass Spectrum editor in a separate VS Code floating window. If disabled, it opens beside the dataset table."
+        },
+        "msentitySpectrumViewer.structureSmilesColumn": {
+          "type": "string",
+          "default": "SMILES",
+          "description": "Preferred metadata column containing SMILES for Structure previews. Matching is case-insensitive; known SMILES column names are used as fallbacks when this column is absent."
+        },
+        "msentitySpectrumViewer.showStructureColumn": {
+          "type": "boolean",
+          "default": true,
+          "description": "Show the Structure column when structure rendering is available and a SMILES column exists."
+        },
+        "msentitySpectrumViewer.structurePreviewWidth": {
+          "type": "number",
+          "default": 560,
+          "minimum": 200,
+          "maximum": 1200,
+          "description": "Width in pixels used to render Structure preview SVGs."
+        },
+        "msentitySpectrumViewer.structurePreviewHeight": {
+          "type": "number",
+          "default": 400,
+          "minimum": 200,
+          "maximum": 1200,
+          "description": "Height in pixels used to render Structure preview SVGs."
         }
       }
     }

@@ -27,7 +27,7 @@ const { chromium } = require('playwright');
     await page.locator('#dataset-select').click(); await page.locator('#remove-dataset').click(); assert.equal((await last()).type, 'remove-dataset');
     await send({type: 'dataset-removed', dataset_id: 'added'}); await datasetPage('original');
     await open(); assert.equal(await visible(), true);
-    assert.deepEqual(await page.locator('#more-actions-menu button').allTextContents(), ['Metadata', 'Columns', 'Assign SpecID', 'Calculate similarity']);
+    assert.deepEqual(await page.locator('#more-actions-menu button').allTextContents(), ['Metadata', 'Columns', 'Assign SpecID', 'Calculate similarity', 'Settings']);
     await page.locator('.summary').click(); assert.equal(await visible(), false);
     await open(); await page.keyboard.press('Escape'); assert.equal(await visible(), false);
     assert.equal(await page.locator('#more-actions-button').evaluate(e => e === document.activeElement), true);
