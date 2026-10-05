@@ -47,7 +47,10 @@ test("chemistry capabilities control Structure and SMARTS UI", () => {
   assert.ok(app.innerHTML.indexOf("Spectrum</th>") < app.innerHTML.indexOf("Structure</th>"));
   assert.ok(app.innerHTML.indexOf("Structure</th>") < app.innerHTML.indexOf(">Name<"));
   assert.match(app.innerHTML, /class="structure-button"[^>]*>[\s\S]*?<svg viewBox="0 0 28 24"/);
-  assert.match(app.innerHTML, /M7 3h14l5 9-5 9H7l-5-9Z/);
+  assert.match(app.innerHTML, /M14 3 21\.8 7\.5v9L14 21l-7\.8-4\.5v-9Z/);
+  const nodes = app.innerHTML.match(/class="structure-nodes">([\s\S]*?)<\/g>/)[1];
+  assert.equal((nodes.match(/<circle /g) || []).length, 6);
+  assert.ok(app.innerHTML.indexOf('class="structure-edges"') < app.innerHTML.indexOf('class="structure-nodes"'));
   structureButton.handlers.click();
   assert.equal(posted.at(-1).type, "render-structure");
   assert.equal(posted.at(-1).smiles, "CC(=O)Oc1ccccc1C(=O)O");

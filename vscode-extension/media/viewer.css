@@ -67,6 +67,9 @@ button:disabled { cursor: default; opacity: .5; }
 .structure-button { display: inline-grid; place-items: center; width: 36px; height: 29px; padding: 3px; border: 1px solid var(--accent); color: var(--accent); background: transparent; border-radius: 4px; }
 .structure-button:hover:not(:disabled) { background: var(--row-hover); }
 .structure-button svg { width: 25px; height: 21px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+.structure-button .structure-nodes circle { fill: var(--panel); stroke: currentColor; stroke-width: 1.6; }
+.dataset-table tbody tr:hover .structure-button .structure-nodes circle { fill: var(--row-hover); }
+.dataset-table tbody tr.selected-record .structure-button .structure-nodes circle { fill: var(--selection); }
 .spectrum-button:hover { background: var(--row-hover); }
 .spectrum-button svg { width: 25px; height: 19px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; }
 .empty { text-align: center; color: var(--muted); padding: 38px !important; }
