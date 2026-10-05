@@ -47,7 +47,6 @@ const RUNTIME_DEPENDENCIES = [
   "pandas==2.3.2",
   "h5py==3.14.0",
   "pyarrow==20.0.0",
-  "tqdm==4.70.0",
 ];
 
 const TARGETS = {

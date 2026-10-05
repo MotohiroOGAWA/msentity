@@ -10,7 +10,7 @@ Requirements
 ------------
 
 * Python 3.10 or later
-* NumPy, pandas, h5py, PyArrow, and tqdm (installed with ``msentity``)
+* NumPy, pandas, h5py, and PyArrow (installed with ``msentity``)
 * VS Code 1.90 or later only when using the Spectrum Viewer
 
 Installation and verification
