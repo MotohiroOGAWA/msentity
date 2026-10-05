@@ -167,9 +167,10 @@ class ChemistryCapabilityTest(unittest.TestCase):
     def test_configured_structure_column_is_serialized_for_the_viewer(self) -> None:
         dataset = dataset_with_structures(["CCO"], "My_Structure")
         page = backend.serialize_page(
-            dataset, 0, 20, "dataset", Path("sample.msds"), "my_structure",
+            dataset, 0, 20, "dataset", Path("sample.msds"), "my_structure", False,
         )
         self.assertEqual(page["structure_smiles_column"], "My_Structure")
+        self.assertFalse(page["show_structure_column"])
 
     def test_smiles_column_detection_priority_is_case_insensitive(self) -> None:
         detect = chemistry_module.detect_smiles_column

@@ -153,6 +153,7 @@ def serialize_page(
     dataset_id: str,
     input_file: Path,
     structure_smiles_column: str = "SMILES",
+    show_structure_column: bool = True,
 ) -> dict[str, Any]:
     total_rows = len(dataset)
     total_pages = max(1, math.ceil(total_rows / page_size))
@@ -187,6 +188,7 @@ def serialize_page(
         "total_pages": total_pages,
         "row_offset": start,
         "structure_smiles_column": detect_smiles_column(dataset.columns, structure_smiles_column),
+        "show_structure_column": show_structure_column,
         "description": str(getattr(dataset, "description", "") or ""),
         "attributes": json_value(getattr(dataset, "attributes", {})),
         "tags": json_value(getattr(dataset, "tags", [])),
@@ -347,6 +349,7 @@ def main() -> int:
     }
     used_dataset_ids = {initial_id}
     structure_smiles_column = "SMILES"
+    show_structure_column = True
     emit({
         "type": "backend-ready",
         "file": str(input_file),
@@ -366,6 +369,9 @@ def main() -> int:
             requested_structure_column = request.get("structure_smiles_column")
             if isinstance(requested_structure_column, str) and requested_structure_column.strip():
                 structure_smiles_column = requested_structure_column.strip()
+            requested_structure_visibility = request.get("show_structure_column")
+            if isinstance(requested_structure_visibility, bool):
+                show_structure_column = requested_structure_visibility
             dataset_id = str(request.get("dataset_id") or initial_id)
             entry = datasets.get(dataset_id)
             if request_type == "page":
@@ -381,7 +387,8 @@ def main() -> int:
                     emit({"type": "filter-error", "operator": "smarts", "message": str(exc)})
                     continue
                 payload = serialize_page(
-                    view, page, page_size, dataset_id, entry["path"], structure_smiles_column,
+                    view, page, page_size, dataset_id, entry["path"],
+                    structure_smiles_column, show_structure_column,
                 )
                 payload["dataset_name"] = entry["name"]
                 payload["all_columns"] = entry["dataset"].columns
@@ -518,7 +525,8 @@ def main() -> int:
                 datasets[added_id] = added_entry
                 emit({"type": "dataset-added", "dataset": {"id": added_id, "name": added_name, "path": str(added_path), "total_rows": len(added_dataset)}})
                 payload = serialize_page(
-                    added_dataset, 0, page_size, added_id, added_path, structure_smiles_column,
+                    added_dataset, 0, page_size, added_id, added_path,
+                    structure_smiles_column, show_structure_column,
                 )
                 payload["dataset_name"] = added_name
                 emit({"type": "dataset-page", "value": payload})
@@ -536,7 +544,8 @@ def main() -> int:
                     emit({"type": "filter-error", "operator": "smarts", "message": str(exc)})
                     continue
                 payload = serialize_page(
-                    view, 0, page_size, dataset_id, entry["path"], structure_smiles_column,
+                    view, 0, page_size, dataset_id, entry["path"],
+                    structure_smiles_column, show_structure_column,
                 )
                 payload["dataset_name"] = entry["name"]
                 payload["all_columns"] = entry["dataset"].columns
@@ -633,7 +642,9 @@ def main() -> int:
                     emit({"type": "spec-id-error", "dataset_id": dataset_id, "message": str(exc)})
             elif request_type == "render-structure":
                 try:
-                    smiles, svg = chemistry.render_svg(request.get("smiles"))
+                    width = min(1200, max(200, int(request.get("width", 560))))
+                    height = min(1200, max(200, int(request.get("height", 400))))
+                    smiles, svg = chemistry.render_svg(request.get("smiles"), width, height)
                     emit({"type": "structure-rendered", "smiles": smiles, "svg": svg})
                 except ChemistryError as exc:
                     emit({

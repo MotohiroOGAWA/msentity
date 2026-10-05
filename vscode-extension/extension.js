@@ -19,6 +19,23 @@ function configuredStructureSmilesColumn() {
   ).trim() || "SMILES";
 }
 
+function configuredStructureOptions() {
+  const config = vscode.workspace.getConfiguration("msentitySpectrumViewer");
+  return {
+    structure_smiles_column: configuredStructureSmilesColumn(),
+    show_structure_column: config.get("showStructureColumn", true) !== false,
+  };
+}
+
+function configuredStructurePreviewSize() {
+  const config = vscode.workspace.getConfiguration("msentitySpectrumViewer");
+  const bounded = (value, fallback) => Math.min(1200, Math.max(200, Number(value) || fallback));
+  return {
+    width: bounded(config.get("structurePreviewWidth", 560), 560),
+    height: bounded(config.get("structurePreviewHeight", 400), 400),
+  };
+}
+
 // Platform-specific release packages embed a private Python runtime under
 // runtime/python (see scripts/build-runtime.js and scripts/package-vsix.js);
 // a given package only ever contains its own platform's runtime. An
@@ -180,17 +197,18 @@ class MSEntityViewerProvider {
       switch (message?.type) {
         case "ready":
           writeRequest({ type: "page", page: 0, dataset_id: message.datasetId,
-            structure_smiles_column: configuredStructureSmilesColumn() });
+            ...configuredStructureOptions() });
           break;
         case "page-request":
           writeRequest({
             type: "page", page: Number(message.page) || 0, dataset_id: message.datasetId,
             filters: message.filters, sort: message.sort, columns: message.columns, bins: message.bins,
-            structure_smiles_column: configuredStructureSmilesColumn()
+            ...configuredStructureOptions()
           });
           break;
         case "render-structure":
-          writeRequest({ type: "render-structure", smiles: message.smiles });
+          writeRequest({ type: "render-structure", smiles: message.smiles,
+            ...configuredStructurePreviewSize() });
           break;
         case "add-column":
           await requestColumn(message, writeRequest);
@@ -279,7 +297,7 @@ class MSEntityViewerProvider {
         case "reload":
           writeRequest({ type: "reload", dataset_id: message.datasetId, filters: message.filters,
             sort: message.sort, bins: message.bins,
-            structure_smiles_column: configuredStructureSmilesColumn() });
+            ...configuredStructureOptions() });
           break;
         case "calculate-similarity":
           writeRequest({ type: "similarity-options", dataset_id: message.datasetId });

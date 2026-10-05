@@ -15,7 +15,7 @@
     specid: '<path d="M3 3h9l9 9-9 9-9-9V3Z"/><circle cx="7.5" cy="7.5" r="1"/>',
     export: '<path d="M12 16V3m-5 5 5-5 5 5M5 12H3v9h18v-9h-2"/>',
     similarity: '<path d="M5 20V13m7 7V4m7 16V9" stroke-width="3"/>',
-    settings: '<circle cx="12" cy="12" r="3"/><path d="M12 3v2m0 14v2M3 12h2m14 0h2M5.6 5.6 7 7m10 10 1.4 1.4M18.4 5.6 17 7M7 17l-1.4 1.4"/>',
+    settings: '<circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2.5"/><path d="M12 2v4m0 12v4M2 12h4m12 0h4M4.9 4.9l2.8 2.8m8.6 8.6 2.8 2.8M19.1 4.9l-2.8 2.8m-8.6 8.6-2.8 2.8"/>',
   })[name]}</svg>`;
 
   let value = null;
@@ -163,7 +163,7 @@
     const start = rows().length ? rowOffset() + 1 : 0;
     const end = rowOffset() + rows().length;
     const smilesColumn = value?.structure_smiles_column || null;
-    const showStructureColumn = chemistryCapabilities.structure_render && Boolean(smilesColumn);
+    const showStructureColumn = value?.show_structure_column !== false && chemistryCapabilities.structure_render && Boolean(smilesColumn);
     const sortFor = (column) => {
       const index = rowSort.findIndex((item) => item.column === column);
       return index < 0 ? null : { ...rowSort[index], priority: index + 1 };
@@ -229,7 +229,7 @@
               <div class="more-actions-divider" role="separator"></div>
               <button class="more-action" role="menuitem" id="similarity-button" ${calculatingSimilarity || datasetOptions.length < 1 ? "disabled" : ""} title="Run a library search or compare matching metadata keys">${toolbarIcon("similarity")}<span class="menu-action-label">${calculatingSimilarity ? `Calculating…${similarityProgress == null ? "" : ` ${similarityProgress.toFixed(1)}%`}` : "Calculate similarity"}</span></button>
               <div class="more-actions-divider" role="separator"></div>
-              <button class="more-action" role="menuitem" id="settings-button">${toolbarIcon("settings")}<span class="menu-action-label">msentity settings</span></button>
+              <button class="more-action" role="menuitem" id="settings-button">${toolbarIcon("settings")}<span class="menu-action-label">Settings</span></button>
             </div>
             ${columnMenu}
           </div>
