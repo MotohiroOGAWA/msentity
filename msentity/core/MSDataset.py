@@ -576,6 +576,85 @@ class MSDataset:
             tags=self.tags,
         )
 
+    def filter_by_peak(
+        self, mz_min: float, mz_max: float, intensity: float = 0.0
+    ) -> MSDataset:
+        """Return spectra containing a peak in an inclusive m/z range.
+
+        ``intensity`` is an inclusive minimum threshold and defaults to 0.0.
+        """
+        mz_min, mz_max, intensity = self._validate_peak_filter(
+            mz_min, mz_max, intensity, "m/z"
+        )
+        mask = self._peak_filter_mask(mz_min, mz_max, intensity)
+        return self[np.flatnonzero(mask)]
+
+    def filter_by_neutral_loss(
+        self,
+        neutral_loss_min: float,
+        neutral_loss_max: float,
+        intensity: float = 0.0,
+        *,
+        precursor_mz_column: str = "PrecursorMZ",
+    ) -> MSDataset:
+        """Return spectra containing a peak in an inclusive neutral-loss range.
+
+        Neutral loss is ``precursor m/z - peak m/z``. ``intensity`` is an
+        inclusive minimum threshold and defaults to 0.0.
+        """
+        lower, upper, intensity = self._validate_peak_filter(
+            neutral_loss_min, neutral_loss_max, intensity, "neutral loss"
+        )
+        if precursor_mz_column not in self._columns:
+            raise KeyError(f"column not available in current view: {precursor_mz_column}")
+        precursor_mz = pd.to_numeric(
+            self[precursor_mz_column], errors="coerce"
+        ).to_numpy(dtype=float)
+        if not np.all(np.isfinite(precursor_mz)):
+            raise ValueError(
+                f"column {precursor_mz_column!r} must contain finite numeric values"
+            )
+        mask = self._peak_filter_mask(
+            lower, upper, intensity, precursor_mz=precursor_mz
+        )
+        return self[np.flatnonzero(mask)]
+
+    @staticmethod
+    def _validate_peak_filter(
+        lower: float, upper: float, intensity: float, value_name: str
+    ) -> tuple[float, float, float]:
+        try:
+            values = float(lower), float(upper), float(intensity)
+        except (TypeError, ValueError) as exc:
+            raise TypeError("range bounds and intensity must be numeric") from exc
+        if not np.all(np.isfinite(values)):
+            raise ValueError("range bounds and intensity must be finite")
+        if values[0] > values[1]:
+            raise ValueError(
+                f"{value_name} lower bound must be less than or equal to upper bound"
+            )
+        return values
+
+    def _peak_filter_mask(
+        self,
+        lower: float,
+        upper: float,
+        intensity: float,
+        *,
+        precursor_mz: Optional[np.ndarray] = None,
+    ) -> np.ndarray:
+        mask = np.zeros(len(self), dtype=bool)
+        for position, spectrum in enumerate(self._peak_series):
+            values = spectrum.mz
+            if precursor_mz is not None:
+                values = precursor_mz[position] - values
+            mask[position] = bool(np.any(
+                (values >= lower)
+                & (values <= upper)
+                & (spectrum.intensity >= intensity)
+            ))
+        return mask
+
     @classmethod
     def concat(
         cls,

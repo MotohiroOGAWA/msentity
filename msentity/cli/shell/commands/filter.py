@@ -13,8 +13,10 @@ class FilterCommand(ShellCommand):
     def __init__(self) -> None:
         super().__init__(
             name="filter",
-            usage="filter <column> <op> <value>",
-            summary="Filter spectra by metadata.",
+            usage=("filter <column> <op> <value> | filter peak <min> <max> "
+                   "[intensity] | filter neutral-loss <min> <max> [intensity] "
+                   "[precursor_column]"),
+            summary="Filter spectra by metadata or spectral peaks.",
             description=(
                 "Filter spectra by a metadata column. "
                 "The filtered result becomes the current dataset view."
@@ -38,6 +40,8 @@ class FilterCommand(ShellCommand):
                 "filter Name contains glucose",
                 "filter IonMode == POSITIVE",
                 "filter AdductType == [M+H]+",
+                "filter peak 100.0 100.1 1000",
+                "filter neutral-loss 17.9 18.1 1000",
             ],
         )
 
@@ -46,6 +50,29 @@ class FilterCommand(ShellCommand):
         state: ShellState,
         args: list[str],
     ) -> bool:
+        if args and args[0] == "peak":
+            if len(args) not in {3, 4}:
+                raise ValueError("Usage: filter peak <min> <max> [intensity]")
+            state.dataset = state.dataset.filter_by_peak(
+                float(args[1]), float(args[2]), float(args[3]) if len(args) == 4 else 0.0
+            )
+            print(f"Filtered dataset: {len(state.dataset)} spectra")
+            return True
+
+        if args and args[0] in {"neutral-loss", "neutral_loss"}:
+            if len(args) not in {3, 4, 5}:
+                raise ValueError(
+                    "Usage: filter neutral-loss <min> <max> [intensity] [precursor_column]"
+                )
+            state.dataset = state.dataset.filter_by_neutral_loss(
+                float(args[1]),
+                float(args[2]),
+                float(args[3]) if len(args) >= 4 else 0.0,
+                precursor_mz_column=args[4] if len(args) == 5 else "PrecursorMZ",
+            )
+            print(f"Filtered dataset: {len(state.dataset)} spectra")
+            return True
+
         if len(args) < 3:
             raise ValueError("Usage: filter <column> <op> <value>")
 

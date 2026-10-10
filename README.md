@@ -111,6 +111,16 @@ Use `help <command>` inside the shell for command-specific options. Filtering
 and sorting operate on the current dataset view; `reset` restores the complete
 view.
 
+The filter menu in the Spectrum Viewer also supports inclusive **Peak m/z**
+and **Neutral loss** ranges with an optional minimum intensity (default
+`0.0`). The same filters are available in Python as `filter_by_peak()` and
+`filter_by_neutral_loss()`, and in the shell, for example:
+
+```text
+msentity> filter peak 100.0 100.1 1000
+msentity> filter neutral-loss 17.9 18.1 1000
+```
+
 ## VS Code spectrum viewer
 
 No separate Python installation is required — the Windows and Linux (x64)

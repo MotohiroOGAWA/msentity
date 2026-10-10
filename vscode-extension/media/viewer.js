@@ -186,16 +186,16 @@
     const filterMenu = filterMenuOpen ? `
       <div class="filter-menu" id="filter-menu">
         <div class="filter-title"><strong>Filters</strong><button id="add-filter" title="Add filter">+</button></div>
-        ${filters.length ? filters.map((filter) => `<div class="filter-row" data-filter-id="${filter.id}">
-          <select data-filter-field="column" aria-label="Column">${cols.map((c) => `<option value="${esc(c)}" ${c === filter.column ? "selected" : ""}>${esc(c)}</option>`).join("")}</select>
-          <select data-filter-field="operator" aria-label="Operator">${[
+        ${filters.length ? filters.map((filter) => { const spectral = ["spectrum_peak", "neutral_loss"].includes(filter.operator); const target = spectral ? `__${filter.operator}__` : filter.column; return `<div class="filter-row ${spectral ? "spectrum-filter-row" : ""}" data-filter-id="${filter.id}">
+          <select data-filter-target aria-label="Filter target"><option value="__spectrum_peak__" ${target === "__spectrum_peak__" ? "selected" : ""}>Peak m/z</option><option value="__neutral_loss__" ${target === "__neutral_loss__" ? "selected" : ""}>Neutral loss</option>${cols.map((c) => `<option value="${esc(c)}" ${c === target ? "selected" : ""}>${esc(c)}</option>`).join("")}</select>
+          ${spectral ? `<input data-filter-field="min" type="number" step="any" value="${esc(filter.min)}" placeholder="Min" aria-label="Minimum" /><input data-filter-field="max" type="number" step="any" value="${esc(filter.max)}" placeholder="Max" aria-label="Maximum" /><input data-filter-field="intensity" type="number" step="any" value="${esc(filter.intensity ?? 0)}" placeholder="Min intensity" aria-label="Minimum intensity" />` : `<select data-filter-field="operator" aria-label="Operator">${[
             ["text_eq", "= (text)"], ["numeric_eq", "= (number)"], ["!=", "!= (text)"], ["contains", "contains"],
             [">", "> (number)"], [">=", ">= (number)"], ["<", "< (number)"], ["<=", "<= (number)"],
             ...(chemistryCapabilities.smarts_filter ? [["smarts", "SMARTS substructure"]] : [])
           ].map(([op, label]) => `<option value="${esc(op)}" ${op === filter.operator ? "selected" : ""}>${esc(label)}</option>`).join("")}</select>
-          <input data-filter-field="value" value="${esc(filter.value)}" placeholder="Value" />
+          <input data-filter-field="value" value="${esc(filter.value)}" placeholder="Value" />`}
           <button class="remove-filter" title="Remove filter">×</button>
-        </div>`).join("") : `<div class="filter-empty">Press + to add a condition.</div>`}
+        </div>`; }).join("") : `<div class="filter-empty">Press + to add a condition.</div>`}
         <div class="filter-actions"><button id="clear-filters" class="secondary-button" ${filters.length ? "" : "disabled"}>Clear</button><button id="apply-filters">Apply</button></div>
       </div>` : "";
 
@@ -325,6 +325,17 @@
     document.getElementById("add-filter")?.addEventListener("click", () => { filters.push({ id: ++filterSequence, column: cols[0] || "", operator: "text_eq", value: "" }); render(); });
     document.querySelectorAll("[data-filter-id]").forEach((row) => {
       const filter = filters.find((item) => item.id === Number(row.dataset.filterId));
+      row.querySelector("[data-filter-target]")?.addEventListener("change", (event) => {
+        const target = event.target.value;
+        if (target === "__spectrum_peak__" || target === "__neutral_loss__") {
+          filter.operator = target === "__spectrum_peak__" ? "spectrum_peak" : "neutral_loss";
+          filter.min ??= ""; filter.max ??= ""; filter.intensity ??= "0";
+        } else {
+          filter.column = target;
+          if (["spectrum_peak", "neutral_loss"].includes(filter.operator)) filter.operator = "text_eq";
+        }
+        render();
+      });
       row.querySelectorAll("[data-filter-field]").forEach((control) => control.addEventListener("input", () => { filter[control.dataset.filterField] = control.value; }));
       row.querySelector(".remove-filter")?.addEventListener("click", () => { filters = filters.filter((item) => item !== filter); render(); });
     });
