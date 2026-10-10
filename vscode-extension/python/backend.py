@@ -64,20 +64,22 @@ def apply_view(
         raw_value = condition.get("value", "")
         if operator in {"spectrum_peak", "neutral_loss"}:
             try:
-                lower = float(condition.get("min"))
-                upper = float(condition.get("max"))
+                mz = float(condition.get("mz"))
+                tolerance_value = str(condition.get("tolerance", "")).strip()
+                tolerance_unit = str(condition.get("tolerance_unit", "Da")).lower()
+                tolerance = f"{tolerance_value}ppm" if tolerance_unit == "ppm" else tolerance_value
                 intensity = float(condition.get("intensity", 0.0))
             except (TypeError, ValueError) as exc:
-                raise ValueError("Range bounds and intensity must be numeric") from exc
+                raise ValueError("m/z, tolerance, and intensity must be numeric") from exc
             if operator == "spectrum_peak":
-                view = view.filter_by_peak(lower, upper, intensity)
+                view = view.filter_by_peak(mz, tolerance, intensity)
             else:
                 precursor_column = str(
                     condition.get("precursor_column") or "PrecursorMZ"
                 )
                 view = view.filter_by_neutral_loss(
-                    lower,
-                    upper,
+                    mz,
+                    tolerance,
                     intensity,
                     precursor_mz_column=precursor_column,
                 )

@@ -13,8 +13,8 @@ class FilterCommand(ShellCommand):
     def __init__(self) -> None:
         super().__init__(
             name="filter",
-            usage=("filter <column> <op> <value> | filter peak <min> <max> "
-                   "[intensity] | filter neutral-loss <min> <max> [intensity] "
+            usage=("filter <column> <op> <value> | filter peak <mz> <tolerance> "
+                   "[intensity] | filter neutral-loss <mz> <tolerance> [intensity] "
                    "[precursor_column]"),
             summary="Filter spectra by metadata or spectral peaks.",
             description=(
@@ -40,8 +40,9 @@ class FilterCommand(ShellCommand):
                 "filter Name contains glucose",
                 "filter IonMode == POSITIVE",
                 "filter AdductType == [M+H]+",
-                "filter peak 100.0 100.1 1000",
-                "filter neutral-loss 17.9 18.1 1000",
+                "filter peak 123.45 0.01 0.1",
+                "filter peak 123.45 10ppm",
+                "filter neutral-loss 18.0106 10ppm 0.05",
             ],
         )
 
@@ -52,9 +53,9 @@ class FilterCommand(ShellCommand):
     ) -> bool:
         if args and args[0] == "peak":
             if len(args) not in {3, 4}:
-                raise ValueError("Usage: filter peak <min> <max> [intensity]")
+                raise ValueError("Usage: filter peak <mz> <tolerance|toleranceppm> [intensity]")
             state.dataset = state.dataset.filter_by_peak(
-                float(args[1]), float(args[2]), float(args[3]) if len(args) == 4 else 0.0
+                float(args[1]), args[2], float(args[3]) if len(args) == 4 else 0.0
             )
             print(f"Filtered dataset: {len(state.dataset)} spectra")
             return True
@@ -62,11 +63,11 @@ class FilterCommand(ShellCommand):
         if args and args[0] in {"neutral-loss", "neutral_loss"}:
             if len(args) not in {3, 4, 5}:
                 raise ValueError(
-                    "Usage: filter neutral-loss <min> <max> [intensity] [precursor_column]"
+                    "Usage: filter neutral-loss <mz> <tolerance|toleranceppm> [intensity] [precursor_column]"
                 )
             state.dataset = state.dataset.filter_by_neutral_loss(
                 float(args[1]),
-                float(args[2]),
+                args[2],
                 float(args[3]) if len(args) >= 4 else 0.0,
                 precursor_mz_column=args[4] if len(args) == 5 else "PrecursorMZ",
             )
