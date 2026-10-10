@@ -146,6 +146,38 @@ class TestMSDataset(unittest.TestCase):
         self.assertEqual(len(subset), 2)
         self.assertEqual(subset["name"].tolist(), ["spec1", "spec3"])
 
+    def test_filter_by_peak(self) -> None:
+        filtered = self.dataset.filter_by_peak(102.0, 0.0, intensity=0.6)
+        self.assertEqual(filtered["name"].tolist(), ["spec1"])
+
+    def test_filter_by_peak_normalizes_intensity_per_spectrum(self) -> None:
+        self.assertEqual(
+            self.dataset.filter_by_peak(102.0, 0.0, intensity=0.7)["name"].tolist(),
+            [],
+        )
+
+    def test_filter_by_peak_accepts_ppm_tolerance(self) -> None:
+        filtered = self.dataset.filter_by_peak(101.0005, "5ppm")
+        self.assertEqual(filtered["name"].tolist(), ["spec1"])
+
+    def test_filter_by_peak_defaults_to_zero_intensity(self) -> None:
+        filtered = self.dataset.filter_by_peak(300.0, 0.0)
+        self.assertEqual(filtered["name"].tolist(), ["spec3"])
+
+    def test_filter_by_neutral_loss(self) -> None:
+        filtered = self.dataset.filter_by_neutral_loss(
+            49.0, 0.0, intensity=0.3, precursor_mz_column="precursor_mz"
+        )
+        self.assertEqual(filtered["name"].tolist(), ["spec1", "spec2"])
+
+    def test_peak_filter_rejects_invalid_intensity(self) -> None:
+        with self.assertRaises(ValueError):
+            self.dataset.filter_by_peak(101.0, 0.1, intensity=1.01)
+
+    def test_peak_filter_rejects_negative_tolerance(self) -> None:
+        with self.assertRaises(ValueError):
+            self.dataset.filter_by_peak(101.0, -0.1)
+
     def test_setitem_add_metadata_column(self) -> None:
         self.dataset["score"] = [0.1, 0.2, 0.3]
         self.assertIn("score", self.dataset.columns)

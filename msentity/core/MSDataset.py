@@ -576,6 +576,103 @@ class MSDataset:
             tags=self.tags,
         )
 
+    def filter_by_peak(
+        self, mz: float, tolerance: float | str, intensity: float = 0.0
+    ) -> MSDataset:
+        """Return spectra containing a peak within ``tolerance`` of ``mz``.
+
+        A numeric tolerance is interpreted as Da; a string may use the
+        ``"10ppm"`` form. ``intensity`` is relative to each spectrum's base
+        peak (maximum intensity = 1.0) and defaults to 0.0, which disables the
+        intensity condition.
+        """
+        lower, upper, intensity = self._peak_filter_bounds(
+            mz, tolerance, intensity, "m/z"
+        )
+        mask = self._peak_filter_mask(lower, upper, intensity)
+        return self[np.flatnonzero(mask)]
+
+    def filter_by_neutral_loss(
+        self,
+        neutral_loss: float,
+        tolerance: float | str,
+        intensity: float = 0.0,
+        *,
+        precursor_mz_column: str = "PrecursorMZ",
+    ) -> MSDataset:
+        """Return spectra containing a neutral loss within ``tolerance``.
+
+        Neutral loss is ``precursor m/z - peak m/z``. A numeric tolerance is
+        interpreted as Da; a string may use the ``"10ppm"`` form. ``intensity``
+        is normalized to each spectrum's base peak and defaults to 0.0.
+        """
+        lower, upper, intensity = self._peak_filter_bounds(
+            neutral_loss, tolerance, intensity, "neutral loss"
+        )
+        if precursor_mz_column not in self._columns:
+            raise KeyError(f"column not available in current view: {precursor_mz_column}")
+        precursor_mz = pd.to_numeric(
+            self[precursor_mz_column], errors="coerce"
+        ).to_numpy(dtype=float)
+        if not np.all(np.isfinite(precursor_mz)):
+            raise ValueError(
+                f"column {precursor_mz_column!r} must contain finite numeric values"
+            )
+        mask = self._peak_filter_mask(
+            lower, upper, intensity, precursor_mz=precursor_mz
+        )
+        return self[np.flatnonzero(mask)]
+
+    @staticmethod
+    def _peak_filter_bounds(
+        value: float, tolerance: float | str, intensity: float, value_name: str
+    ) -> tuple[float, float, float]:
+        try:
+            center = float(value)
+            threshold = float(intensity)
+        except (TypeError, ValueError) as exc:
+            raise TypeError(f"{value_name} and intensity must be numeric") from exc
+        if not np.all(np.isfinite((center, threshold))):
+            raise ValueError(f"{value_name} and intensity must be finite")
+        if not 0.0 <= threshold <= 1.0:
+            raise ValueError("intensity must be between 0.0 and 1.0")
+
+        tolerance_text = str(tolerance).strip().lower()
+        is_ppm = tolerance_text.endswith("ppm")
+        if is_ppm:
+            tolerance_text = tolerance_text[:-3].strip()
+        try:
+            tolerance_value = float(tolerance_text)
+        except (TypeError, ValueError) as exc:
+            raise TypeError("tolerance must be a number in Da or use the '10ppm' form") from exc
+        if not np.isfinite(tolerance_value) or tolerance_value < 0:
+            raise ValueError("tolerance must be finite and greater than or equal to zero")
+        delta = abs(center) * tolerance_value / 1_000_000 if is_ppm else tolerance_value
+        return center - delta, center + delta, threshold
+
+    def _peak_filter_mask(
+        self,
+        lower: float,
+        upper: float,
+        intensity: float,
+        *,
+        precursor_mz: Optional[np.ndarray] = None,
+    ) -> np.ndarray:
+        mask = np.zeros(len(self), dtype=bool)
+        for position, spectrum in enumerate(self._peak_series):
+            values = spectrum.mz
+            if precursor_mz is not None:
+                values = precursor_mz[position] - values
+            in_range = (values >= lower) & (values <= upper)
+            if intensity > 0.0:
+                maximum = np.max(spectrum.intensity, initial=0.0)
+                if maximum <= 0.0:
+                    mask[position] = False
+                    continue
+                in_range &= spectrum.intensity / maximum >= intensity
+            mask[position] = bool(np.any(in_range))
+        return mask
+
     @classmethod
     def concat(
         cls,

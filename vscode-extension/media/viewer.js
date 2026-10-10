@@ -185,17 +185,16 @@
 
     const filterMenu = filterMenuOpen ? `
       <div class="filter-menu" id="filter-menu">
-        <div class="filter-title"><strong>Filters</strong><button id="add-filter" title="Add filter">+</button></div>
-        ${filters.length ? filters.map((filter) => `<div class="filter-row" data-filter-id="${filter.id}">
-          <select data-filter-field="column" aria-label="Column">${cols.map((c) => `<option value="${esc(c)}" ${c === filter.column ? "selected" : ""}>${esc(c)}</option>`).join("")}</select>
-          <select data-filter-field="operator" aria-label="Operator">${[
+        <div class="filter-title"><strong>Filters</strong><span class="filter-add-actions"><button id="add-filter" title="Add column filter">+ Column filter</button><button id="add-peak-filter" title="Add peak filter">+ Peak filter</button></span></div>
+        ${filters.length ? filters.map((filter) => { const spectral = ["spectrum_peak", "neutral_loss"].includes(filter.operator); return `<div class="filter-row ${spectral ? "spectrum-filter-row" : ""}" data-filter-id="${filter.id}">
+          ${spectral ? `<fieldset class="peak-kind"><legend>Peak type</legend><label><input data-filter-field="operator" name="peak-type-${filter.id}" type="radio" value="spectrum_peak" ${filter.operator === "spectrum_peak" ? "checked" : ""}>Product ion</label><label><input data-filter-field="operator" name="peak-type-${filter.id}" type="radio" value="neutral_loss" ${filter.operator === "neutral_loss" ? "checked" : ""}>Neutral loss</label></fieldset><label class="mz-tolerance"><span>m/z</span><input data-filter-field="mz" type="number" step="any" value="${esc(filter.mz)}" placeholder="123.45" aria-label="m/z"><span>±</span><input data-filter-field="tolerance" type="number" min="0" step="any" value="${esc(filter.tolerance)}" placeholder="0.01" aria-label="Tolerance"><select data-filter-field="tolerance_unit" aria-label="Tolerance unit"><option value="Da" ${filter.tolerance_unit !== "ppm" ? "selected" : ""}>Da</option><option value="ppm" ${filter.tolerance_unit === "ppm" ? "selected" : ""}>ppm</option></select></label><label class="intensity-filter"><span>Min intensity</span><input data-intensity-slider type="range" min="0" max="1" step="0.01" value="${esc(filter.intensity ?? 0)}" aria-label="Minimum normalized intensity slider"><input data-filter-field="intensity" type="number" min="0" max="1" step="0.01" value="${esc(filter.intensity ?? 0)}" aria-label="Minimum normalized intensity"></label>` : `<select data-filter-target aria-label="Column">${cols.map((c) => `<option value="${esc(c)}" ${c === filter.column ? "selected" : ""}>${esc(c)}</option>`).join("")}</select><select data-filter-field="operator" aria-label="Operator">${[
             ["text_eq", "= (text)"], ["numeric_eq", "= (number)"], ["!=", "!= (text)"], ["contains", "contains"],
             [">", "> (number)"], [">=", ">= (number)"], ["<", "< (number)"], ["<=", "<= (number)"],
             ...(chemistryCapabilities.smarts_filter ? [["smarts", "SMARTS substructure"]] : [])
           ].map(([op, label]) => `<option value="${esc(op)}" ${op === filter.operator ? "selected" : ""}>${esc(label)}</option>`).join("")}</select>
-          <input data-filter-field="value" value="${esc(filter.value)}" placeholder="Value" />
+          <input data-filter-field="value" value="${esc(filter.value)}" placeholder="Value" />`}
           <button class="remove-filter" title="Remove filter">×</button>
-        </div>`).join("") : `<div class="filter-empty">Press + to add a condition.</div>`}
+        </div>`; }).join("") : `<div class="filter-empty">Press + to add a condition.</div>`}
         <div class="filter-actions"><button id="clear-filters" class="secondary-button" ${filters.length ? "" : "disabled"}>Clear</button><button id="apply-filters">Apply</button></div>
       </div>` : "";
 
@@ -323,9 +322,17 @@
     document.getElementById("filter-button")?.addEventListener("click", (e) => { e.stopPropagation(); datasetMenuOpen = false; moreActionsOpen = false; filterMenuOpen = !filterMenuOpen; columnMenuOpen = false; render();
       document.getElementById("add-filter")?.focus?.(); });
     document.getElementById("add-filter")?.addEventListener("click", () => { filters.push({ id: ++filterSequence, column: cols[0] || "", operator: "text_eq", value: "" }); render(); });
+    document.getElementById("add-peak-filter")?.addEventListener("click", () => { filters.push({ id: ++filterSequence, operator: "spectrum_peak", mz: "", tolerance: "", tolerance_unit: "Da", intensity: "0" }); render(); });
     document.querySelectorAll("[data-filter-id]").forEach((row) => {
       const filter = filters.find((item) => item.id === Number(row.dataset.filterId));
+      row.querySelector("[data-filter-target]")?.addEventListener("change", (event) => {
+        filter.column = event.target.value;
+      });
       row.querySelectorAll("[data-filter-field]").forEach((control) => control.addEventListener("input", () => { filter[control.dataset.filterField] = control.value; }));
+      const slider = row.querySelector("[data-intensity-slider]");
+      const intensityInput = row.querySelector('[data-filter-field="intensity"]');
+      slider?.addEventListener("input", () => { filter.intensity = slider.value; intensityInput.value = slider.value; });
+      intensityInput?.addEventListener("input", () => { slider.value = intensityInput.value; });
       row.querySelector(".remove-filter")?.addEventListener("click", () => { filters = filters.filter((item) => item !== filter); render(); });
     });
     document.getElementById("clear-filters")?.addEventListener("click", () => { filters = []; refreshView(); });

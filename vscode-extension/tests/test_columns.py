@@ -16,7 +16,9 @@ class ColumnsProtocolTest(unittest.TestCase):
             source = Path(directory) / "source.tsv"
             other = Path(directory) / "other.tsv"
             output = Path(directory) / "edited.msds"
-            source.write_text("Name\tPeak\na\t200,20;100,10\nb\t50,5\n")
+            source.write_text(
+                "Name\tPrecursorMZ\tPeak\na\t250\t200,20;100,10\nb\t100\t50,5\n"
+            )
             other.write_text("Name\tPeak\nother\t70,7\n")
             requests = [
                 {"type": "add-dataset", "path": str(other)},
@@ -31,6 +33,10 @@ class ColumnsProtocolTest(unittest.TestCase):
                  "column": "Annotation", "value": "fragment <A>"},
                 {"type": "get-peak-record", "row_id": 0},
                 {"type": "page", "filters": [{"column": "Name", "operator": "text_eq", "value": "b"}]},
+                {"type": "page", "filters": [{"operator": "spectrum_peak", "mz": 100,
+                                                  "tolerance": 0.1, "tolerance_unit": "Da", "intensity": 0.5}]},
+                {"type": "page", "filters": [{"operator": "neutral_loss", "mz": 150,
+                                                  "tolerance": 2000, "tolerance_unit": "ppm", "intensity": 0.5}]},
                 {"type": "page", "dataset_id": str(other)},
                 {"type": "export", "path": str(output), "file_type": "msds"},
                 {"type": "add-dataset", "path": str(output)},
@@ -53,11 +59,13 @@ class ColumnsProtocolTest(unittest.TestCase):
             self.assertEqual(pages[1]["rows"][0]["Note"], "")
             self.assertEqual(pages[1]["rows"][0]["Group"], "sample")
             self.assertEqual(pages[1]["spectra"][0]["metadata"][0]["Quality"], "unchecked")
-            self.assertNotIn("Note", pages[2]["columns"])
-            self.assertEqual(pages[2]["spectra"][0]["metadata_columns"], [])
-            self.assertEqual(pages[3]["spectra"][0]["metadata"][1]["Annotation"], "fragment <A>")
-            self.assertEqual(pages[3]["spectra"][1]["metadata"][0]["Annotation"], "")
-            self.assertEqual(pages[3]["rows"][1]["Group"], "sample")
+            self.assertEqual([row["Name"] for row in pages[2]["rows"]], ["a"])
+            self.assertEqual([row["Name"] for row in pages[3]["rows"]], ["a"])
+            self.assertNotIn("Note", pages[4]["columns"])
+            self.assertEqual(pages[4]["spectra"][0]["metadata_columns"], [])
+            self.assertEqual(pages[5]["spectra"][0]["metadata"][1]["Annotation"], "fragment <A>")
+            self.assertEqual(pages[5]["spectra"][1]["metadata"][0]["Annotation"], "")
+            self.assertEqual(pages[5]["rows"][1]["Group"], "sample")
 
 
 if __name__ == "__main__":

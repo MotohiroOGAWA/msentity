@@ -62,6 +62,28 @@ def apply_view(
         column = str(condition.get("column", ""))
         operator = str(condition.get("operator", "text_eq"))
         raw_value = condition.get("value", "")
+        if operator in {"spectrum_peak", "neutral_loss"}:
+            try:
+                mz = float(condition.get("mz"))
+                tolerance_value = str(condition.get("tolerance", "")).strip()
+                tolerance_unit = str(condition.get("tolerance_unit", "Da")).lower()
+                tolerance = f"{tolerance_value}ppm" if tolerance_unit == "ppm" else tolerance_value
+                intensity = float(condition.get("intensity", 0.0))
+            except (TypeError, ValueError) as exc:
+                raise ValueError("m/z, tolerance, and intensity must be numeric") from exc
+            if operator == "spectrum_peak":
+                view = view.filter_by_peak(mz, tolerance, intensity)
+            else:
+                precursor_column = str(
+                    condition.get("precursor_column") or "PrecursorMZ"
+                )
+                view = view.filter_by_neutral_loss(
+                    mz,
+                    tolerance,
+                    intensity,
+                    precursor_mz_column=precursor_column,
+                )
+            continue
         if column not in available or raw_value is None or str(raw_value) == "":
             continue
 
@@ -383,8 +405,8 @@ def main() -> int:
                         entry["dataset"], request.get("filters"), request.get("sort"),
                         chemistry=chemistry,
                     )
-                except ChemistryError as exc:
-                    emit({"type": "filter-error", "operator": "smarts", "message": str(exc)})
+                except (ChemistryError, TypeError, ValueError, KeyError) as exc:
+                    emit({"type": "filter-error", "message": str(exc)})
                     continue
                 payload = serialize_page(
                     view, page, page_size, dataset_id, entry["path"],
@@ -540,8 +562,8 @@ def main() -> int:
                         entry["dataset"], request.get("filters"), request.get("sort"),
                         chemistry=chemistry,
                     )
-                except ChemistryError as exc:
-                    emit({"type": "filter-error", "operator": "smarts", "message": str(exc)})
+                except (ChemistryError, TypeError, ValueError, KeyError) as exc:
+                    emit({"type": "filter-error", "message": str(exc)})
                     continue
                 payload = serialize_page(
                     view, 0, page_size, dataset_id, entry["path"],

@@ -111,6 +111,19 @@ Use `help <command>` inside the shell for command-specific options. Filtering
 and sorting operate on the current dataset view; `reset` restores the complete
 view.
 
+The filter menu in the Spectrum Viewer also supports **Product ion** and
+**Neutral loss** filters specified as a target m/z plus a tolerance in Da or
+ppm. Minimum intensity is normalized per spectrum (the base peak is `1.0`),
+must be between `0.0` and `1.0`, and defaults to `0.0` (disabled). The same
+filters are available in Python as `filter_by_peak()` and
+`filter_by_neutral_loss()`, and in the shell, for example:
+
+```text
+msentity> filter peak 123.45 0.01 0.1
+msentity> filter peak 123.45 10ppm
+msentity> filter neutral-loss 18.0106 10ppm 0.05
+```
+
 ## VS Code spectrum viewer
 
 No separate Python installation is required — the Windows and Linux (x64)
