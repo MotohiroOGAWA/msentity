@@ -674,6 +674,27 @@ def main() -> int:
                         "operation": "render-structure",
                         "message": str(exc),
                     })
+            elif request_type == "calculate-structure-counts":
+                try:
+                    if entry is None:
+                        raise ValueError(f"Unknown dataset: {dataset_id}")
+                    view = apply_view(
+                        entry["dataset"], request.get("filters"), chemistry=chemistry,
+                    )
+                    smiles_column = detect_smiles_column(view.columns, structure_smiles_column)
+                    if smiles_column is None:
+                        raise ChemistryError("No SMILES column was found in this dataset")
+                    counts = chemistry.structure_counts(view[smiles_column].dropna().tolist())
+                    emit({
+                        "type": "structure-counts", "dataset_id": dataset_id,
+                        "total_rows": len(view), "smiles_column": smiles_column,
+                        **counts,
+                    })
+                except (ChemistryError, TypeError, ValueError, KeyError) as exc:
+                    emit({
+                        "type": "structure-counts-error", "dataset_id": dataset_id,
+                        "message": str(exc),
+                    })
             elif request_type == "export":
                 if entry is None:
                     raise ValueError(f"Unknown dataset: {dataset_id}")

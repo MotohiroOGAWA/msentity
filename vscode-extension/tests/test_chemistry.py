@@ -53,6 +53,9 @@ class FakeChem:
         self.smarts_calls.append(pattern)
         return None if pattern == "[invalid" else FakeQuery(pattern)
 
+    def MolToSmiles(self, molecule: FakeMolecule, **_kwargs) -> str:
+        return {"OCC": "CCO", "C(C)O": "CCO"}.get(molecule.smiles, molecule.smiles)
+
 
 class FakeDrawer:
     class MolDraw2DSVG:
@@ -97,6 +100,7 @@ class ChemistryCapabilityTest(unittest.TestCase):
                 os.environ["MSENTITY_SPECTRUM_VIEWER_DISABLE_RDKIT"] = old
         self.assertEqual(chemistry.capabilities, {
             "backend": None, "smarts_filter": False, "structure_render": False,
+            "structure_count": False,
         })
 
     def test_missing_rdkit_disables_only_chemistry_capabilities(self) -> None:
@@ -106,6 +110,7 @@ class ChemistryCapabilityTest(unittest.TestCase):
         chemistry = chemistry_module.ChemistryBackend(missing)
         self.assertEqual(chemistry.capabilities, {
             "backend": None, "smarts_filter": False, "structure_render": False,
+            "structure_count": False,
         })
 
     def test_smoke_tests_enable_features_independently(self) -> None:
@@ -147,6 +152,13 @@ class ChemistryCapabilityTest(unittest.TestCase):
             chemistry.smarts_matches(["CCO"], "[invalid")
         with self.assertRaisesRegex(chemistry_module.ChemistryError, "Invalid SMILES"):
             chemistry.render_svg("invalid smiles")
+
+    def test_structure_counts_distinct_input_and_canonical_smiles(self) -> None:
+        chemistry, _ = fake_backend()
+        self.assertEqual(
+            chemistry.structure_counts(["CCO", " OCC ", "C(C)O", "CCO", "", "invalid smiles"]),
+            {"unique_smiles": 4, "canonical_structures": 1},
+        )
 
     def test_smarts_filter_runs_before_pagination_and_supports_any_column(self) -> None:
         chemistry, _ = fake_backend()
@@ -197,6 +209,7 @@ class ChemistryCapabilityTest(unittest.TestCase):
         if importlib.util.find_spec("rdkit") is None:
             self.assertEqual(capabilities, {
                 "backend": None, "smarts_filter": False, "structure_render": False,
+                "structure_count": False,
             })
         else:
             self.assertTrue(capabilities["smarts_filter"])

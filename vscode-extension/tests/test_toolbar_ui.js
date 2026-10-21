@@ -107,6 +107,14 @@ const { chromium } = require('playwright');
     await page.locator('#add-dataset').click(); assert.equal((await last()).type, 'add-dataset');
     await send({type: 'dataset-added', dataset: {id: 'new', name: 'new.msp'}}); await datasetPage('new');
     assert.equal(await page.locator('#dataset-select').textContent(), 'new.msp');
+    await send({type: 'capabilities', chemistry: {backend: 'rdkit', structure_count: true}});
+    await open();
+    assert.equal(await page.locator('#structure-counts-button').isVisible(), true);
+    await page.locator('#structure-counts-button').click();
+    assert.equal((await last()).type, 'calculate-structure-counts');
+    assert.equal((await last()).datasetId, 'new');
+    await send({type: 'structure-counts', dataset_id: 'new', total_rows: 1, unique_smiles: 1, canonical_structures: 1});
+    assert.match(await page.locator('.summary').textContent(), /1 spectra · 1 unique SMILES · 1 canonical structures/);
     console.log('Toolbar browser checks passed: actions, secondary popups, close behavior, keyboard navigation, themes, narrow viewport.');
   } finally { await browser.close(); }
 })().catch(error => { console.error(error); process.exitCode = 1; });
