@@ -65,7 +65,9 @@
   let calculatingSimilarity = false;
   let similarityProgress = null;
   let assigningSpecId = false;
-  let chemistryCapabilities = { backend: null, smarts_filter: false, structure_render: false };
+  let calculatingStructureCounts = false;
+  let structureCounts = null;
+  let chemistryCapabilities = { backend: null, smarts_filter: false, structure_render: false, structure_count: false };
   let structurePreview = null;
   let datasetOptions = [];
   let activeDatasetId = "";
@@ -105,6 +107,7 @@
   }
 
   function refreshView() {
+    structureCounts = null;
     loadingPage = true;
     selectedSpectrumIndex = null;
     render();
@@ -203,7 +206,7 @@
         <div class="toolbar">
           <div class="dataset-info">
             <button id="dataset-select" class="dataset-trigger" value="${esc(activeDatasetId)}" ${loadingPage || metadataBusy ? "disabled" : ""} aria-label="Active dataset" aria-haspopup="true" aria-expanded="${datasetMenuOpen}" aria-controls="dataset-menu"><span>${esc(datasetOptions.find(d => d.id === activeDatasetId)?.name || filename)}</span>${toolbarIcon("chevron")}</button>
-            <div class="summary">${totalRows().toLocaleString()} spectra · ${selectedColumns.length}/${cols.length} columns${changedDatasets.has(activeDatasetId) ? ' · Modified' : ''}</div>
+            <div class="summary">${totalRows().toLocaleString()} spectra${structureCounts && structureCounts.total_rows === totalRows() ? ` · ${Number(structureCounts.unique_smiles).toLocaleString()} unique SMILES · ${Number(structureCounts.canonical_structures).toLocaleString()} canonical structures` : ""} · ${selectedColumns.length}/${cols.length} columns${changedDatasets.has(activeDatasetId) ? ' · Modified' : ''}</div>
             <div class="dataset-menu" id="dataset-menu" ${datasetMenuOpen ? "" : "hidden"}>
               <div class="dataset-menu-actions">
                 <button class="secondary-button dataset-primary" id="add-dataset" title="Add dataset" aria-label="Add dataset">${toolbarIcon("add")}</button>
@@ -225,6 +228,7 @@
               <button class="more-action" role="menuitem" id="metadata-button" ${loadingPage ? "disabled" : ""}>${toolbarIcon("metadata")}<span class="menu-action-label">Metadata</span></button>
               <button class="more-action" role="menuitem" id="columns-button" aria-expanded="${columnMenuOpen}" aria-controls="column-menu">${toolbarIcon("columns")}<span class="menu-action-label">Columns</span></button>
               <button class="more-action" role="menuitem" id="assign-spec-id-button" ${assigningSpecId || loadingPage || exporting ? "disabled" : ""}>${toolbarIcon("specid")}<span class="menu-action-label">${assigningSpecId ? "Assigning SpecID…" : "Assign SpecID"}</span></button>
+              ${chemistryCapabilities.structure_count ? `<button class="more-action" role="menuitem" id="structure-counts-button" ${calculatingStructureCounts || loadingPage ? "disabled" : ""}>${toolbarIcon("similarity")}<span class="menu-action-label">${calculatingStructureCounts ? "Counting structures…" : "Count SMILES and structures"}</span></button>` : ""}
               <div class="more-actions-divider" role="separator"></div>
               <button class="more-action" role="menuitem" id="similarity-button" ${calculatingSimilarity || datasetOptions.length < 1 ? "disabled" : ""} title="Run a library search or compare matching metadata keys">${toolbarIcon("similarity")}<span class="menu-action-label">${calculatingSimilarity ? `Calculating…${similarityProgress == null ? "" : ` ${similarityProgress.toFixed(1)}%`}` : "Calculate similarity"}</span></button>
               <div class="more-actions-divider" role="separator"></div>
@@ -356,6 +360,8 @@
       moreActionsOpen = false; columnMenuOpen = false; filterMenuOpen = false;
       metadataDraft = null; metadataOpen = false;
       activeDatasetId = datasetId;
+      structureCounts = null;
+      calculatingStructureCounts = false;
       const savedPage = datasetPages.get(activeDatasetId) ?? 0;
       loadingPage = true;
       selectedSpectrumIndex = null;
@@ -388,8 +394,14 @@
       render();
       vscode.postMessage({ type: "assign-spec-id", datasetId: activeDatasetId, hasSpecId: columns().includes("SpecID") });
     });
+    document.getElementById("structure-counts-button")?.addEventListener("click", () => {
+      moreActionsOpen = false;
+      calculatingStructureCounts = true;
+      render();
+      vscode.postMessage({ type: "calculate-structure-counts", datasetId: activeDatasetId, filters });
+    });
     document.getElementById("export-button")?.addEventListener("click", requestExport);
-    document.getElementById("reload-button")?.addEventListener("click", () => { loadingPage = true; selectedSpectrumIndex = null; render(); vscode.postMessage({ type: "reload", datasetId: activeDatasetId, filters, sort: rowSort }); });
+    document.getElementById("reload-button")?.addEventListener("click", () => { structureCounts = null; loadingPage = true; selectedSpectrumIndex = null; render(); vscode.postMessage({ type: "reload", datasetId: activeDatasetId, filters, sort: rowSort }); });
     document.getElementById("prev-page")?.addEventListener("click", () => requestPage(page() - 1));
     document.getElementById("next-page")?.addEventListener("click", () => requestPage(page() + 1));
     const pageInput = document.getElementById("page-input");
@@ -456,6 +468,8 @@
       if (dataset && !datasetOptions.some((item) => item.id === dataset.id)) datasetOptions.push(dataset);
       if (dataset) {
         activeDatasetId = dataset.id;
+        structureCounts = null;
+        calculatingStructureCounts = false;
         filters = [];
         rowSort = [];
         selectedColumns = [];
@@ -463,6 +477,7 @@
         if (!datasetPages.has(activeDatasetId)) datasetPages.set(activeDatasetId, 0);
       }
     } else if (message?.type === "dataset-reloaded") {
+      structureCounts = null;
       changedDatasets.delete(message.dataset_id);
       if (activeDatasetId === message.dataset_id) metadataDraft = null;
     } else if (message?.type === "dataset-removed") {
@@ -471,6 +486,8 @@
       changedDatasets.delete(message.dataset_id);
       if (activeDatasetId === message.dataset_id) {
         activeDatasetId = datasetOptions[0]?.id || "";
+        structureCounts = null;
+        calculatingStructureCounts = false;
         filters = []; rowSort = []; selectedColumns = []; knownColumnsKey = "";
         metadataDraft = null; metadataOpen = false; datasetMenuOpen = false;
         moreActionsOpen = false; columnMenuOpen = false; filterMenuOpen = false;
@@ -481,6 +498,7 @@
       }
       render();
     } else if (message?.type === "column-added" || message?.type === "peak-columns-updated" || message?.type === "peak-record") {
+      structureCounts = null;
       if (message.type !== "peak-record" || message.modified) changedDatasets.add(message.dataset_id);
       if (message.dataset_id === activeDatasetId) {
         if (message.type === "column-added") {
@@ -499,6 +517,7 @@
       }
       render();
     } else if (message?.type === "metadata-updated") {
+      structureCounts = null;
       metadataBusy = false;
       changedDatasets.add(message.dataset_id);
       if (activeDatasetId === message.dataset_id) {
@@ -538,6 +557,14 @@
       structurePreview = { smiles: String(message.smiles || ""), url: URL.createObjectURL(blob) };
       render();
       document.getElementById("close-structure")?.focus();
+    } else if (message?.type === "structure-counts") {
+      calculatingStructureCounts = false;
+      if (message.dataset_id === activeDatasetId) structureCounts = message;
+      render();
+    } else if (message?.type === "structure-counts-error") {
+      calculatingStructureCounts = false;
+      render();
+      vscode.postMessage({ type: "structure-counts-error-notification", message: message.message || "Could not count structures." });
     } else if (message?.type === "chemistry-error") {
       closeStructurePreview();
       render();

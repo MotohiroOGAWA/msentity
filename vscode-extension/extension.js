@@ -210,6 +210,10 @@ class MSEntityViewerProvider {
           writeRequest({ type: "render-structure", smiles: message.smiles,
             ...configuredStructurePreviewSize() });
           break;
+        case "calculate-structure-counts":
+          writeRequest({ type: "calculate-structure-counts", dataset_id: message.datasetId,
+            filters: message.filters, ...configuredStructureOptions() });
+          break;
         case "add-column":
           await requestColumn(message, writeRequest);
           break;
@@ -252,6 +256,7 @@ class MSEntityViewerProvider {
           break;
         case "chemistry-error-notification":
         case "filter-error-notification":
+        case "structure-counts-error-notification":
           vscode.window.showErrorMessage(String(message.message));
           break;
         case "assign-spec-id": {

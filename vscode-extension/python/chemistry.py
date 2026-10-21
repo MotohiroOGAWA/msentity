@@ -23,6 +23,7 @@ class ChemistryBackend:
             "smarts_parse": False,
             "substructure_match": False,
             "svg_drawing": False,
+            "canonical_smiles": False,
         }
         if os.environ.get("MSENTITY_SPECTRUM_VIEWER_DISABLE_RDKIT") == "1":
             return
@@ -57,6 +58,12 @@ class ChemistryBackend:
                 pass
         if molecule is not None:
             try:
+                self.smoke_tests["canonical_smiles"] = bool(
+                    self._chem.MolToSmiles(molecule, canonical=True)
+                )
+            except Exception:
+                pass
+            try:
                 self._drawer = importer("rdkit.Chem.Draw.rdMolDraw2D")
                 drawer = self._drawer.MolDraw2DSVG(120, 90)
                 drawer.DrawMolecule(molecule)
@@ -77,9 +84,10 @@ class ChemistryBackend:
             for name in ("rdkit_import", "smiles_parse", "svg_drawing")
         )
         return {
-            "backend": "rdkit" if smarts_filter or structure_render else None,
+            "backend": "rdkit" if smarts_filter or structure_render or tests["canonical_smiles"] else None,
             "smarts_filter": smarts_filter,
             "structure_render": structure_render,
+            "structure_count": tests["rdkit_import"] and tests["smiles_parse"] and tests["canonical_smiles"],
         }
 
     @staticmethod
@@ -124,6 +132,29 @@ class ChemistryBackend:
                         matches[smiles] = False
             result.append(matches[smiles])
         return result
+
+    def structure_counts(self, values: Iterable[Any]) -> dict[str, int]:
+        """Count distinct non-empty SMILES and RDKit-canonicalized structures."""
+        if not self.capabilities["structure_count"]:
+            raise ChemistryError("Structure counting requires optional RDKit support")
+        unique_smiles = {
+            smiles for value in values if (smiles := self.normalize_smiles(value))
+        }
+        canonical_structures: set[str] = set()
+        for smiles in unique_smiles:
+            molecule = self.molecule_from_smiles(smiles)
+            if molecule is None:
+                continue
+            try:
+                canonical_structures.add(
+                    self._chem.MolToSmiles(molecule, canonical=True, isomericSmiles=True)
+                )
+            except Exception:
+                continue
+        return {
+            "unique_smiles": len(unique_smiles),
+            "canonical_structures": len(canonical_structures),
+        }
 
     def render_svg(self, value: Any, width: int = 560, height: int = 400) -> tuple[str, str]:
         if not self.capabilities["structure_render"]:
