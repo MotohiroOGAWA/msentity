@@ -763,8 +763,10 @@
     const rawMax = allPeaks.length ? Math.max(...allPeaks.map((p) => p.x)) : 1;
     const fullXStep = niceStep(Math.max(1, rawMax), 6);
     const full = [0, Math.max(fullXStep, Math.ceil(rawMax / fullXStep) * fullXStep)];
-    const fullYMax = Math.max(1, ...peaks.map((p) => Math.max(0, p.y))) * 1.1;
-    const lowerYMax = Math.max(1, ...lowerPeaks.map((p) => Math.max(0, p.y))) * 1.1;
+    const upperPeakMax = Math.max(0, ...peaks.map((p) => p.y));
+    const lowerPeakMax = Math.max(0, ...lowerPeaks.map((p) => p.y));
+    const fullYMax = upperPeakMax > 0 ? upperPeakMax * 1.1 : 1.1;
+    const lowerYMax = lowerPeakMax > 0 ? lowerPeakMax * 1.1 : 1.1;
     if (!Array.isArray(state.domain)) state.domain = [...full];
     if (!Array.isArray(state.yDomain)) state.yDomain = [0, fullYMax];
     let start = null, current = null, pressedPeak = null;
