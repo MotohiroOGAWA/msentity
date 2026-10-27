@@ -30,9 +30,6 @@ import msentity as ms
 ds = ms.load("example.msp")
 ```
 
-> The older pure-Python package (msentity-py) also uses the import name
-> `msentity`. Install only one of them in an environment.
-
 ## Java (≥ 22)
 
 Through [JitPack](https://jitpack.io), which serves the JAR of the release:

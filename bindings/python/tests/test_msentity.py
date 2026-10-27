@@ -17,9 +17,8 @@ import numpy as np
 
 import msentity as ms
 
-# The pure-Python package msentity-py has the same import name; make sure the
-# binding from this repository is the one being tested (or, with
-# MSENTITY_TEST_INSTALLED=1, an installed wheel of it).
+# Make sure the binding from this repository is the one being tested (or,
+# with MSENTITY_TEST_INSTALLED=1, an installed wheel of it).
 if not os.environ.get("MSENTITY_TEST_INSTALLED"):
     assert Path(ms.__file__).resolve().parent == Path(__file__).resolve().parents[1] / "msentity", (
         f"imported {ms.__file__}, not the binding; run from bindings/python or set PYTHONPATH"
