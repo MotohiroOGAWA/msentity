@@ -5,6 +5,7 @@
 
 #include "internal/table.hpp"
 #include "internal/text.hpp"
+#include "io/item_parser.hpp"
 #include "io/reader_context.hpp"
 #include "io/text_writer.hpp"
 #include "msentity/io/text_formats.hpp"
@@ -63,8 +64,11 @@ TextReadResult read_msp_lines(LineSource source, const std::string& source_name,
         throw std::invalid_argument("Metadata line does not contain ':': " +
                                     std::string(internal::strip(line)));
       }
-      auto [parsed_key, value] = reader.add_meta(line.substr(0, colon), line.substr(colon + 1));
-      if (parsed_key == "NumPeaks") {
+      std::string_view raw_key = line.substr(0, colon);
+      reader.add_meta(raw_key, line.substr(colon + 1));
+      // NumPeaks is structural in MSP. Recognize its spelling without changing
+      // the column name stored in the dataset.
+      if (detail::ItemParser::normalize_key(raw_key) == "numpeaks") {
         peak_flag = true;
         peak_columns.reset();
       }

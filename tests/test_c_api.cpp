@@ -45,17 +45,17 @@ TEST(CApi, LoadAndInspect) {
   EXPECT_EQ(msentity_n_columns(d.ptr), 6);
   char* name = nullptr;
   ASSERT_EQ(msentity_column_name(d.ptr, 0, &name), MSENTITY_OK);
-  EXPECT_EQ(take_string(name), "Name");
-  EXPECT_EQ(msentity_has_column(d.ptr, "NumPeaks"), 1);
+  EXPECT_EQ(take_string(name), "NAME");
+  EXPECT_EQ(msentity_has_column(d.ptr, "Num Peaks"), 1);
 
   msentity_value v{};
-  ASSERT_EQ(msentity_get_value(d.ptr, 1, "CollisionEnergy", &v), MSENTITY_OK);
+  ASSERT_EQ(msentity_get_value(d.ptr, 1, "COLLISIONENERGY", &v), MSENTITY_OK);
   EXPECT_EQ(v.type, MSENTITY_TYPE_STRING);
   EXPECT_STREQ(v.string_value, "20.0");
   msentity_values_clear(&v, 1);
 
   std::vector<msentity_value> names(2);
-  ASSERT_EQ(msentity_get_column(d.ptr, "Name", names.data(), 2), MSENTITY_OK);
+  ASSERT_EQ(msentity_get_column(d.ptr, "NAME", names.data(), 2), MSENTITY_OK);
   EXPECT_STREQ(names[1].string_value, "MassSpecID0000002");
   msentity_values_clear(names.data(), 2);
 }
@@ -70,9 +70,9 @@ TEST(CApi, ErrorsBecomeStatusCodes) {
   EXPECT_STREQ(msentity_last_error(), "");
   msentity_value v{};
   EXPECT_EQ(msentity_get_value(d.ptr, 0, "Missing", &v), MSENTITY_ERR_KEY);
-  EXPECT_EQ(msentity_get_value(d.ptr, 5, "Name", &v), MSENTITY_ERR_OUT_OF_RANGE);
+  EXPECT_EQ(msentity_get_value(d.ptr, 5, "NAME", &v), MSENTITY_ERR_OUT_OF_RANGE);
   std::vector<msentity_value> wrong(3);
-  EXPECT_EQ(msentity_get_column(d.ptr, "Name", wrong.data(), 3), MSENTITY_ERR_INVALID_ARGUMENT);
+  EXPECT_EQ(msentity_get_column(d.ptr, "NAME", wrong.data(), 3), MSENTITY_ERR_INVALID_ARGUMENT);
   EXPECT_EQ(msentity_get_value(nullptr, 0, "Name", &v), MSENTITY_ERR_INVALID_ARGUMENT);
 }
 
@@ -100,9 +100,9 @@ TEST(CApi, ViewsShareData) {
   EXPECT_EQ(offsets, (std::vector<int64_t>{0, 3}));
 
   Handle sorted, filtered, sliced;
-  ASSERT_EQ(msentity_sort_by(d.ptr, "CollisionEnergy", 1, sorted.out()), MSENTITY_OK);
+  ASSERT_EQ(msentity_sort_by(d.ptr, "COLLISIONENERGY", 1, sorted.out()), MSENTITY_OK);
   msentity_value first{};
-  ASSERT_EQ(msentity_get_value(sorted.ptr, 0, "Name", &first), MSENTITY_OK);
+  ASSERT_EQ(msentity_get_value(sorted.ptr, 0, "NAME", &first), MSENTITY_OK);
   EXPECT_STREQ(first.string_value, "MassSpecID0000002");
   msentity_values_clear(&first, 1);
   uint8_t mask[] = {1, 0};
@@ -118,7 +118,7 @@ TEST(CApi, PeaksAndPeakMetadata) {
   std::vector<double> mz(7), intensity(7);
   ASSERT_EQ(msentity_peaks(d.ptr, mz.data(), intensity.data(), 7), MSENTITY_OK);
   EXPECT_DOUBLE_EQ(mz[0], 91.0542);
-  EXPECT_DOUBLE_EQ(intensity[0], 0.245);
+  EXPECT_DOUBLE_EQ(intensity[0], 245.0);
   int64_t n = 0;
   ASSERT_EQ(msentity_spectrum_size(d.ptr, 1, &n), MSENTITY_OK);
   EXPECT_EQ(n, 3);

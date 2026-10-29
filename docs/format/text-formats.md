@@ -67,6 +67,10 @@ Result (both records):
 
 What happened:
 
+The result above uses all three normalization options. They are disabled by
+default so that source column names, adduct text, and peak intensities are
+preserved.
+
 | Input | Result | Rule |
 |---|---|---|
 | `NAME`, `FORMULA`, … | `Name`, `Formula`, … | header names are canonicalized (§6) |
@@ -138,7 +142,8 @@ END IONS                         ← end of the spectrum
 | `BEGIN IONS` while a record is open, or end of file | closes the open record |
 | record with peaks but no metadata | a spectrum without metadata values |
 
-Header canonicalization (§6) and intensity scaling apply as for MSP.
+Header canonicalization (§6) and intensity scaling are available as for MSP
+and are disabled by default.
 
 ### 3.2 Writing
 
@@ -352,7 +357,8 @@ delimiter or `"` (always in CSV, because it contains commas).
 
 ## 6. Header and adduct canonicalization (MSP, MGF)
 
-Enabled by default; each can be switched off when reading.
+Disabled by default to preserve the source data; each can be enabled
+independently when reading.
 
 ### 6.1 Header names
 

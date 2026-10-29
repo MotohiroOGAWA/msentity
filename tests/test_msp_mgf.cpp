@@ -52,17 +52,44 @@ TEST(Msp, ReadsBasicFile) {
   EXPECT_EQ(std::get<std::string>(dataset.value(1, "Name")), "spec2");
   EXPECT_EQ(dataset[0].n_peaks(), 3);
   EXPECT_EQ(dataset[1].n_peaks(), 2);
-  // Intensities are normalized to the base peak by default.
-  EXPECT_EQ(dataset.peaks().intensity(), (std::vector<double>{10.0 / 30, 20.0 / 30, 1.0, 0.8, 1.0}));
+  EXPECT_EQ(dataset.peaks().intensity(), (std::vector<double>{10.0, 20.0, 30.0, 40.0, 50.0}));
 }
 
 TEST(Msp, WithoutTrailingBlankLineAndRawIntensities) {
   TextReadOptions options;
-  options.normalize_intensity = false;
   MSDataset dataset = read_msp_text("Name: spec1\nPrecursorMZ: 100.0\nNumPeaks: 2\n50.0\t10.0\n60.0\t20.0", options);
   ASSERT_EQ(dataset.size(), 1);
   EXPECT_EQ(dataset.peaks().intensity(), (std::vector<double>{10.0, 20.0}));
   EXPECT_THROW(read_msp_text("  \n "), std::invalid_argument);
+}
+
+TEST(Msp, PreservesSourceDataByDefaultAndSupportsOptInNormalization) {
+  const char* text =
+      "NAME: x\nprecursor_type: [M + H]1+\nNum Peaks: 2\n10 20\n30 40\n";
+  MSDataset raw = read_msp_text(text);
+  EXPECT_EQ(raw.columns(),
+            (std::vector<std::string>{"NAME", "precursor_type", "Num Peaks"}));
+  EXPECT_EQ(std::get<std::string>(raw.value(0, "precursor_type")), "[M + H]1+");
+  EXPECT_EQ(raw.peaks().intensity(), (std::vector<double>{20.0, 40.0}));
+
+  TextReadOptions options;
+  options.canonicalize_column = true;
+  options.canonicalize_adduct_type = true;
+  options.normalize_intensity = true;
+  MSDataset normalized = read_msp_text(text, options);
+  EXPECT_EQ(normalized.columns(),
+            (std::vector<std::string>{"Name", "AdductType", "NumPeaks"}));
+  EXPECT_EQ(std::get<std::string>(normalized.value(0, "AdductType")), "[M+H]+");
+  EXPECT_EQ(normalized.peaks().intensity(), (std::vector<double>{0.5, 1.0}));
+}
+
+TEST(Msp, AdductNormalizationIsIndependentOfColumnCanonicalization) {
+  TextReadOptions options;
+  options.canonicalize_adduct_type = true;
+  MSDataset dataset =
+      read_msp_text("precursor_type: [M+H]1+\nNum Peaks: 0\n", options);
+  EXPECT_TRUE(dataset.has_column("precursor_type"));
+  EXPECT_EQ(std::get<std::string>(dataset.value(0, "precursor_type")), "[M+H]+");
 }
 
 TEST(Msp, ProgressCallbackAndHeaderMap) {
@@ -70,6 +97,8 @@ TEST(Msp, ProgressCallbackAndHeaderMap) {
   std::string path = tmp.write("a.msp", "NAME: x\nprecursor_type: [M+H]1+\nNum Peaks: 1\n1 2\n");
   int64_t last_processed = -1, last_total = -1, last_records = -1;
   TextReadOptions options;
+  options.canonicalize_column = true;
+  options.canonicalize_adduct_type = true;
   options.progress_callback = [&](int64_t processed, int64_t total, int64_t, int64_t records) {
     last_processed = processed;
     last_total = total;
@@ -99,7 +128,6 @@ TEST(Msp, PeakHeaderColumnsAndCustomParser) {
   EXPECT_EQ(as_strings(values), (std::vector<std::string>{"x;y", ""}));
 
   TextReadOptions options;
-  options.normalize_intensity = false;
   options.peak_parser = [](const std::string& line) {
     PeakEntry entry;
     auto comma = line.find(',');
@@ -116,6 +144,7 @@ TEST(Msp, PeakHeaderColumnsAndCustomParser) {
 TEST(Msp, DuplicateMetaSkipsRecordAndWritesErrorLog) {
   TempDir tmp;
   TextReadOptions options;
+  options.canonicalize_column = true;
   options.error_log_level = ErrorLogLevel::Detail;
   options.error_log_file = tmp.file("errors.txt");
   MSDataset dataset = read_msp_text(
@@ -138,9 +167,9 @@ TEST(Msp, WriteBasicHeaderMapAndSelection) {
   write_msp(dataset, tmp.file("out.msp"));
   EXPECT_EQ(read_text(tmp.file("out.msp")),
             "Name: spec1\nPrecursorMZ: 100.0\nSMILES: CCO\nNumPeaks: 3\n"
-            "50.0\t0.3333333333333333\n60.0\t0.6666666666666666\n70.0\t1.0\n\n"
+            "50.0\t10.0\n60.0\t20.0\n70.0\t30.0\n\n"
             "Name: spec2\nPrecursorMZ: 200.0\nSMILES: CCC\nNumPeaks: 2\n"
-            "80.0\t0.8\n90.0\t1.0\n\n");
+            "80.0\t40.0\n90.0\t50.0\n\n");
 
   TextWriteOptions options;
   options.headers = std::vector<std::string>{"SMILES", "Missing"};
@@ -148,7 +177,7 @@ TEST(Msp, WriteBasicHeaderMapAndSelection) {
   options.delimiter = " ";
   write_msp(dataset.slice(0, 1), tmp.file("sel.msp"), options);
   EXPECT_EQ(read_text(tmp.file("sel.msp")),
-            "Structure: CCO\nNumPeaks: 3\n50.0 0.3333333333333333\n60.0 0.6666666666666666\n70.0 1.0\n\n");
+            "Structure: CCO\nNumPeaks: 3\n50.0 10.0\n60.0 20.0\n70.0 30.0\n\n");
 }
 
 TEST(Msp, WritePeakHeadersAndRoundTrip) {
@@ -159,10 +188,10 @@ TEST(Msp, WritePeakHeadersAndRoundTrip) {
                                 std::monostate{}, std::monostate{}});
   write_msp(dataset, tmp.file("ann.msp"));
   std::string text = read_text(tmp.file("ann.msp"));
-  EXPECT_NE(text.find("NumPeaks: 3\nmz\tintensity\tann\n50.0\t0.3333333333333333\t\"a'q\"\n60.0\t0.6666666666666666\n"),
+  EXPECT_NE(text.find("NumPeaks: 3\nmz\tintensity\tann\n50.0\t10.0\t\"a'q\"\n60.0\t20.0\n"),
             std::string::npos);
   // The second spectrum has no annotations, so no peak header is written.
-  EXPECT_NE(text.find("NumPeaks: 2\n80.0\t0.8\n"), std::string::npos);
+  EXPECT_NE(text.find("NumPeaks: 2\n80.0\t40.0\n"), std::string::npos);
 
   MSDataset reread = read_msp(tmp.file("ann.msp"));
   EXPECT_EQ(reread.size(), 2);
@@ -177,7 +206,7 @@ TEST(Mgf, ReadsBasicFileAndIgnoresOutsideLines) {
   ASSERT_EQ(dataset.size(), 2);
   EXPECT_EQ(dataset.columns(), (std::vector<std::string>{"TITLE", "PEPMASS"}));
   EXPECT_EQ(dataset[0].n_peaks(), 2);
-  EXPECT_EQ(dataset.peaks().intensity(), (std::vector<double>{0.5, 1.0, 1.0}));
+  EXPECT_EQ(dataset.peaks().intensity(), (std::vector<double>{10.0, 20.0, 30.0}));
 }
 
 TEST(Mgf, WithoutEndIonsAndHeaderColumns) {
@@ -193,15 +222,18 @@ TEST(Mgf, WriteAndRoundTrip) {
   MSDataset dataset = read_mgf_text(kTwoSpectraMgf);
   write_mgf(dataset, tmp.file("out.mgf"));
   EXPECT_EQ(read_text(tmp.file("out.mgf")),
-            "BEGIN IONS\nTITLE=spec1\nPEPMASS=100.0\n50.0\t0.5\n60.0\t1.0\nEND IONS\n\n"
-            "BEGIN IONS\nTITLE=spec2\nPEPMASS=200.0\n70.0\t1.0\nEND IONS\n\n");
+            "BEGIN IONS\nTITLE=spec1\nPEPMASS=100.0\n50.0\t10.0\n60.0\t20.0\nEND IONS\n\n"
+            "BEGIN IONS\nTITLE=spec2\nPEPMASS=200.0\n70.0\t30.0\nEND IONS\n\n");
   MSDataset reread = read_mgf(tmp.file("out.mgf"));
   EXPECT_EQ(reread.peaks().data(), dataset.peaks().data());
   EXPECT_EQ(as_strings(reread.column_values("TITLE")), (std::vector<std::string>{"spec1", "spec2"}));
 }
 
 TEST(SampleFiles, ReadSampleMspAndMgf) {
-  MSDataset msp = read_msp(msentity::testing::data_path("sample.msp"));
+  TextReadOptions options;
+  options.canonicalize_column = true;
+  options.canonicalize_adduct_type = true;
+  MSDataset msp = read_msp(msentity::testing::data_path("sample.msp"), options);
   EXPECT_EQ(msp.size(), 5);
   EXPECT_EQ(std::get<std::string>(msp.value(0, "AdductType")), "[M+H]+");
   MSDataset mgf = read_mgf(msentity::testing::data_path("sample.mgf"));

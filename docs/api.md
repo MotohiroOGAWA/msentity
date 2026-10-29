@@ -27,12 +27,16 @@ Format-specific readers give access to all options:
 
 ```cpp
 io::TextReadOptions opt;                     // MSP / MGF options (defaults shown)
-opt.canonicalize_column = true;              // "PRECURSORTYPE" → "AdductType"
-opt.canonicalize_adduct_type = true;         // "[M+H]1+" → "[M+H]+"
-opt.normalize_intensity = true;              // highest peak of each spectrum → 1.0
+opt.canonicalize_column = false;             // true: "PRECURSORTYPE" → "AdductType"
+opt.canonicalize_adduct_type = false;        // true: "[M+H]1+" → "[M+H]+"
+opt.normalize_intensity = false;             // true: highest peak of each spectrum → 1.0
 opt.allow_duplicate_cols = false;            // duplicate key → record skipped
 opt.error_log_level = io::ErrorLogLevel::None;   // Basic / Detail write a log file
 
+// Normalization is opt-in. Enable any of these independently when needed.
+opt.canonicalize_column = true;
+opt.canonicalize_adduct_type = true;
+opt.normalize_intensity = true;
 io::TextReadResult r = io::read_msp_with_header_map("example.msp", opt);
 r.dataset.size();                            // 2
 r.header_map;                                // {"Name","NAME"}, {"PrecursorMZ","PRECURSORMZ"},

@@ -35,10 +35,10 @@ class TestLoading(unittest.TestCase):
         ds = ms.load(EXAMPLE)
         self.assertEqual(len(ds), 2)
         self.assertEqual(ds.n_peaks_total, 7)
-        self.assertEqual(ds.columns, ["Name", "PrecursorMZ", "AdductType", "Formula",
-                                      "CollisionEnergy", "NumPeaks"])
-        self.assertEqual(ds["Name"], ["MassSpecID0000001", "MassSpecID0000002"])
-        self.assertEqual(ds.value(1, "CollisionEnergy"), "20.0")
+        self.assertEqual(ds.columns, ["NAME", "PRECURSORMZ", "PRECURSORTYPE", "FORMULA",
+                                      "COLLISIONENERGY", "Num Peaks"])
+        self.assertEqual(ds["NAME"], ["MassSpecID0000001", "MassSpecID0000002"])
+        self.assertEqual(ds.value(1, "COLLISIONENERGY"), "20.0")
 
     def test_all_formats_and_reference_files(self) -> None:
         for name, size in [("sample.msp", 5), ("sample.mgf", 6), ("sample.msds", 6)]:
@@ -76,18 +76,18 @@ class TestRecordsAndPeaks(unittest.TestCase):
 
     def test_record(self) -> None:
         rec = self.ds[0]
-        self.assertEqual(rec["Name"], "MassSpecID0000001")
+        self.assertEqual(rec["NAME"], "MassSpecID0000001")
         self.assertEqual(rec.n_peaks, 4)
         np.testing.assert_allclose(rec.mz, [91.0542, 125.0233, 185.0961, 246.1125])
-        np.testing.assert_allclose(rec.intensity, [0.245, 1.0, 0.349, 0.735])
-        self.assertEqual(self.ds[-1]["Name"], "MassSpecID0000002")
-        self.assertEqual([r["Name"] for r in self.ds], self.ds["Name"])
-        self.assertEqual(rec.to_dict()["NumPeaks"], "4")
+        np.testing.assert_allclose(rec.intensity, [245, 1000, 349, 735])
+        self.assertEqual(self.ds[-1]["NAME"], "MassSpecID0000002")
+        self.assertEqual([r["NAME"] for r in self.ds], self.ds["NAME"])
+        self.assertEqual(rec.to_dict()["Num Peaks"], "4")
 
     def test_all_peaks(self) -> None:
         np.testing.assert_array_equal(self.ds.offsets, [0, 4, 7])
         self.assertEqual(self.ds.mz.shape, (7,))
-        self.assertAlmostEqual(self.ds.intensity[4], 0.099)
+        self.assertAlmostEqual(self.ds.intensity[4], 99.0)
 
     def test_peak_metadata(self) -> None:
         self.assertEqual(self.ds.peak_columns, ["formula"])
@@ -108,11 +108,11 @@ class TestViews(unittest.TestCase):
         self.ds = ms.load(EXAMPLE)
 
     def test_indexing_returns_views(self) -> None:
-        self.assertEqual(self.ds[1:]["Name"], ["MassSpecID0000002"])
-        self.assertEqual(self.ds[[1, 0]]["Name"], ["MassSpecID0000002", "MassSpecID0000001"])
-        self.assertEqual(self.ds[np.array([False, True])]["Name"], ["MassSpecID0000002"])
-        self.assertEqual(self.ds[::-1]["Name"], ["MassSpecID0000002", "MassSpecID0000001"])
-        self.assertEqual(self.ds.sort_by("CollisionEnergy")["Name"][0], "MassSpecID0000002")
+        self.assertEqual(self.ds[1:]["NAME"], ["MassSpecID0000002"])
+        self.assertEqual(self.ds[[1, 0]]["NAME"], ["MassSpecID0000002", "MassSpecID0000001"])
+        self.assertEqual(self.ds[np.array([False, True])]["NAME"], ["MassSpecID0000002"])
+        self.assertEqual(self.ds[::-1]["NAME"], ["MassSpecID0000002", "MassSpecID0000001"])
+        self.assertEqual(self.ds.sort_by("COLLISIONENERGY")["NAME"][0], "MassSpecID0000002")
 
     def test_views_share_data_and_copy_does_not(self) -> None:
         view = self.ds[[1]]
@@ -128,30 +128,30 @@ class TestViews(unittest.TestCase):
         view = self.ds[[0]]
         self.ds.close()
         del self.ds
-        self.assertEqual(view["Name"], ["MassSpecID0000001"])
+        self.assertEqual(view["NAME"], ["MassSpecID0000001"])
 
 
 class TestEditingAndSaving(unittest.TestCase):
     def test_build_edit_save_roundtrip(self) -> None:
         ds = ms.from_peaks([[(100.0, 1.0), (150.0, 0.5)], [(90.0, 1.0)]])
-        ds["Name"] = ["a", "b"]
+        ds["NAME"] = ["a", "b"]
         ds["Score"] = [0.5, float("nan")]
         ds["Count"] = np.array([1, 2])
         ds["Flag"] = True
-        ds[1]["Name"] = "renamed"
+        ds[1]["NAME"] = "renamed"
         ds.description = "built from Python"
         ds.set_attribute("source", "unit test")
         self.assertTrue(ds.add_tag("python"))
         self.assertFalse(ds.add_tag("python"))
         self.assertTrue(ds.set_spec_id(prefix="SP"))
         ds.set_peak_column("formula", ["X", "", "Y"])
-        ds.columns = ["Name", "Score", "Count", "Flag", "SpecID"]
+        ds.columns = ["NAME", "Score", "Count", "Flag", "SpecID"]
 
         with tempfile.TemporaryDirectory() as tmp:
             path = Path(tmp) / "built.msds"
             ds.save(path)
             back = ms.load(path)
-            self.assertEqual(back["Name"], ["a", "renamed"])
+            self.assertEqual(back["NAME"], ["a", "renamed"])
             self.assertEqual(back["Score"], [0.5, None])
             self.assertEqual(back["Count"], [1, 2])
             self.assertEqual(back["Flag"], [True, True])
@@ -170,7 +170,7 @@ class TestEditingAndSaving(unittest.TestCase):
         data = ds.to_bytes()
         self.assertEqual(data[1:4], b"HDF")
         back = ms.from_bytes(data)
-        self.assertEqual(back["Name"], ["MassSpecID0000002"])
+        self.assertEqual(back["NAME"], ["MassSpecID0000002"])
         self.assertEqual(back.peak_column("formula"), ["C7H7+", "", ""])
         with self.assertRaises(ms.FormatError):
             ms.from_bytes(b"not an hdf5 file")
@@ -180,7 +180,7 @@ class TestEditingAndSaving(unittest.TestCase):
         b = ms.from_peaks([[(1.0, 1.0)]])
         joined = ms.concat([a, b])
         self.assertEqual(len(joined), 3)
-        self.assertEqual(joined["Name"][2], None)
+        self.assertEqual(joined["NAME"][2], None)
 
     def test_arrow_and_pandas(self) -> None:
         try:
@@ -193,7 +193,7 @@ class TestEditingAndSaving(unittest.TestCase):
         self.assertEqual(table.column_names, ds.columns)
         self.assertEqual(ds.peak_metadata_to_arrow().column("formula").to_pylist()[0], "C7H7+")
         frame = ds.to_pandas()
-        self.assertEqual(frame["Name"].tolist(), ds["Name"])
+        self.assertEqual(frame["NAME"].tolist(), ds["NAME"])
 
 
 if __name__ == "__main__":

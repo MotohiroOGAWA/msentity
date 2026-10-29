@@ -15,11 +15,11 @@ public class DatasetTests
         using var ds = Dataset.Load(Example);
         Assert.Equal(2, ds.Count);
         Assert.Equal(7, ds.PeakCount);
-        Assert.Equal(new[] { "Name", "PrecursorMZ", "AdductType", "Formula", "CollisionEnergy", "NumPeaks" },
+        Assert.Equal(new[] { "NAME", "PRECURSORMZ", "PRECURSORTYPE", "FORMULA", "COLLISIONENERGY", "Num Peaks" },
             ds.Columns);
-        Assert.Equal(new object?[] { "MassSpecID0000001", "MassSpecID0000002" }, ds["Name"]);
-        Assert.Equal("20.0", ds.GetValue(1, "CollisionEnergy"));
-        Assert.True(ds.HasColumn("NumPeaks"));
+        Assert.Equal(new object?[] { "MassSpecID0000001", "MassSpecID0000002" }, ds["NAME"]);
+        Assert.Equal("20.0", ds.GetValue(1, "COLLISIONENERGY"));
+        Assert.True(ds.HasColumn("Num Peaks"));
     }
 
     [Fact]
@@ -41,7 +41,7 @@ public class DatasetTests
         Assert.Throws<MsEntityFileException>(() => Dataset.Load("/nonexistent/x.msds"));
         using var ds = Dataset.Load(Example);
         Assert.Throws<MsEntityColumnNotFoundException>(() => ds.GetColumn("Missing"));
-        Assert.Throws<MsEntityPositionException>(() => ds.GetValue(5, "Name"));
+        Assert.Throws<MsEntityPositionException>(() => ds.GetValue(5, "NAME"));
         Assert.Throws<MsEntityArgumentException>(() => ds.SetColumn("Bad", new object?[] { 1, 2, 3 }));
         Assert.Throws<MsEntityArgumentException>(() => Dataset.ReadText("x", "xml"));
     }
@@ -54,7 +54,7 @@ public class DatasetTests
         Assert.Equal(7, ds.Mz.Length);
         var first = ds.GetSpectrum(0);
         Assert.Equal(new[] { 91.0542, 125.0233, 185.0961, 246.1125 }, first.Mz);
-        Assert.Equal(new[] { 0.245, 1.0, 0.349, 0.735 }, first.Intensity);
+        Assert.Equal(new[] { 245.0, 1000.0, 349.0, 735.0 }, first.Intensity);
         Assert.Equal(new[] { "formula" }, ds.PeakColumns);
         Assert.Equal(new object?[] { "C7H7+", "C6H5O3+", "", "", "C7H7+", "", "" }, ds.GetPeakColumn("formula"));
 
@@ -70,10 +70,10 @@ public class DatasetTests
     public void ViewsShareDataAndCopiesDoNot()
     {
         var ds = Dataset.Load(Example);
-        Assert.Equal(new object?[] { "MassSpecID0000002" }, ds.Slice(1, 2)["Name"]);
-        Assert.Equal(new object?[] { "MassSpecID0000002", "MassSpecID0000001" }, ds.Select(1, 0)["Name"]);
-        Assert.Equal(new object?[] { "MassSpecID0000002" }, ds.Filter(new[] { false, true })["Name"]);
-        Assert.Equal("MassSpecID0000002", ds.SortBy("CollisionEnergy").GetValue(0, "Name"));
+        Assert.Equal(new object?[] { "MassSpecID0000002" }, ds.Slice(1, 2)["NAME"]);
+        Assert.Equal(new object?[] { "MassSpecID0000002", "MassSpecID0000001" }, ds.Select(1, 0)["NAME"]);
+        Assert.Equal(new object?[] { "MassSpecID0000002" }, ds.Filter(new[] { false, true })["NAME"]);
+        Assert.Equal("MassSpecID0000002", ds.SortBy("COLLISIONENERGY").GetValue(0, "NAME"));
 
         var view = ds.Select(1);
         view.FillColumn("Checked", true);
@@ -86,7 +86,7 @@ public class DatasetTests
 
         var survivor = ds.Select(0);
         ds.Dispose();
-        Assert.Equal(new object?[] { "MassSpecID0000001" }, survivor["Name"]);
+        Assert.Equal(new object?[] { "MassSpecID0000001" }, survivor["NAME"]);
     }
 
     [Fact]
@@ -100,24 +100,24 @@ public class DatasetTests
                 new[] { (100.0, 1.0), (150.0, 0.5) },
                 new[] { (90.0, 1.0) },
             });
-            ds.SetColumn("Name", new object?[] { "a", "b" });
+            ds.SetColumn("NAME", new object?[] { "a", "b" });
             ds.SetColumn("Score", new object?[] { 0.5, null });
             ds.SetColumn("Count", new object?[] { 1, 2 });
             ds.FillColumn("Flag", true);
-            ds.SetValue(1, "Name", "renamed");
+            ds.SetValue(1, "NAME", "renamed");
             ds.Description = "built from C#";
             ds.SetAttribute("source", "unit test");
             Assert.True(ds.AddTag("csharp"));
             Assert.False(ds.AddTag("csharp"));
             Assert.True(ds.SetSpecId(prefix: "SP"));
             ds.SetPeakColumn("formula", new object?[] { "X", "", "Y" });
-            ds.Columns = new[] { "Name", "Score", "Count", "Flag", "SpecID" };
+            ds.Columns = new[] { "NAME", "Score", "Count", "Flag", "SpecID" };
 
             string file = Path.Combine(tmp, "built.msds");
             ds.Save(file);
             using (var back = Dataset.Load(file))
             {
-                Assert.Equal(new object?[] { "a", "renamed" }, back["Name"]);
+                Assert.Equal(new object?[] { "a", "renamed" }, back["NAME"]);
                 Assert.Equal(new object?[] { 0.5, null }, back["Score"]);
                 Assert.Equal(new object?[] { 1L, 2L }, back["Count"]);
                 Assert.Equal(new object?[] { true, true }, back["Flag"]);
@@ -151,7 +151,7 @@ public class DatasetTests
         byte[] data = ds.ToBytes();
         Assert.Equal("HDF", System.Text.Encoding.ASCII.GetString(data, 1, 3));
         using var back = Dataset.FromBytes(data);
-        Assert.Equal(new object?[] { "MassSpecID0000002" }, back["Name"]);
+        Assert.Equal(new object?[] { "MassSpecID0000002" }, back["NAME"]);
         Assert.Throws<MsEntityFormatException>(() => Dataset.FromBytes(System.Text.Encoding.ASCII.GetBytes("not an hdf5 file")));
     }
 

@@ -37,11 +37,14 @@ using PeakParser = std::function<PeakEntry(const std::string& line)>;
 
 struct TextReadOptions {
   // Canonicalize header names ("PRECURSORMZ" -> "PrecursorMZ").
-  bool canonicalize_column = true;
+  // Disabled by default to preserve the source data.
+  bool canonicalize_column = false;
   // Canonicalize adduct values ("[M+H]1+" -> "[M+H]+").
-  bool canonicalize_adduct_type = true;
+  // Disabled by default to preserve the source data.
+  bool canonicalize_adduct_type = false;
   // Scale each spectrum so that its base peak has intensity 1.0.
-  bool normalize_intensity = true;
+  // Disabled by default to preserve the source data.
+  bool normalize_intensity = false;
   // Rename duplicate keys within a record (Name, Name1, ...) instead of
   // rejecting the record.
   bool allow_duplicate_cols = false;

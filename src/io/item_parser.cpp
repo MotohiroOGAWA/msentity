@@ -192,9 +192,12 @@ std::pair<std::string, std::string> ItemParser::parse_item_pair(std::string_view
                                                                 std::string_view value) {
   key = internal::strip(key);
   value = internal::strip(value);
-  std::string canonical_key = canonicalize_column_ ? to_canonical_key(key) : std::string(key);
+  // Resolve the semantic key independently of whether its spelling is retained.
+  // This lets callers normalize only adduct values while preserving column names.
+  std::string semantic_key = to_canonical_key(key);
+  std::string canonical_key = canonicalize_column_ ? semantic_key : std::string(key);
   std::string parsed_value(value);
-  if (canonical_key == "AdductType" && canonicalize_adduct_type_) {
+  if (semantic_key == "AdductType" && canonicalize_adduct_type_) {
     parsed_value = to_canonical_adduct_type(value);
   }
   return {canonical_key, parsed_value};
