@@ -14,7 +14,7 @@ try (Dataset ds = Dataset.load(Path.of("example.msp"))) {
 | | |
 |---|---|
 | Requires | Java ≥ 22; run with `--enable-native-access=ALL-UNNAMED` |
-| Coordinates | `io.github.motohiroogawa:msentity:0.1.0` |
+| Coordinates | `io.github.motohiroogawa:msentity:1.1.0` |
 | Native library | `-Dmsentity.library=…`, else `MSENTITY_C_LIBRARY`, else the system library path |
 | Files | `Dataset.java` (API), `Native.java` (downcall handles), `MsEntityException.java` |
 
