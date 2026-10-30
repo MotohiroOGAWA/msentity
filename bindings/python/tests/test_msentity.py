@@ -63,8 +63,8 @@ class TestLoading(unittest.TestCase):
             ds = ms.load(source, canonicalize_column=True, allow_duplicate_cols=True,
                          normalize_intensity=True)
             self.assertEqual(len(ds), 1)
-            self.assertEqual(ds.value(0, "Name"), "first")
-            self.assertEqual(ds.value(0, "Name1"), "alias")
+            self.assertEqual(ds.value(0, "Name"), '"first","alias"')
+            self.assertNotIn("Name1", ds.columns)
             self.assertEqual(ds[0].intensity.tolist(), [1.0])
 
             log = Path(directory) / "read-errors.txt"

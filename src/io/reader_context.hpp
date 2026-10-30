@@ -73,6 +73,7 @@ class ReaderContext {
 
   // Current record.
   std::vector<std::pair<std::string, std::string>> meta_;
+  std::unordered_map<std::string, std::vector<std::string>> duplicate_meta_values_;
   std::vector<double> peak_mz_;
   std::vector<double> peak_intensity_;
   std::vector<std::string> peak_meta_names_;

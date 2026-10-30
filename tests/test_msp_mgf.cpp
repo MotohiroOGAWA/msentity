@@ -157,8 +157,18 @@ TEST(Msp, DuplicateMetaSkipsRecordAndWritesErrorLog) {
 
   options.allow_duplicate_cols = true;
   options.error_log_level = ErrorLogLevel::None;
-  dataset = read_msp_text("Name: a\nNAME: b\nNumPeaks: 0\n\n", options);
-  EXPECT_EQ(std::get<std::string>(dataset.value(0, "Name1")), "b");
+  dataset = read_msp_text(
+      "Name: a, raw \"value\"\nNAME:\nname: second\nNAME: third, value\nNumPeaks: 0\n\n",
+      options);
+  EXPECT_EQ(dataset.columns(), (std::vector<std::string>{"Name", "NumPeaks"}));
+  EXPECT_EQ(std::get<std::string>(dataset.value(0, "Name")),
+            "\"a, raw \"\"value\"\"\",\"second\",\"third, value\"");
+
+  dataset = read_msp_text("Name:\nNAME: only, raw \"value\"\nname:\nNumPeaks: 0\n\n", options);
+  EXPECT_EQ(std::get<std::string>(dataset.value(0, "Name")), "only, raw \"value\"");
+
+  dataset = read_msp_text("Name: one, raw \"value\"\nNAME:\nNumPeaks: 0\n\n", options);
+  EXPECT_EQ(std::get<std::string>(dataset.value(0, "Name")), "one, raw \"value\"");
 }
 
 TEST(Msp, WriteBasicHeaderMapAndSelection) {
@@ -215,6 +225,17 @@ TEST(Mgf, WithoutEndIonsAndHeaderColumns) {
   ASSERT_EQ(dataset.size(), 2);
   EXPECT_EQ(dataset.peaks().metadata_columns(), (std::vector<std::string>{"ann"}));
   EXPECT_THROW(read_mgf_text(""), std::invalid_argument);
+}
+
+TEST(Mgf, DuplicateMetadataUsesQuotedCsv) {
+  TextReadOptions options;
+  options.allow_duplicate_cols = true;
+  MSDataset dataset = read_mgf_text(
+      "BEGIN IONS\nTITLE=first, title\nTITLE=second \"title\"\nTITLE=\n100 5\nEND IONS\n",
+      options);
+  EXPECT_EQ(dataset.columns(), (std::vector<std::string>{"TITLE"}));
+  EXPECT_EQ(std::get<std::string>(dataset.value(0, "TITLE")),
+            "\"first, title\",\"second \"\"title\"\"\"");
 }
 
 TEST(Mgf, WriteAndRoundTrip) {

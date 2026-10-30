@@ -91,7 +91,7 @@ Rules:
 | blank lines before `NumPeaks` | ignored |
 | blank line after the peaks started | end of the record |
 | end of file | ends the current record (no final blank line needed) |
-| the same key twice in a record (after canonicalization) | error → record discarded; with *allow duplicates*: renamed `Name1`, `Name2`, … |
+| the same key twice in a record (after canonicalization) | error → record discarded; with *allow duplicates*: empty values are ignored, one non-empty value is kept unchanged, and two or more are combined in order as always-quoted CSV fields (for example `"first","second, value"`) |
 | peak line | m/z and intensity separated by whitespace (spaces or tabs) |
 
 ### 2.2 Writing

@@ -73,7 +73,11 @@ TEST(CApi, LoadWithTextOptions) {
   ASSERT_EQ(msentity_load_with_options(path.c_str(), nullptr, &options, 0, d.out()),
             MSENTITY_OK);
   ASSERT_EQ(msentity_size(d.ptr), 1);
-  EXPECT_EQ(msentity_has_column(d.ptr, "Name1"), 1);
+  EXPECT_EQ(msentity_has_column(d.ptr, "Name1"), 0);
+  msentity_value name{};
+  ASSERT_EQ(msentity_get_value(d.ptr, 0, "Name", &name), MSENTITY_OK);
+  EXPECT_STREQ(name.string_value, "\"first\",\"alias\"");
+  msentity_values_clear(&name, 1);
   double intensity = 0;
   ASSERT_EQ(msentity_spectrum_peaks(d.ptr, 0, nullptr, &intensity, 1), MSENTITY_OK);
   EXPECT_DOUBLE_EQ(intensity, 1.0);

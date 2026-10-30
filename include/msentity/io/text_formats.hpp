@@ -45,8 +45,9 @@ struct TextReadOptions {
   // Scale each spectrum so that its base peak has intensity 1.0.
   // Disabled by default to preserve the source data.
   bool normalize_intensity = false;
-  // Rename duplicate keys within a record (Name, Name1, ...) instead of
-  // rejecting the record.
+  // Combine duplicate keys within a record instead of rejecting it. Empty
+  // values are ignored; one non-empty value is kept unchanged, while two or
+  // more are stored as always-quoted CSV fields in the original order.
   bool allow_duplicate_cols = false;
   // When set, add a sequential SpecID column with this prefix.
   std::optional<std::string> spec_id_prefix;

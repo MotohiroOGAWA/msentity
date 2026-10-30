@@ -14,6 +14,27 @@ namespace msentity::io::detail {
 
 namespace fs = std::filesystem;
 
+std::string csv_quote(std::string_view value) {
+  std::string result = "\"";
+  for (char character : value) {
+    result += character;
+    if (character == '"') result += '"';
+  }
+  result += '"';
+  return result;
+}
+
+std::string combine_duplicate_values(const std::vector<std::string>& values) {
+  if (values.empty()) return {};
+  if (values.size() == 1) return values.front();
+  std::string result;
+  for (std::size_t i = 0; i < values.size(); ++i) {
+    if (i > 0) result += ',';
+    result += csv_quote(values[i]);
+  }
+  return result;
+}
+
 ReaderContext::ReaderContext(std::string file_path, std::string file_type_name,
                              const TextReadOptions& options, int64_t file_size)
     : file_path_(std::move(file_path)),
@@ -68,6 +89,7 @@ void ReaderContext::emit_progress(bool force) {
 
 void ReaderContext::reset_record() {
   meta_.clear();
+  duplicate_meta_values_.clear();
   peak_mz_.clear();
   peak_intensity_.clear();
   peak_meta_names_.clear();
@@ -158,9 +180,11 @@ std::pair<std::string, std::string> ReaderContext::add_meta(std::string_view key
       throw std::invalid_argument("Duplicate meta key: (" + std::string(key) + " & " +
                                   existing->second + ") -> " + parsed_key);
     }
-    int index = 1;
-    while (find(parsed_key + std::to_string(index)) != meta_.end()) ++index;
-    parsed_key += std::to_string(index);
+    auto& values = duplicate_meta_values_[parsed_key];
+    if (values.empty() && !existing->second.empty()) values.push_back(existing->second);
+    if (!parsed_value.empty()) values.push_back(parsed_value);
+    existing->second = combine_duplicate_values(values);
+    return {parsed_key, existing->second};
   }
   if (col_index_.count(parsed_key) == 0) {
     auto it = std::find_if(header_map_.begin(), header_map_.end(),
