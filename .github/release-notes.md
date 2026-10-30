@@ -8,10 +8,10 @@ Build from source with CMake (Arrow, Parquet, HDF5 required); see [docs/install.
 
 ### Python (≥ 3.10)
 ```console
-pip install msentity
+pip install msentity --find-links https://motohiroogawa.github.io/msentity/
 
 # Or install this exact release:
-pip install msentity==@VERSION@
+pip install msentity==@VERSION@ --find-links https://motohiroogawa.github.io/msentity/
 ```
 
 ### Java (≥ 22)

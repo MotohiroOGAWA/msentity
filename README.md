@@ -23,7 +23,7 @@ version when reproducibility requires it.
 |---|---|
 | C | Download the latest `msentity-c-<version>-<platform>.zip` release asset |
 | C++ | CMake `FetchContent` from the latest release tag, or build and `cmake --install` |
-| Python | `pip install msentity` (fixed: `pip install msentity==0.1.0`) |
+| Python | `pip install msentity --find-links https://motohiroogawa.github.io/msentity/` |
 | Java | JitPack: `com.github.MotohiroOGAWA:msentity:v0.1.0` (repository `https://jitpack.io`) |
 | C# | `dotnet add package MsEntity --version 0.1.0 --source <folder with MsEntity.0.1.0.nupkg>` |
 

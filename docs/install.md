@@ -67,18 +67,19 @@ target_link_libraries(app PRIVATE msentity::msentity)
 
 ## Python (≥ 3.10)
 
-PyPI selects the wheel for the current platform. With no version, pip installs
-the latest release:
+The GitHub Pages wheel index points to the latest GitHub Release and pip selects
+the wheel for the current platform. With no version, pip installs the latest
+release available on that page:
 
 ```console
-pip install msentity
-pip install "msentity[arrow]"       # also installs pyarrow and pandas
+pip install msentity --find-links https://motohiroogawa.github.io/msentity/
+pip install "msentity[arrow]" --find-links https://motohiroogawa.github.io/msentity/
 ```
 
 To install a specific version:
 
 ```console
-pip install msentity==0.1.0
+pip install msentity==0.1.0 --find-links https://motohiroogawa.github.io/msentity/
 ```
 
 ```python
@@ -142,6 +143,6 @@ dotnet add reference bindings/csharp/MsEntity/MsEntity.csproj
 
 Pushing a tag `v<version>` equal to the version in `CMakeLists.txt` runs the
 [release workflow](../.github/workflows/release.yml). It builds and tests all
-platform packages, publishes wheels to PyPI, and attaches every artifact to a
-GitHub Release. PyPI uses a trusted publisher configured for this repository's
-`pypi` environment.
+platform packages, attaches every artifact to a GitHub Release, and updates the
+GitHub Pages wheel index used by pip. GitHub Pages must be configured to use
+GitHub Actions as its deployment source.

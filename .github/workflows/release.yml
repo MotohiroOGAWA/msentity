@@ -226,26 +226,38 @@ jobs:
           sed "s/@VERSION@/${GITHUB_REF_NAME#v}/g; s/@TAG@/$GITHUB_REF_NAME/g" .github/release-notes.md > notes.md
           gh release create "$GITHUB_REF_NAME" release/* --title "msentity $GITHUB_REF_NAME" --notes-file notes.md
 
-  # PyPI trusted publishing must be configured for this repository and the
-  # "pypi" environment.  PyPI then provides both forms users expect:
-  #   pip install msentity          (latest release)
-  #   pip install msentity==0.1.0   (a specific release)
-  pypi:
-    name: Publish Python wheels to PyPI
-    needs: packages
+  pages:
+    name: Publish pip wheel index on GitHub Pages
+    needs: release
     if: startsWith(github.ref, 'refs/tags/v')
     runs-on: ubuntu-24.04
     environment:
-      name: pypi
-      url: https://pypi.org/project/msentity/
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
     permissions:
+      contents: read
+      pages: write
       id-token: write
     steps:
-      - uses: actions/download-artifact@v8
+      - name: Generate wheel index from all GitHub releases
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          mkdir site
+          {
+            echo '<!doctype html><html><body>'
+            gh api --paginate "/repos/$GITHUB_REPOSITORY/releases?per_page=100" \
+              --jq '.[] | .assets[] | select(.name | endswith(".whl")) | [.browser_download_url, .name] | @tsv' |
+              while IFS=$'\t' read -r url name; do
+                echo "<a href=\"$url\">$name</a><br>"
+              done
+            echo '</body></html>'
+          } > site/index.html
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v4
         with:
-          pattern: packages-*
-          merge-multiple: true
-          path: dist
-      - name: Keep only Python distributions
-        run: find dist -type f ! -name '*.whl' -delete
-      - uses: pypa/gh-action-pypi-publish@release/v1
+          path: site
+      - name: Deploy GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
