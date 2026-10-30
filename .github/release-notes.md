@@ -1,4 +1,4 @@
-Install msentity @VERSION@ for your language. The packages contain a self-contained native library for **Linux x64** (glibc ≥ 2.35), **Windows x64**, and **macOS arm64** (≥ 14) — no C++ toolchain is needed.
+Install msentity @VERSION@ for your language. The packages contain a self-contained native library for **Linux x64** (glibc ≥ 2.35) and **Windows x64** — no C++ toolchain is needed.
 
 ### C
 `msentity-c-@VERSION@-<platform>.zip`: `include/msentity/c/msentity_c.h` and the shared library.

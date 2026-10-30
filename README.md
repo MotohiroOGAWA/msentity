@@ -14,7 +14,7 @@ its C API, so a file written from one language can be read from any other.
 
 ## Installation
 
-Ready-made packages for Linux x64, Windows x64, and macOS arm64 are published
+Ready-made packages for Linux x64 and Windows x64 are published
 with each [GitHub Release](https://github.com/MotohiroOGAWA/msentity/releases).
 Without a version, the package manager installs the latest release; specify a
 version when reproducibility requires it.

@@ -1,14 +1,13 @@
 # Installation
 
-Every release provides ready-to-use packages for Linux x64, Windows x64, and
-macOS arm64. When a version is omitted, the commands below install or download
+Every release provides ready-to-use packages for Linux x64 and Windows x64.
+When a version is omitted, the commands below install or download
 the latest release. Pin a version for reproducible applications.
 
 | Platform | Python wheel tag | Java / C# / C platform |
 |---|---|---|
 | Linux x64 (glibc ≥ 2.35) | `manylinux_2_35_x86_64` | `linux-x64` |
 | Windows x64 | `win_amd64` | `win-x64` |
-| macOS arm64 (macOS ≥ 14) | `macosx_14_0_arm64` | `osx-arm64` |
 
 ## C
 
@@ -29,8 +28,7 @@ cc app.c -I msentity-c-0.1.0-linux-x64/include \
   -L msentity-c-0.1.0-linux-x64/lib -lmsentity_c
 ```
 
-Windows provides `msentity_c.dll` and `msentity_c.lib`; macOS provides
-`libmsentity_c.dylib`.
+Windows provides `msentity_c.dll` and `msentity_c.lib`.
 
 ## C++
 
