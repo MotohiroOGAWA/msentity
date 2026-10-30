@@ -13,6 +13,14 @@ MSDataset load_ms_dataset(const std::string& path, const std::optional<std::stri
                           const std::optional<std::string>& spec_id_prefix,
                           const ReadProgressCallback& progress_callback,
                           bool infer_types) {
+  TextReadOptions options;
+  options.spec_id_prefix = spec_id_prefix;
+  options.progress_callback = progress_callback;
+  return load_ms_dataset(path, file_type, options, infer_types);
+}
+
+MSDataset load_ms_dataset(const std::string& path, const std::optional<std::string>& file_type,
+                          const TextReadOptions& text_options, bool infer_types) {
   std::string type;
   if (file_type) {
     type = internal::to_lower_ascii(*file_type);
@@ -34,23 +42,20 @@ MSDataset load_ms_dataset(const std::string& path, const std::optional<std::stri
 
   MSDataset dataset;
   if (type == "msp" || type == "mgf") {
-    TextReadOptions options;
-    options.spec_id_prefix = spec_id_prefix;
-    options.progress_callback = progress_callback;
-    dataset = type == "msp" ? read_msp(path, options) : read_mgf(path, options);
+    dataset = type == "msp" ? read_msp(path, text_options) : read_mgf(path, text_options);
   } else if (type == "msds") {
     dataset = read_msds(path);
   } else if (type == "tsv" || type == "csv") {
     DelimitedReadOptions options;
-    options.spec_id_prefix = spec_id_prefix;
+    options.spec_id_prefix = text_options.spec_id_prefix;
     options.infer_types = infer_types;
     dataset = type == "tsv" ? read_tsv(path, options) : read_csv(path, options);
   } else {
     throw std::invalid_argument("Unsupported file type. Use 'msp', 'mgf', 'msds', 'tsv' or 'csv'.");
   }
 
-  if (!dataset.has_column("SpecID") && spec_id_prefix) {
-    processing::set_spec_id(dataset, "SpecID", *spec_id_prefix);
+  if (!dataset.has_column("SpecID") && text_options.spec_id_prefix) {
+    processing::set_spec_id(dataset, "SpecID", *text_options.spec_id_prefix);
   }
   return dataset;
 }

@@ -216,6 +216,35 @@ int32_t msentity_load(const char* path, const char* file_type, const char* spec_
   });
 }
 
+int32_t msentity_load_with_options(const char* path, const char* file_type,
+                                   const msentity_text_read_options* input,
+                                   int32_t infer_types, msentity_dataset** out) {
+  return guarded([&] {
+    std::optional<std::string> type;
+    if (file_type != nullptr) type = file_type;
+    msentity::io::TextReadOptions options;
+    if (input != nullptr) {
+      options.canonicalize_column = input->canonicalize_column != 0;
+      options.canonicalize_adduct_type = input->canonicalize_adduct_type != 0;
+      options.normalize_intensity = input->normalize_intensity != 0;
+      options.allow_duplicate_cols = input->allow_duplicate_cols != 0;
+      if (input->spec_id_prefix != nullptr) options.spec_id_prefix = input->spec_id_prefix;
+      if (input->error_log_level < 0 || input->error_log_level > 2) {
+        throw std::invalid_argument("error_log_level must be 0, 1, or 2");
+      }
+      options.error_log_level =
+          static_cast<msentity::io::ErrorLogLevel>(input->error_log_level);
+      if (input->error_log_file != nullptr) options.error_log_file = input->error_log_file;
+      if (input->error_context_lines < 0) {
+        throw std::invalid_argument("error_context_lines must not be negative");
+      }
+      options.error_context_lines = static_cast<std::size_t>(input->error_context_lines);
+    }
+    put_handle(out, msentity::io::load_ms_dataset(text(path, "path"), type, options,
+                                                  infer_types != 0));
+  });
+}
+
 int32_t msentity_read_text(const char* content, const char* format, int32_t infer_types,
                            msentity_dataset** out) {
   return guarded([&] {

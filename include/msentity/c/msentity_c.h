@@ -82,6 +82,24 @@ MSENTITY_C_API void msentity_values_clear(msentity_value* values, int64_t n);
 MSENTITY_C_API int32_t msentity_load(const char* path, const char* file_type,
                                      const char* spec_id_prefix, int32_t infer_types,
                                      msentity_dataset** out);
+/* Complete MSP/MGF reader options. Boolean fields use 0/1. error_log_level is
+ * 0 (none), 1 (basic), or 2 (detail). Strings may be NULL. */
+typedef struct msentity_text_read_options {
+  int32_t canonicalize_column;
+  int32_t canonicalize_adduct_type;
+  int32_t normalize_intensity;
+  int32_t allow_duplicate_cols;
+  const char* spec_id_prefix;
+  int32_t error_log_level;
+  const char* error_log_file;
+  int64_t error_context_lines;
+} msentity_text_read_options;
+
+/* Like msentity_load, with all externally representable TextReadOptions.
+ * options may be NULL to use the C++ defaults. infer_types applies to TSV/CSV. */
+MSENTITY_C_API int32_t msentity_load_with_options(
+    const char* path, const char* file_type, const msentity_text_read_options* options,
+    int32_t infer_types, msentity_dataset** out);
 /* Parse text in "msp", "mgf", "tsv", or "csv" format. */
 MSENTITY_C_API int32_t msentity_read_text(const char* text, const char* format,
                                           int32_t infer_types, msentity_dataset** out);

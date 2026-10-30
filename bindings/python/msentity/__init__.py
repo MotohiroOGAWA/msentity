@@ -163,11 +163,31 @@ def _new_handle(call) -> "Dataset":
 # ---- module functions --------------------------------------------------------------------------
 
 def load(path: str | os.PathLike, file_type: str | None = None, *,
-         spec_id_prefix: str | None = None, infer_types: bool = False) -> "Dataset":
+         spec_id_prefix: str | None = None, infer_types: bool = False,
+         canonicalize_column: bool = False,
+         canonicalize_adduct_type: bool = False,
+         normalize_intensity: bool = False,
+         allow_duplicate_cols: bool = False,
+         error_log_level: str | int | None = None,
+         error_log_file: str | os.PathLike | None = None,
+         error_context_lines: int = 10) -> "Dataset":
     """Load MSP, MGF, MSDS, TSV, or CSV (format from the extension unless
-    ``file_type`` is given). ``infer_types`` converts numeric TSV/CSV columns."""
-    return _new_handle(lambda out: _n.lib.msentity_load(
-        _encode(path), _encode(file_type), _encode(spec_id_prefix), int(infer_types), out))
+    ``file_type`` is given). ``infer_types`` converts numeric TSV/CSV columns.
+    The canonicalization, normalization, duplicate-column, and error-log
+    options apply to MSP/MGF input."""
+    levels = {None: 0, "none": 0, "basic": 1, "detail": 2, 0: 0, 1: 1, 2: 2}
+    if error_log_level not in levels:
+        raise ValueError("error_log_level must be None, 'none', 'basic', 'detail', 0, 1, or 2")
+    if error_context_lines < 0:
+        raise ValueError("error_context_lines must not be negative")
+    prefix = _encode(spec_id_prefix)
+    log_file = _encode(error_log_file)
+    options = _n.TextReadOptions(
+        int(canonicalize_column), int(canonicalize_adduct_type), int(normalize_intensity),
+        int(allow_duplicate_cols), prefix, levels[error_log_level], log_file,
+        error_context_lines)
+    return _new_handle(lambda out: _n.lib.msentity_load_with_options(
+        _encode(path), _encode(file_type), ctypes.byref(options), int(infer_types), out))
 
 
 def read_text(text: str, format: str, *, infer_types: bool = False) -> "Dataset":

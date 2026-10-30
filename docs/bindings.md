@@ -152,7 +152,7 @@ ds.Save("example.msds");                // or .msp .mgf .tsv .csv
 
 | Task | Python | Java | C# |
 |---|---|---|---|
-| load a file | `ms.load(path, file_type=None, spec_id_prefix=None, infer_types=False)` | `Dataset.load(path, fileType, specIdPrefix, inferTypes)` | `Dataset.Load(path, fileType, specIdPrefix, inferTypes)` |
+| load a file | `ms.load(path, file_type=None, spec_id_prefix=None, infer_types=False, canonicalize_column=False, canonicalize_adduct_type=False, normalize_intensity=False, allow_duplicate_cols=False, error_log_level=None, error_log_file=None)` | `Dataset.load(path, fileType, specIdPrefix, inferTypes)` | `Dataset.Load(path, fileType, specIdPrefix, inferTypes)` |
 | parse text | `ms.read_text(text, "msp")` | `Dataset.readText(text, "msp", false)` | `Dataset.ReadText(text, "msp")` |
 | from peaks | `ms.from_peaks([[(mz, i), …], …])` | `Dataset.fromPeaks(double[][][])` | `Dataset.FromPeaks((double, double)[][])` |
 | join | `ms.concat([a, b])` | `Dataset.concat(a, b)` | `Dataset.Concat(a, b)` |
@@ -238,7 +238,14 @@ with a C FFI can use. Its conventions:
 #include <msentity/c/msentity_c.h>
 
 msentity_dataset* ds = NULL;
-if (msentity_load("example.msp", NULL, NULL, 0, &ds) != MSENTITY_OK) {
+msentity_text_read_options options = {0};
+options.canonicalize_column = 1;
+options.canonicalize_adduct_type = 1;
+options.normalize_intensity = 1;
+options.allow_duplicate_cols = 1;
+options.error_log_level = 1;                  /* basic */
+options.error_context_lines = 10;
+if (msentity_load_with_options("example.msp", NULL, &options, 0, &ds) != MSENTITY_OK) {
   fprintf(stderr, "%s\n", msentity_last_error());
   return 1;
 }

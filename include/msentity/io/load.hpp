@@ -17,4 +17,11 @@ MSDataset load_ms_dataset(const std::string& path,
                           const ReadProgressCallback& progress_callback = {},
                           bool infer_types = false);
 
+// Load with the complete MSP/MGF text-reader options. For TSV/CSV,
+// spec_id_prefix is taken from text_options and infer_types is applied.
+MSDataset load_ms_dataset(const std::string& path,
+                          const std::optional<std::string>& file_type,
+                          const TextReadOptions& text_options,
+                          bool infer_types = false);
+
 }  // namespace msentity::io

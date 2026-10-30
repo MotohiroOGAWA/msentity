@@ -54,6 +54,27 @@ class TestLoading(unittest.TestCase):
         mgf = ms.read_text("BEGIN IONS\nTITLE=x\n100 1\nEND IONS\n", "mgf")
         self.assertEqual(mgf["TITLE"], ["x"])
 
+    def test_load_text_options(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            source = Path(directory) / "duplicate.msp"
+            source.write_text(
+                "Name: first\nNAME: alias\nNumPeaks: 1\n10 50\n\n", encoding="utf-8")
+            self.assertEqual(len(ms.load(source, canonicalize_column=True)), 0)
+            ds = ms.load(source, canonicalize_column=True, allow_duplicate_cols=True,
+                         normalize_intensity=True)
+            self.assertEqual(len(ds), 1)
+            self.assertEqual(ds.value(0, "Name"), "first")
+            self.assertEqual(ds.value(0, "Name1"), "alias")
+            self.assertEqual(ds[0].intensity.tolist(), [1.0])
+
+            log = Path(directory) / "read-errors.txt"
+            ms.load(source, canonicalize_column=True, error_log_level="basic",
+                    error_log_file=log)
+            self.assertIn("Duplicate meta key", log.read_text(encoding="utf-8"))
+
+        with self.assertRaises(ValueError):
+            ms.load(EXAMPLE, error_log_level="verbose")
+
     def test_errors(self) -> None:
         with self.assertRaises(ms.FileError):
             ms.load("/nonexistent/file.msds")

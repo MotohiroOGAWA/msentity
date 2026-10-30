@@ -76,6 +76,21 @@ class ArrowArrayStream(ctypes.Structure):
     ]
 
 
+class TextReadOptions(ctypes.Structure):
+    """struct msentity_text_read_options"""
+
+    _fields_ = [
+        ("canonicalize_column", ctypes.c_int32),
+        ("canonicalize_adduct_type", ctypes.c_int32),
+        ("normalize_intensity", ctypes.c_int32),
+        ("allow_duplicate_cols", ctypes.c_int32),
+        ("spec_id_prefix", ctypes.c_char_p),
+        ("error_log_level", ctypes.c_int32),
+        ("error_log_file", ctypes.c_char_p),
+        ("error_context_lines", ctypes.c_int64),
+    ]
+
+
 Handle = ctypes.c_void_p
 HandlePtr = ctypes.POINTER(ctypes.c_void_p)
 i32, i64, f64, cstr = ctypes.c_int32, ctypes.c_int64, ctypes.c_double, ctypes.c_char_p
@@ -95,6 +110,8 @@ _declare("msentity_string_free", None, ctypes.c_void_p)
 _declare("msentity_values_clear", None, ValuePtr, i64)
 
 _declare("msentity_load", i32, cstr, cstr, cstr, i32, HandlePtr)
+_declare("msentity_load_with_options", i32, cstr, cstr, ctypes.POINTER(TextReadOptions), i32,
+         HandlePtr)
 _declare("msentity_read_text", i32, cstr, cstr, i32, HandlePtr)
 _declare("msentity_from_peaks", i32, ctypes.POINTER(f64), i64, ctypes.POINTER(i64), i64, HandlePtr)
 _declare("msentity_concat", i32, ctypes.POINTER(Handle), i64, HandlePtr)

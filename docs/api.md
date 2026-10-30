@@ -23,7 +23,7 @@ MSDataset s = io::load_ms_dataset("example.msp", std::nullopt,
                                   std::string("SP"));  // also add SpecID = SP1, SP2
 ```
 
-Format-specific readers give access to all options:
+`load_ms_dataset` and the format-specific readers accept all MSP/MGF options:
 
 ```cpp
 io::TextReadOptions opt;                     // MSP / MGF options (defaults shown)
@@ -37,6 +37,7 @@ opt.error_log_level = io::ErrorLogLevel::None;   // Basic / Detail write a log f
 opt.canonicalize_column = true;
 opt.canonicalize_adduct_type = true;
 opt.normalize_intensity = true;
+MSDataset configured = io::load_ms_dataset("example.msp", std::nullopt, opt);
 io::TextReadResult r = io::read_msp_with_header_map("example.msp", opt);
 r.dataset.size();                            // 2
 r.header_map;                                // {"Name","NAME"}, {"PrecursorMZ","PRECURSORMZ"},

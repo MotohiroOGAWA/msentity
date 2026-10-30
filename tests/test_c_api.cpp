@@ -60,6 +60,25 @@ TEST(CApi, LoadAndInspect) {
   msentity_values_clear(names.data(), 2);
 }
 
+TEST(CApi, LoadWithTextOptions) {
+  msentity::testing::TempDir tmp;
+  std::string path = tmp.write(
+      "duplicate.msp", "Name: first\nNAME: alias\nNumPeaks: 1\n10 50\n\n");
+  msentity_text_read_options options{};
+  options.canonicalize_column = 1;
+  options.normalize_intensity = 1;
+  options.allow_duplicate_cols = 1;
+  options.error_context_lines = 10;
+  Handle d;
+  ASSERT_EQ(msentity_load_with_options(path.c_str(), nullptr, &options, 0, d.out()),
+            MSENTITY_OK);
+  ASSERT_EQ(msentity_size(d.ptr), 1);
+  EXPECT_EQ(msentity_has_column(d.ptr, "Name1"), 1);
+  double intensity = 0;
+  ASSERT_EQ(msentity_spectrum_peaks(d.ptr, 0, nullptr, &intensity, 1), MSENTITY_OK);
+  EXPECT_DOUBLE_EQ(intensity, 1.0);
+}
+
 TEST(CApi, ErrorsBecomeStatusCodes) {
   Handle d;
   EXPECT_EQ(msentity_load("/nonexistent/file.msds", nullptr, nullptr, 0, d.out()), MSENTITY_ERR_IO);
