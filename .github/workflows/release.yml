@@ -225,3 +225,27 @@ jobs:
           ls -la release
           sed "s/@VERSION@/${GITHUB_REF_NAME#v}/g; s/@TAG@/$GITHUB_REF_NAME/g" .github/release-notes.md > notes.md
           gh release create "$GITHUB_REF_NAME" release/* --title "msentity $GITHUB_REF_NAME" --notes-file notes.md
+
+  # PyPI trusted publishing must be configured for this repository and the
+  # "pypi" environment.  PyPI then provides both forms users expect:
+  #   pip install msentity          (latest release)
+  #   pip install msentity==0.1.0   (a specific release)
+  pypi:
+    name: Publish Python wheels to PyPI
+    needs: packages
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-24.04
+    environment:
+      name: pypi
+      url: https://pypi.org/project/msentity/
+    permissions:
+      id-token: write
+    steps:
+      - uses: actions/download-artifact@v8
+        with:
+          pattern: packages-*
+          merge-multiple: true
+          path: dist
+      - name: Keep only Python distributions
+        run: find dist -type f ! -name '*.whl' -delete
+      - uses: pypa/gh-action-pypi-publish@release/v1

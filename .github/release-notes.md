@@ -1,8 +1,17 @@
 Install msentity @VERSION@ for your language. The packages contain a self-contained native library for **Linux x64** (glibc ≥ 2.35), **Windows x64**, and **macOS arm64** (≥ 14) — no C++ toolchain is needed.
 
+### C
+`msentity-c-@VERSION@-<platform>.zip`: `include/msentity/c/msentity_c.h` and the shared library.
+
+### C++
+Build from source with CMake (Arrow, Parquet, HDF5 required); see [docs/install.md](https://github.com/MotohiroOGAWA/msentity/blob/@TAG@/docs/install.md).
+
 ### Python (≥ 3.10)
 ```console
-pip install msentity --find-links https://github.com/MotohiroOGAWA/msentity/releases/expanded_assets/@TAG@
+pip install msentity
+
+# Or install this exact release:
+pip install msentity==@VERSION@
 ```
 
 ### Java (≥ 22)
@@ -19,9 +28,3 @@ Download `MsEntity.@VERSION@.nupkg` below into a folder, then:
 ```console
 dotnet add package MsEntity --version @VERSION@ --source <folder>
 ```
-
-### C
-`msentity-c-@VERSION@-<platform>.zip`: `include/msentity/c/msentity_c.h` and the shared library.
-
-### C++
-Build from source with CMake (Arrow, Parquet, HDF5 required); see [docs/install.md](https://github.com/MotohiroOGAWA/msentity/blob/@TAG@/docs/install.md).

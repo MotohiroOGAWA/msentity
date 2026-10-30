@@ -30,6 +30,9 @@ def main() -> int:
     parser.add_argument("--out", type=Path, default=HERE / "dist")
     args = parser.parse_args()
 
+    # Read through a versioned .so symlink, but retain the public filename
+    # (libmsentity_c.so) that the runtime loader searches for.
+    native_name = args.native.name
     native = args.native.resolve()
     if not native.is_file():
         parser.error(f"native library not found: {native}")
@@ -37,7 +40,7 @@ def main() -> int:
 
     shutil.rmtree(LIB_DIR, ignore_errors=True)
     LIB_DIR.mkdir(parents=True)
-    shutil.copy2(native, LIB_DIR / native.name)
+    shutil.copy2(native, LIB_DIR / native_name)
     try:
         with tempfile.TemporaryDirectory() as tmp:
             subprocess.run([sys.executable, "-m", "pip", "wheel", str(HERE), "--no-deps",

@@ -14,16 +14,18 @@ its C API, so a file written from one language can be read from any other.
 
 ## Installation
 
-Ready-made packages for Linux x64, Windows x64, and macOS arm64 are attached to
-each [GitHub Release](https://github.com/MotohiroOGAWA/msentity/releases):
+Ready-made packages for Linux x64, Windows x64, and macOS arm64 are published
+with each [GitHub Release](https://github.com/MotohiroOGAWA/msentity/releases).
+Without a version, the package manager installs the latest release; specify a
+version when reproducibility requires it.
 
 | Language | Install |
 |---|---|
-| Python | `pip install msentity --find-links https://github.com/MotohiroOGAWA/msentity/releases/expanded_assets/v0.1.0` |
+| C | Download the latest `msentity-c-<version>-<platform>.zip` release asset |
+| C++ | CMake `FetchContent` from the latest release tag, or build and `cmake --install` |
+| Python | `pip install msentity` (fixed: `pip install msentity==0.1.0`) |
 | Java | JitPack: `com.github.MotohiroOGAWA:msentity:v0.1.0` (repository `https://jitpack.io`) |
 | C# | `dotnet add package MsEntity --version 0.1.0 --source <folder with MsEntity.0.1.0.nupkg>` |
-| C | `msentity-c-0.1.0-<platform>.zip` (header + shared library) |
-| C++ | CMake `FetchContent` from this repository, or build and `cmake --install` |
 
 Details for every language: [docs/install.md](docs/install.md).
 
@@ -129,9 +131,9 @@ msentity-tool meta data.msds
 
 ## Status
 
-Done: data model, all file formats, C API, and Python/Java/C# bindings.
-Planned: binary packages (wheel, Maven, NuGet) — see the
-[roadmap](docs/architecture.md#6-roadmap).
+The data model, file formats, C API, Python/Java/C# bindings, and release
+packages are available. See the [roadmap](docs/architecture.md#6-roadmap) for
+future work.
 
 ## License
 
