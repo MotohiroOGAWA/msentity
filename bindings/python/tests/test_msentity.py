@@ -203,6 +203,14 @@ class TestEditingAndSaving(unittest.TestCase):
         self.assertEqual(len(joined), 3)
         self.assertEqual(joined["NAME"][2], None)
 
+    def test_filter_group(self) -> None:
+        ds = ms.load(EXAMPLE)
+        view = ds.filter_group({"logic": "or", "children": [
+            {"operator": "text_eq", "column": "NAME", "value": "MassSpecID0000001"},
+            {"operator": "row_ids", "row_ids": [1]},
+        ]})
+        self.assertEqual(len(view), 2)
+
     def test_arrow_and_pandas(self) -> None:
         try:
             import pyarrow  # noqa: F401

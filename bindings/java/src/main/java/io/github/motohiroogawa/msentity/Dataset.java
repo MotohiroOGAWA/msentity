@@ -174,6 +174,14 @@ public final class Dataset implements AutoCloseable {
     }
   }
 
+  /** Filter with a recursive JSON AND/OR group (a top-level array is an AND group). */
+  public Dataset filterGroup(String groupJson) {
+    try (Arena arena = Arena.ofConfined()) {
+      MemorySegment json = arena.allocateFrom(groupJson);
+      return create(arena, out -> (int) Native.filterGroup.invoke(handle, json, out));
+    }
+  }
+
   // ---- shape and columns -----------------------------------------------------------------------------
 
   /** Number of spectra. */

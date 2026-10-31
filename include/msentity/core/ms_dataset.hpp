@@ -10,6 +10,7 @@
 #include <vector>
 
 #include "msentity/core/peak_series.hpp"
+#include "msentity/core/filter.hpp"
 #include "msentity/value.hpp"
 
 namespace msentity {
@@ -106,6 +107,7 @@ class MSDataset {
   MSDataset select(const std::vector<int64_t>& positions) const;
   MSDataset slice(int64_t start, int64_t stop) const;
   MSDataset filter(const std::vector<bool>& mask) const;
+  MSDataset filter(const FilterGroup& group) const;
   MSDataset copy() const;
   MSDataset& reset_view(bool reset_columns = false);
   MSDataset full_view(bool reset_columns = false) const;

@@ -69,6 +69,9 @@ internal static class NativeMethods
         out DatasetHandle dataset);
     [DllImport(Library, CallingConvention = Cdecl)]
     public static extern unsafe int msentity_concat(IntPtr* datasets, long n, out DatasetHandle dataset);
+    [DllImport(Library, CallingConvention = Cdecl)]
+    public static extern int msentity_filter_group(DatasetHandle dataset,
+        [MarshalAs(UnmanagedType.LPUTF8Str)] string groupJson, out DatasetHandle filtered);
     [DllImport(Library, CallingConvention = Cdecl)] public static extern void msentity_free(IntPtr dataset);
     [DllImport(Library, CallingConvention = Cdecl)]
     public static extern int msentity_save(DatasetHandle dataset, [MarshalAs(UnmanagedType.LPUTF8Str)] string path,

@@ -298,6 +298,21 @@ to_display_string(Value());         // ""   (missing)
 
 ## 8. Errors
 
+### Recursive filters
+
+`MSDataset::filter(mask)` remains unchanged. `FilterGroup` recursively combines
+conditions with `FilterLogic::And` or `FilterLogic::Or`; every leaf is evaluated
+against the same input view and only masks are combined. Conditions support
+text/numeric comparisons, missing values, spectrum peaks, neutral losses, and
+externally evaluated masks or storage row IDs (for example SMARTS results).
+Empty AND matches all rows and empty OR matches none. Invalid operators,
+unknown columns, and invalid peak parameters throw.
+
+The C API exposes `msentity_filter_group(dataset, json, out)`. Its JSON shape is
+`{"logic":"and"|"or","children":[condition-or-group,...]}`; a top-level array
+is a legacy AND group. Python accepts this model in `Dataset.filter_group`;
+Java and C# accept the same JSON text in `filterGroup` / `FilterGroup`.
+
 | Exception | When |
 |---|---|
 | `std::invalid_argument` | wrong argument or invalid data (bad TSV row, wrong number of values, …) |

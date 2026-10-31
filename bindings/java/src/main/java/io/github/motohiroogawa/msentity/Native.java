@@ -129,6 +129,7 @@ final class Native {
   static final MethodHandle readText = fn("msentity_read_text", I32, P, P, I32, P);
   static final MethodHandle fromPeaks = fn("msentity_from_peaks", I32, P, I64, P, I64, P);
   static final MethodHandle concat = fn("msentity_concat", I32, P, I64, P);
+  static final MethodHandle filterGroup = fn("msentity_filter_group", I32, P, P, P);
   static final MethodHandle free = fn("msentity_free", null, P);
   static final MethodHandle save = fn("msentity_save", I32, P, P, P, I32, I32);
 

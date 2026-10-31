@@ -266,6 +266,10 @@ MSDataset MSDataset::filter(const std::vector<bool>& mask) const {
   return select(positions);
 }
 
+MSDataset MSDataset::filter(const FilterGroup& group) const {
+  return FilterEvaluator::filter(*this, group);
+}
+
 MSDataset MSDataset::copy() const {
   return MSDataset(metadata(), peaks_.copy(), columns_, description_, attributes_, tags_);
 }

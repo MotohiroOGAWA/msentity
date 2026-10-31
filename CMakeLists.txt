@@ -43,6 +43,7 @@ add_library(msentity
   src/internal/json.cpp
   src/internal/parquet.cpp
   src/core/peak_series.cpp
+  src/core/filter.cpp
   src/core/ms_dataset.cpp
   src/io/item_parser.cpp
   src/io/reader_context.cpp

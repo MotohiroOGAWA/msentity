@@ -313,6 +313,10 @@ public sealed class Dataset : IDisposable
         }
     }
 
+    /// <summary>Filter with a recursive JSON AND/OR group (a top-level array is an AND group).</summary>
+    public Dataset FilterGroup(string groupJson) =>
+        Wrap(msentity_filter_group(_handle, groupJson, out var view), view);
+
     /// <summary>Stable sort by a column; missing values last.</summary>
     public Dataset SortBy(string column, bool ascending = true) =>
         Wrap(msentity_sort_by(_handle, column, ascending ? 1 : 0, out var view), view);

@@ -15,6 +15,7 @@ converts arguments and results.
 from __future__ import annotations
 
 import ctypes
+import json
 import math
 import os
 import weakref
@@ -245,6 +246,15 @@ class Dataset:
     def close(self) -> None:
         """Release the native dataset now (views of it stay valid)."""
         self._finalizer()
+
+    def filter_group(self, group: dict | list) -> "Dataset":
+        """Filter with recursively nested AND/OR groups.
+
+        A group has ``logic`` (``"and"`` or ``"or"``) and ``children``;
+        a list is accepted as a backwards-compatible AND group.
+        """
+        payload = json.dumps(group, separators=(",", ":")).encode("utf-8")
+        return _new_handle(lambda out: _n.lib.msentity_filter_group(self._handle, payload, out))
 
     def __enter__(self) -> "Dataset":
         return self

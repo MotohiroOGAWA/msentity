@@ -111,6 +111,12 @@ MSENTITY_C_API int32_t msentity_from_peaks(const double* data, int64_t n_peaks,
 /* Join datasets (columns: union; missing cells are null). */
 MSENTITY_C_API int32_t msentity_concat(const msentity_dataset* const* datasets, int64_t n,
                                        msentity_dataset** out);
+/* Filter with a recursive JSON group. A group is
+ * {"logic":"and"|"or","children":[group-or-condition,...]}.
+ * See docs/api.md for condition fields. A top-level array is a legacy AND group. */
+MSENTITY_C_API int32_t msentity_filter_group(const msentity_dataset* dataset,
+                                             const char* group_json,
+                                             msentity_dataset** out);
 MSENTITY_C_API void msentity_free(msentity_dataset* dataset);
 
 /* ---- saving --------------------------------------------------------------- */

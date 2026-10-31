@@ -115,6 +115,7 @@ _declare("msentity_load_with_options", i32, cstr, cstr, ctypes.POINTER(TextReadO
 _declare("msentity_read_text", i32, cstr, cstr, i32, HandlePtr)
 _declare("msentity_from_peaks", i32, ctypes.POINTER(f64), i64, ctypes.POINTER(i64), i64, HandlePtr)
 _declare("msentity_concat", i32, ctypes.POINTER(Handle), i64, HandlePtr)
+_declare("msentity_filter_group", i32, Handle, cstr, HandlePtr)
 _declare("msentity_free", None, Handle)
 _declare("msentity_save", i32, Handle, cstr, cstr, i32, i32)
 

@@ -234,6 +234,16 @@ TEST(CApi, MsdsBytesRoundTrip) {
             MSENTITY_ERR_FORMAT);
 }
 
+TEST(CApi, RecursiveFilterGroup) {
+  Handle d, filtered;
+  ASSERT_EQ(msentity_load(example_msp().c_str(), nullptr, nullptr, 0, d.out()), MSENTITY_OK);
+  const char* group = R"({"logic":"or","children":[{"operator":"text_eq","column":"NAME","value":"MassSpecID0000001"},{"logic":"and","children":[{"operator":"row_ids","row_ids":[1]},{"operator":"spectrum_peak","mz":200,"tolerance":100}]}]})";
+  ASSERT_EQ(msentity_filter_group(d.ptr, group, filtered.out()), MSENTITY_OK) << msentity_last_error();
+  EXPECT_EQ(msentity_size(filtered.ptr), 2);
+  EXPECT_EQ(msentity_filter_group(d.ptr, R"({"logic":"xor","children":[]})", filtered.out()),
+            MSENTITY_ERR_INVALID_ARGUMENT);
+}
+
 TEST(CApi, ReadText) {
   Handle d;
   ASSERT_EQ(msentity_read_text("Name\tID\tPeak\nA\t007\t1,2\n", "tsv", 1, d.out()), MSENTITY_OK);

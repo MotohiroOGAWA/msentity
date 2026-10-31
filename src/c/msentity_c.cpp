@@ -15,6 +15,7 @@
 #include <stdexcept>
 #include <string>
 #include <vector>
+#include <nlohmann/json.hpp>
 
 #include "internal/table.hpp"
 #include "internal/text.hpp"
@@ -28,6 +29,7 @@ namespace {
 
 using msentity::MSDataset;
 using msentity::Value;
+using json = nlohmann::json;
 
 thread_local std::string last_error;
 
@@ -102,6 +104,70 @@ void put_string(char** out, const std::string& value) {
 void put_handle(msentity_dataset** out, MSDataset dataset) {
   require(out != nullptr, "output pointer is NULL");
   *out = new msentity_dataset{std::move(dataset)};
+}
+
+Value json_value(const json& value) {
+  if (value.is_null()) return std::monostate{};
+  if (value.is_boolean()) return value.get<bool>();
+  if (value.is_number_integer()) return value.get<int64_t>();
+  if (value.is_number()) return value.get<double>();
+  if (value.is_string()) return value.get<std::string>();
+  throw std::invalid_argument("filter value must be null, boolean, numeric, or text");
+}
+
+msentity::FilterNode filter_node(const json& item) {
+  if (!item.is_object()) throw std::invalid_argument("filter child must be an object");
+  if (item.contains("children")) {
+    msentity::FilterGroup group;
+    std::string logic = item.value("logic", "and");
+    if (logic == "and" || logic == "AND") group.logic = msentity::FilterLogic::And;
+    else if (logic == "or" || logic == "OR") group.logic = msentity::FilterLogic::Or;
+    else throw std::invalid_argument("filter group logic must be 'and' or 'or'");
+    if (!item["children"].is_array()) throw std::invalid_argument("filter group children must be an array");
+    for (const auto& child : item["children"]) group.children.push_back(filter_node(child));
+    return group;
+  }
+  msentity::FilterCondition condition;
+  std::string op = item.value("operator", "text_eq");
+  condition.column = item.value("column", "");
+  if (item.contains("value")) condition.value = json_value(item["value"]);
+  if (op == "text_eq") condition.op = msentity::FilterOperator::TextEquals;
+  else if (op == "!=") condition.op = msentity::FilterOperator::TextNotEquals;
+  else if (op == "contains") condition.op = msentity::FilterOperator::Contains;
+  else if (op == "numeric_eq") condition.op = msentity::FilterOperator::NumericEquals;
+  else if (op == ">") condition.op = msentity::FilterOperator::Greater;
+  else if (op == ">=") condition.op = msentity::FilterOperator::GreaterEqual;
+  else if (op == "<") condition.op = msentity::FilterOperator::Less;
+  else if (op == "<=") condition.op = msentity::FilterOperator::LessEqual;
+  else if (op == "is_missing") condition.op = msentity::FilterOperator::IsMissing;
+  else if (op == "is_not_missing") condition.op = msentity::FilterOperator::IsNotMissing;
+  else if (op == "spectrum_peak" || op == "neutral_loss") {
+    condition.op = op == "spectrum_peak" ? msentity::FilterOperator::SpectrumPeak : msentity::FilterOperator::NeutralLoss;
+    condition.mz = item.at("mz").get<double>();
+    condition.tolerance = item.value("tolerance", 0.0);
+    condition.tolerance_ppm = item.value("tolerance_unit", "Da") == "ppm";
+    condition.minimum_relative_intensity = item.value("intensity", 0.0);
+    condition.precursor_column = item.value("precursor_column", "PrecursorMZ");
+  } else if (op == "row_ids") {
+    condition.op = msentity::FilterOperator::RowIds;
+    condition.row_ids = item.value("row_ids", std::vector<int64_t>{});
+  } else if (op == "mask") {
+    condition.op = msentity::FilterOperator::Mask;
+    condition.mask = item.value("mask", std::vector<bool>{});
+  } else throw std::invalid_argument("unknown filter operator: " + op);
+  return condition;
+}
+
+msentity::FilterGroup parse_filter_group(const char* source) {
+  json value;
+  try { value = json::parse(text(source, "group_json")); }
+  catch (const json::exception& error) { throw std::invalid_argument(std::string("invalid filter JSON: ") + error.what()); }
+  if (value.is_array()) value = {{"logic", "and"}, {"children", value}};
+  auto node = filter_node(value);
+  if (auto* group = std::get_if<msentity::FilterGroup>(&node)) return *group;
+  msentity::FilterGroup group;
+  group.children.push_back(std::move(node));
+  return group;
 }
 
 // msentity::Value <-> msentity_value -------------------------------------------
@@ -286,6 +352,11 @@ int32_t msentity_concat(const msentity_dataset* const* datasets, int64_t n,
     for (int64_t i = 0; i < n; ++i) items.push_back(get(datasets[i]));
     put_handle(out, MSDataset::concat(items));
   });
+}
+
+int32_t msentity_filter_group(const msentity_dataset* dataset, const char* group_json,
+                              msentity_dataset** out) {
+  return guarded([&] { put_handle(out, get(dataset).filter(parse_filter_group(group_json))); });
 }
 
 void msentity_free(msentity_dataset* dataset) { delete dataset; }

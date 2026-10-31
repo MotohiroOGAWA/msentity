@@ -80,6 +80,25 @@ TEST(MSDataset, ViewsSliceSelectFilter) {
   EXPECT_EQ(view.n_peaks_total(), 1);
 }
 
+TEST(MSDataset, RecursiveFilterGroupsUseOriginalRows) {
+  MSDataset dataset = sample_dataset();
+  FilterCondition a{.op = FilterOperator::Contains, .column = "name", .value = std::string("1")};
+  FilterCondition b{.op = FilterOperator::GreaterEqual, .column = "precursor_mz", .value = 250.0};
+  FilterCondition peak{.op = FilterOperator::SpectrumPeak, .mz = 200.0, .tolerance = 0.01};
+  FilterGroup either{FilterLogic::Or, {a, b}};
+  FilterGroup root{FilterLogic::And, {either, peak}};
+  EXPECT_EQ(names(dataset.filter(root)), (std::vector<std::string>{"spec2"}));
+
+  // Externally evaluated conditions (e.g. SMARTS) are composed by storage row id.
+  FilterCondition rows{.op = FilterOperator::RowIds, .row_ids = {0, 2}};
+  EXPECT_EQ(names(dataset.filter(FilterGroup{FilterLogic::And, {rows}})),
+            (std::vector<std::string>{"spec1", "spec3"}));
+  EXPECT_EQ(dataset.filter(FilterGroup{FilterLogic::And, {}}).size(), 3);
+  EXPECT_EQ(dataset.filter(FilterGroup{FilterLogic::Or, {}}).size(), 0);
+  EXPECT_THROW(dataset.filter(FilterGroup{FilterLogic::And, {
+      FilterCondition{.op = FilterOperator::TextEquals, .column = "missing", .value = std::string("x")}}}), KeyError);
+}
+
 TEST(MSDataset, SetColumn) {
   MSDataset dataset = sample_dataset();
   dataset.set_column("score", std::vector<Value>{0.1, 0.2, 0.3});
