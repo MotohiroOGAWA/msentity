@@ -6,7 +6,7 @@
 
   <groupId>io.github.motohiroogawa</groupId>
   <artifactId>msentity</artifactId>
-  <version>1.1.2</version>
+  <version>1.2.0</version>
   <name>msentity</name>
   <description>Java binding of the msentity C++ library (MSDS, MSP, MGF, TSV, CSV)</description>
 
