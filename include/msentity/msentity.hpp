@@ -12,5 +12,5 @@
 #include "msentity/processing/id.hpp"
 
 namespace msentity {
-inline constexpr const char* kVersion = "1.2.0";
+inline constexpr const char* kVersion = "1.2.1";
 }
