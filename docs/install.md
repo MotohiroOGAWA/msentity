@@ -1,31 +1,35 @@
 # Installation
 
-Every release provides ready-to-use packages for Linux x64 and Windows x64.
-When a version is omitted, the commands below install or download
-the latest release. Pin a version for reproducible applications.
+Every release provides ready-to-use packages for Linux x64 and Windows x64 on
+its [GitHub Release](https://github.com/MotohiroOGAWA/msentity/releases) page.
+The examples use version 1.2.1, the latest release when this page was written;
+replace `1.2.1` with the version you need. The newest version is marked *Latest*
+on the [releases page](https://github.com/MotohiroOGAWA/msentity/releases/latest),
+or run `gh release view --repo MotohiroOGAWA/msentity`.
 
 | Platform | Python wheel tag | Java / C# / C platform |
 |---|---|---|
 | Linux x64 (glibc ≥ 2.35) | `manylinux_2_35_x86_64` | `linux-x64` |
 | Windows x64 | `win_amd64` | `win-x64` |
 
+Release 1.2.1 is an exception: its Linux packages need glibc ≥ 2.41 (wheel tag `manylinux_2_41_x86_64`). <!-- fixed -->
+On older Linux, use 1.2.0 or a later release. <!-- fixed -->
+
 ## C
 
-Download `msentity-c-<version>-<platform>.zip` from the
-[latest release](https://github.com/MotohiroOGAWA/msentity/releases/latest).
-For a fixed version, use its release page, such as
-[`v0.1.0`](https://github.com/MotohiroOGAWA/msentity/releases/tag/v0.1.0).
+Download `msentity-c-<version>-<platform>.zip` from the release page, for
+example [`v1.2.1`](https://github.com/MotohiroOGAWA/msentity/releases/tag/v1.2.1):
 
 ```text
-msentity-c-0.1.0-linux-x64/
+msentity-c-1.2.1-linux-x64/
 ├── include/msentity/c/msentity_c.h
 ├── lib/libmsentity_c.so
 └── LICENSE
 ```
 
 ```console
-cc app.c -I msentity-c-0.1.0-linux-x64/include \
-  -L msentity-c-0.1.0-linux-x64/lib -lmsentity_c
+cc app.c -I msentity-c-1.2.1-linux-x64/include \
+  -L msentity-c-1.2.1-linux-x64/lib -lmsentity_c
 ```
 
 Windows provides `msentity_c.dll` and `msentity_c.lib`.
@@ -33,13 +37,13 @@ Windows provides `msentity_c.dll` and `msentity_c.lib`.
 ## C++
 
 The C++ API exposes Arrow types, so C++ projects build msentity from source
-against their own Arrow, Parquet, and HDF5. Pin a release tag in production:
+against their own Arrow, Parquet, and HDF5. Pin a release tag:
 
 ```cmake
 include(FetchContent)
 FetchContent_Declare(msentity
   GIT_REPOSITORY https://github.com/MotohiroOGAWA/msentity.git
-  GIT_TAG v0.1.0)
+  GIT_TAG v1.2.1)
 FetchContent_MakeAvailable(msentity)
 
 target_link_libraries(app PRIVATE msentity::msentity)
@@ -52,7 +56,7 @@ repository's `vcpkg.json` installs them automatically.
 To install a selected release system-wide:
 
 ```console
-git clone --branch v0.1.0 https://github.com/MotohiroOGAWA/msentity.git
+git clone --branch v1.2.1 https://github.com/MotohiroOGAWA/msentity.git
 cmake -S msentity -B msentity/build -DCMAKE_BUILD_TYPE=Release
 cmake --build msentity/build
 cmake --install msentity/build --prefix /usr/local
@@ -65,20 +69,19 @@ target_link_libraries(app PRIVATE msentity::msentity)
 
 ## Python (≥ 3.10)
 
-The GitHub Pages wheel index points to the latest GitHub Release and pip selects
-the wheel for the current platform. With no version, pip installs the latest
-release available on that page:
+The wheels are attached to each GitHub Release. Point pip at the release page
+with `--find-links`; it picks the wheel for the current platform:
 
 ```console
-pip install msentity --find-links https://motohiroogawa.github.io/msentity/
-pip install "msentity[arrow]" --find-links https://motohiroogawa.github.io/msentity/
+pip install msentity==1.2.1 \
+  --find-links https://github.com/MotohiroOGAWA/msentity/releases/expanded_assets/v1.2.1
+pip install "msentity[arrow]==1.2.1" \
+  --find-links https://github.com/MotohiroOGAWA/msentity/releases/expanded_assets/v1.2.1
 ```
 
-To install a specific version:
-
-```console
-pip install msentity==0.1.0 --find-links https://motohiroogawa.github.io/msentity/
-```
+Use the same version in `==` and in the URL. (Earlier instructions used a
+GitHub Pages index, `https://motohiroogawa.github.io/msentity/`; it is no longer
+updated and lists releases up to 1.2.0 only.) <!-- fixed -->
 
 ```python
 import msentity as ms
@@ -87,7 +90,7 @@ ds = ms.load("example.msp")
 
 ## Java (≥ 22)
 
-JitPack resolves either the latest release or an explicit tag.
+JitPack serves the JAR attached to a release tag:
 
 ```xml
 <repositories>
@@ -100,30 +103,27 @@ JitPack resolves either the latest release or an explicit tag.
   <dependency>
     <groupId>com.github.MotohiroOGAWA</groupId>
     <artifactId>msentity</artifactId>
-    <version>[0,)</version>
+    <version>v1.2.1</version>
   </dependency>
 </dependencies>
 ```
 
-The Maven range selects the newest release already built by JitPack. Use
-`<version>v0.1.0</version>` to pin it. Gradle users can use
-`com.github.MotohiroOGAWA:msentity:latest.release`, or replace the last
-component with `v0.1.0`. Run with `--enable-native-access=ALL-UNNAMED`.
+Gradle: `implementation 'com.github.MotohiroOGAWA:msentity:v1.2.1'` with
+`maven { url 'https://jitpack.io' }`. The JAR (`msentity-1.2.1.jar`) is also
+attached to the release. Run with `--enable-native-access=ALL-UNNAMED`.
 
 ## C# (.NET ≥ 8)
 
-Download `MsEntity.<version>.nupkg` from the
-[latest release](https://github.com/MotohiroOGAWA/msentity/releases/latest)
-into a local package folder. Omitting the version selects the newest package
-available in that source:
+Download `MsEntity.<version>.nupkg` from the release into a local package
+folder and use it as a package source:
 
 ```console
-dotnet add package MsEntity --source ~/nupkg
-dotnet add package MsEntity --version 0.1.0 --source ~/nupkg
+mkdir -p ~/nupkg
+gh release download v1.2.1 --repo MotohiroOGAWA/msentity --pattern 'MsEntity.*.nupkg' --dir ~/nupkg
+dotnet add package MsEntity --version 1.2.1 --source ~/nupkg
 ```
 
-The second form pins a version. The package contains native libraries under
-`runtimes/<platform>/native/`.
+The package contains native libraries under `runtimes/<platform>/native/`.
 
 ## From a source checkout (development)
 
@@ -139,8 +139,8 @@ dotnet add reference bindings/csharp/MsEntity/MsEntity.csproj
 
 ## How releases are made
 
-Pushing a tag `v<version>` equal to the version in `CMakeLists.txt` runs the
-[release workflow](../.github/workflows/release.yml). It builds and tests all
-platform packages, attaches every artifact to a GitHub Release, and updates the
-GitHub Pages wheel index used by pip. GitHub Pages must be configured to use
-GitHub Actions as its deployment source.
+Releases are built and tested on Ubuntu 22.04 (Linux x64, glibc 2.35) and on
+Windows (x64), and every package is attached to the GitHub Release of the tag
+`v<version>`; the version in `CMakeLists.txt` equals the tag. The maintainers'
+scripts are in
+[msentity-spectrum-viewer/scripts/release-all](https://github.com/MotohiroOGAWA/msentity-spectrum-viewer/tree/main/scripts/release-all).

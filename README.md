@@ -14,18 +14,21 @@ its C API, so a file written from one language can be read from any other.
 
 ## Installation
 
-Ready-made packages for Linux x64 and Windows x64 are published
+Ready-made packages for Linux x64 (glibc ≥ 2.35) and Windows x64 are published
 with each [GitHub Release](https://github.com/MotohiroOGAWA/msentity/releases).
-Without a version, the package manager installs the latest release; specify a
-version when reproducibility requires it.
+The commands below install version 1.2.1, the latest release when this README was
+written; replace `1.2.1` with the version you need (the newest is marked
+*Latest* on the [releases page](https://github.com/MotohiroOGAWA/msentity/releases/latest)).
 
 | Language | Install |
 |---|---|
-| C | Download the latest `msentity-c-<version>-<platform>.zip` release asset |
-| C++ | CMake `FetchContent` from the latest release tag, or build and `cmake --install` |
-| Python | `pip install msentity --find-links https://motohiroogawa.github.io/msentity/` |
-| Java | JitPack: `com.github.MotohiroOGAWA:msentity:v0.1.0` (repository `https://jitpack.io`) |
-| C# | `dotnet add package MsEntity --version 0.1.0 --source <folder with MsEntity.0.1.0.nupkg>` |
+| C | Download `msentity-c-1.2.1-<platform>.zip` from the [release v1.2.1](https://github.com/MotohiroOGAWA/msentity/releases/tag/v1.2.1) |
+| C++ | CMake `FetchContent` with `GIT_TAG v1.2.1`, or build and `cmake --install` |
+| Python | `pip install msentity==1.2.1 --find-links https://github.com/MotohiroOGAWA/msentity/releases/expanded_assets/v1.2.1` |
+| Java | JitPack: `com.github.MotohiroOGAWA:msentity:v1.2.1` (repository `https://jitpack.io`) |
+| C# | `dotnet add package MsEntity --version 1.2.1 --source <folder with MsEntity.1.2.1.nupkg>` |
+
+The Linux packages of release 1.2.1 need glibc ≥ 2.41 (they were built on a newer system); on older Linux use 1.2.0 or a later release. <!-- fixed -->
 
 Details for every language: [docs/install.md](docs/install.md).
 
