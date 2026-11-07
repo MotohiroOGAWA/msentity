@@ -143,4 +143,4 @@ Releases are built and tested on Ubuntu 22.04 (Linux x64, glibc 2.35) and on
 Windows (x64), and every package is attached to the GitHub Release of the tag
 `v<version>`; the version in `CMakeLists.txt` equals the tag. The maintainers'
 scripts are in
-[msentity-spectrum-viewer/scripts/release-all](https://github.com/MotohiroOGAWA/msentity-spectrum-viewer/tree/main/scripts/release-all).
+[msentity-release-tools](https://github.com/MotohiroOGAWA/msentity-release-tools).
