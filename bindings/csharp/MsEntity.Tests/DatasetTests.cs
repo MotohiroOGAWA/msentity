@@ -156,5 +156,5 @@ public class DatasetTests
     }
 
     [Fact]
-    public void ReportsVersion() => Assert.Equal("1.2.1", Dataset.Version);
+    public void ReportsVersion() => Assert.Equal("1.2.2", Dataset.Version);
 }

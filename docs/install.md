@@ -2,8 +2,8 @@
 
 Every release provides ready-to-use packages for Linux x64 and Windows x64 on
 its [GitHub Release](https://github.com/MotohiroOGAWA/msentity/releases) page.
-The examples use version 1.2.1, the latest release when this page was written;
-replace `1.2.1` with the version you need. The newest version is marked *Latest*
+The examples use version 1.2.2, the latest release when this page was written;
+replace `1.2.2` with the version you need. The newest version is marked *Latest*
 on the [releases page](https://github.com/MotohiroOGAWA/msentity/releases/latest),
 or run `gh release view --repo MotohiroOGAWA/msentity`.
 
@@ -18,18 +18,18 @@ On older Linux, use 1.2.0 or a later release. <!-- fixed -->
 ## C
 
 Download `msentity-c-<version>-<platform>.zip` from the release page, for
-example [`v1.2.1`](https://github.com/MotohiroOGAWA/msentity/releases/tag/v1.2.1):
+example [`v1.2.2`](https://github.com/MotohiroOGAWA/msentity/releases/tag/v1.2.2):
 
 ```text
-msentity-c-1.2.1-linux-x64/
+msentity-c-1.2.2-linux-x64/
 ├── include/msentity/c/msentity_c.h
 ├── lib/libmsentity_c.so
 └── LICENSE
 ```
 
 ```console
-cc app.c -I msentity-c-1.2.1-linux-x64/include \
-  -L msentity-c-1.2.1-linux-x64/lib -lmsentity_c
+cc app.c -I msentity-c-1.2.2-linux-x64/include \
+  -L msentity-c-1.2.2-linux-x64/lib -lmsentity_c
 ```
 
 Windows provides `msentity_c.dll` and `msentity_c.lib`.
@@ -43,7 +43,7 @@ against their own Arrow, Parquet, and HDF5. Pin a release tag:
 include(FetchContent)
 FetchContent_Declare(msentity
   GIT_REPOSITORY https://github.com/MotohiroOGAWA/msentity.git
-  GIT_TAG v1.2.1)
+  GIT_TAG v1.2.2)
 FetchContent_MakeAvailable(msentity)
 
 target_link_libraries(app PRIVATE msentity::msentity)
@@ -56,7 +56,7 @@ repository's `vcpkg.json` installs them automatically.
 To install a selected release system-wide:
 
 ```console
-git clone --branch v1.2.1 https://github.com/MotohiroOGAWA/msentity.git
+git clone --branch v1.2.2 https://github.com/MotohiroOGAWA/msentity.git
 cmake -S msentity -B msentity/build -DCMAKE_BUILD_TYPE=Release
 cmake --build msentity/build
 cmake --install msentity/build --prefix /usr/local
@@ -73,10 +73,10 @@ The wheels are attached to each GitHub Release. Point pip at the release page
 with `--find-links`; it picks the wheel for the current platform:
 
 ```console
-pip install msentity==1.2.1 \
-  --find-links https://github.com/MotohiroOGAWA/msentity/releases/expanded_assets/v1.2.1
-pip install "msentity[arrow]==1.2.1" \
-  --find-links https://github.com/MotohiroOGAWA/msentity/releases/expanded_assets/v1.2.1
+pip install msentity==1.2.2 \
+  --find-links https://github.com/MotohiroOGAWA/msentity/releases/expanded_assets/v1.2.2
+pip install "msentity[arrow]==1.2.2" \
+  --find-links https://github.com/MotohiroOGAWA/msentity/releases/expanded_assets/v1.2.2
 ```
 
 Use the same version in `==` and in the URL. (Earlier instructions used a
@@ -103,13 +103,13 @@ JitPack serves the JAR attached to a release tag:
   <dependency>
     <groupId>com.github.MotohiroOGAWA</groupId>
     <artifactId>msentity</artifactId>
-    <version>v1.2.1</version>
+    <version>v1.2.2</version>
   </dependency>
 </dependencies>
 ```
 
-Gradle: `implementation 'com.github.MotohiroOGAWA:msentity:v1.2.1'` with
-`maven { url 'https://jitpack.io' }`. The JAR (`msentity-1.2.1.jar`) is also
+Gradle: `implementation 'com.github.MotohiroOGAWA:msentity:v1.2.2'` with
+`maven { url 'https://jitpack.io' }`. The JAR (`msentity-1.2.2.jar`) is also
 attached to the release. Run with `--enable-native-access=ALL-UNNAMED`.
 
 ## C# (.NET ≥ 8)
@@ -119,8 +119,8 @@ folder and use it as a package source:
 
 ```console
 mkdir -p ~/nupkg
-gh release download v1.2.1 --repo MotohiroOGAWA/msentity --pattern 'MsEntity.*.nupkg' --dir ~/nupkg
-dotnet add package MsEntity --version 1.2.1 --source ~/nupkg
+gh release download v1.2.2 --repo MotohiroOGAWA/msentity --pattern 'MsEntity.*.nupkg' --dir ~/nupkg
+dotnet add package MsEntity --version 1.2.2 --source ~/nupkg
 ```
 
 The package contains native libraries under `runtimes/<platform>/native/`.

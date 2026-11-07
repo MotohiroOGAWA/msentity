@@ -154,6 +154,6 @@ class DatasetTest {
 
   @Test
   void reportsVersion() {
-    assertEquals("1.2.1", Dataset.version());
+    assertEquals("1.2.2", Dataset.version());
   }
 }
