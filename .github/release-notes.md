@@ -8,9 +8,12 @@ Build from source with CMake (Arrow, Parquet, HDF5 required); see [docs/install.
 
 ### Python (≥ 3.10)
 ```console
-pip install msentity --find-links https://github.com/MotohiroOGAWA/msentity/releases/expanded_assets/@TAG@
+pip install msentity
 
-# Or install this exact release:
+# Or this exact release:
+pip install msentity==@VERSION@
+
+# Without PyPI, from the wheels attached below:
 pip install msentity==@VERSION@ --find-links https://github.com/MotohiroOGAWA/msentity/releases/expanded_assets/@TAG@
 ```
 

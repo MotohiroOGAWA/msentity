@@ -15,7 +15,8 @@ its C API, so a file written from one language can be read from any other.
 ## Installation
 
 Ready-made packages for Linux x64 (glibc ≥ 2.35) and Windows x64 are published
-with each [GitHub Release](https://github.com/MotohiroOGAWA/msentity/releases).
+with each [GitHub Release](https://github.com/MotohiroOGAWA/msentity/releases);
+the Python package is also on [PyPI](https://pypi.org/project/msentity/).
 The commands below install version 1.2.3, the latest release when this README was
 written; replace `1.2.3` with the version you need (the newest is marked
 *Latest* on the [releases page](https://github.com/MotohiroOGAWA/msentity/releases/latest)).
@@ -24,7 +25,7 @@ written; replace `1.2.3` with the version you need (the newest is marked
 |---|---|
 | C | Download `msentity-c-1.2.3-<platform>.zip` from the [release v1.2.3](https://github.com/MotohiroOGAWA/msentity/releases/tag/v1.2.3) |
 | C++ | CMake `FetchContent` with `GIT_TAG v1.2.3`, or build and `cmake --install` |
-| Python | `pip install msentity==1.2.3 --find-links https://github.com/MotohiroOGAWA/msentity/releases/expanded_assets/v1.2.3` |
+| Python | `pip install msentity` ([PyPI](https://pypi.org/project/msentity/)) |
 | Java | JitPack: `com.github.MotohiroOGAWA:msentity:v1.2.3` (repository `https://jitpack.io`) |
 | C# | `dotnet add package MsEntity --version 1.2.3 --source <folder with MsEntity.1.2.3.nupkg>` |
 

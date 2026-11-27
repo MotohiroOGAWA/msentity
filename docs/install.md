@@ -69,19 +69,18 @@ target_link_libraries(app PRIVATE msentity::msentity)
 
 ## Python (≥ 3.10)
 
-The wheels are attached to each GitHub Release. Point pip at the release page
-with `--find-links`; it picks the wheel for the current platform:
+Install from [PyPI](https://pypi.org/project/msentity/); pip picks the wheel
+for the current platform. The `arrow` extra adds pyarrow and pandas:
 
 ```console
-pip install msentity==1.2.3 \
-  --find-links https://github.com/MotohiroOGAWA/msentity/releases/expanded_assets/v1.2.3
-pip install "msentity[arrow]==1.2.3" \
-  --find-links https://github.com/MotohiroOGAWA/msentity/releases/expanded_assets/v1.2.3
+pip install msentity
+pip install "msentity[arrow]"
+pip install -U msentity            # upgrade to the latest release
 ```
 
-Use the same version in `==` and in the URL. (Earlier instructions used a
-GitHub Pages index, `https://motohiroogawa.github.io/msentity/`; it is no longer
-updated and lists releases up to 1.2.0 only.) <!-- fixed -->
+To install a particular release, give its version, e.g. `pip install msentity==1.2.3`.
+
+PyPI has msentity 1.2.3 and later. Earlier releases are installed from their GitHub Release page, for example `pip install msentity==1.2.0 --find-links https://github.com/MotohiroOGAWA/msentity/releases/expanded_assets/v1.2.0`. <!-- fixed -->
 
 ```python
 import msentity as ms
