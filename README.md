@@ -1,4 +1,4 @@
-# msentity
+<h1><img src="media/icon.png" alt="" width="40" height="40" align="center"> msentity</h1>
 
 C++ library for mass-spectrometry datasets: an in-memory data model for
 spectra, peaks, and their metadata, and readers/writers for the MSDS, MSP,
